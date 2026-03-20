@@ -1,0 +1,508 @@
+"""
+============================================================
+Step 1: Supervised Fine-Tuning (SFT)
+============================================================
+Fine-tunes SmolLM2-360M to classify storage I/O workloads
+into 6 categories using LoRA adapters.
+
+This is the foundation step — we teach the model *what* to
+output (correct classification format) before later steps
+refine *how* it outputs (style via DPO, accuracy via GRPO).
+
+Run in Google Colab with a GPU runtime.
+============================================================
+"""
+
+# ── Colab dependency install (uncomment if running in Colab) ─────────
+# !pip install -q torch transformers datasets accelerate peft trl sentencepiece safetensors
+
+import os
+import sys
+import json
+import time
+import random
+from pathlib import Path
+
+import numpy as np
+import torch
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    TrainingArguments,
+    set_seed,
+)
+from peft import LoraConfig, get_peft_model, PeftModel
+from trl import SFTTrainer, SFTConfig
+from datasets import Dataset
+
+# ── Reproducibility ──────────────────────────────────────────────────
+SEED = 42
+set_seed(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+
+# ── Paths ────────────────────────────────────────────────────────────
+SCRIPT_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = SCRIPT_DIR / "outputs" / "sft"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+MODEL_NAME = "HuggingFaceTB/SmolLM2-360M"
+
+# ====================================================================
+# 1. SYNTHETIC TRAINING DATA
+# ====================================================================
+# We generate training examples that pair I/O metric descriptions with
+# classification labels + brief reasoning.  In a real scenario you'd
+# collect actual storage telemetry; here we create representative
+# synthetic data so the demo is self-contained.
+# ====================================================================
+
+WORKLOAD_PROFILES = {
+    "OLTP Database": {
+        "iops_range": (5000, 80000),
+        "throughput_mb_range": (50, 400),
+        "avg_latency_us_range": (100, 2000),
+        "read_pct_range": (60, 80),
+        "random_pct_range": (85, 99),
+        "block_size_kb": [4, 8],
+        "queue_depth_range": (16, 128),
+        "reasons": [
+            "High random IOPS with small block sizes indicate transactional database operations",
+            "Small block random reads dominate, consistent with index lookups and row fetches",
+            "Low latency small-block random I/O is characteristic of OLTP workloads",
+        ],
+    },
+    "OLAP Analytics": {
+        "iops_range": (100, 3000),
+        "throughput_mb_range": (500, 5000),
+        "avg_latency_us_range": (1000, 20000),
+        "read_pct_range": (85, 99),
+        "random_pct_range": (5, 30),
+        "block_size_kb": [64, 128, 256, 512, 1024],
+        "queue_depth_range": (1, 32),
+        "reasons": [
+            "Large sequential reads with high throughput indicate analytical table scans",
+            "Predominantly sequential read pattern with large block sizes suggests data warehouse queries",
+            "High throughput with large I/O sizes and sequential access is typical of OLAP workloads",
+        ],
+    },
+    "AI ML Training": {
+        "iops_range": (500, 10000),
+        "throughput_mb_range": (1000, 10000),
+        "avg_latency_us_range": (500, 10000),
+        "read_pct_range": (90, 99),
+        "random_pct_range": (20, 60),
+        "block_size_kb": [128, 256, 512, 1024],
+        "queue_depth_range": (8, 64),
+        "reasons": [
+            "High throughput reads with mixed sequential/random access suggest training data pipeline loading",
+            "Large block reads with very high throughput indicate GPU training data ingestion",
+            "Read-dominant mixed-access pattern with high bandwidth is characteristic of ML data loading",
+        ],
+    },
+    "Video Streaming": {
+        "iops_range": (100, 2000),
+        "throughput_mb_range": (200, 3000),
+        "avg_latency_us_range": (1000, 15000),
+        "read_pct_range": (90, 100),
+        "random_pct_range": (10, 40),
+        "block_size_kb": [256, 512, 1024, 2048],
+        "queue_depth_range": (1, 16),
+        "reasons": [
+            "Steady sequential reads with large block sizes indicate media streaming operations",
+            "Consistent high-throughput sequential reads suggest video file delivery",
+            "Large block sequential read pattern with steady bandwidth is typical of streaming workloads",
+        ],
+    },
+    "VDI Virtual Desktop": {
+        "iops_range": (2000, 30000),
+        "throughput_mb_range": (20, 200),
+        "avg_latency_us_range": (200, 5000),
+        "read_pct_range": (50, 70),
+        "random_pct_range": (70, 95),
+        "block_size_kb": [4, 8, 16],
+        "queue_depth_range": (4, 64),
+        "reasons": [
+            "Mixed read/write random I/O with small blocks indicates virtual desktop user activity",
+            "Balanced read-write ratio with small random I/O suggests many concurrent desktop sessions",
+            "Small block random I/O with mixed reads and writes is characteristic of VDI workloads",
+        ],
+    },
+    "Backup Archive": {
+        "iops_range": (50, 1000),
+        "throughput_mb_range": (200, 5000),
+        "avg_latency_us_range": (2000, 50000),
+        "read_pct_range": (5, 30),
+        "random_pct_range": (2, 15),
+        "block_size_kb": [256, 512, 1024, 2048, 4096],
+        "queue_depth_range": (1, 16),
+        "reasons": [
+            "Large sequential writes with high throughput indicate backup data ingestion",
+            "Write-dominant sequential pattern with very large block sizes suggests archival operations",
+            "Sustained sequential write throughput with large I/O sizes is typical of backup workloads",
+        ],
+    },
+}
+
+LABELS = list(WORKLOAD_PROFILES.keys())
+
+
+def generate_sample(label: str) -> dict:
+    """Generate one synthetic I/O metrics sample for a given workload label."""
+    p = WORKLOAD_PROFILES[label]
+    iops = random.randint(*p["iops_range"])
+    throughput = random.randint(*p["throughput_mb_range"])
+    latency = random.randint(*p["avg_latency_us_range"])
+    read_pct = random.randint(*p["read_pct_range"])
+    write_pct = 100 - read_pct
+    random_pct = random.randint(*p["random_pct_range"])
+    sequential_pct = 100 - random_pct
+    block_kb = random.choice(p["block_size_kb"])
+    queue_depth = random.randint(*p["queue_depth_range"])
+    reason = random.choice(p["reasons"])
+
+    # Format the I/O metrics as a structured text prompt
+    prompt = (
+        f"Classify the following storage I/O workload based on these metrics:\n"
+        f"- IOPS: {iops:,}\n"
+        f"- Throughput: {throughput:,} MB/s\n"
+        f"- Average Latency: {latency:,} us\n"
+        f"- Read/Write Ratio: {read_pct}% read / {write_pct}% write\n"
+        f"- Access Pattern: {random_pct}% random / {sequential_pct}% sequential\n"
+        f"- Block Size: {block_kb} KB\n"
+        f"- Queue Depth: {queue_depth}\n\n"
+        f"Provide the workload classification and a brief reason."
+    )
+    response = f"Classification: {label}\nReason: {reason}"
+
+    return {"prompt": prompt, "completion": response, "label": label}
+
+
+def build_dataset(n_per_class: int = 80) -> Dataset:
+    """Build a balanced training dataset with n_per_class examples per label."""
+    samples = []
+    for label in LABELS:
+        for _ in range(n_per_class):
+            samples.append(generate_sample(label))
+    random.shuffle(samples)
+    print(f"  Created {len(samples)} training samples ({n_per_class} per class)")
+
+    # SFTTrainer expects a 'text' field with the full formatted conversation.
+    # We format as a simple prompt-completion pair.
+    texts = []
+    for s in samples:
+        texts.append(f"{s['prompt']}\n\n{s['completion']}")
+
+    return Dataset.from_dict({
+        "text": texts,
+        "prompt": [s["prompt"] for s in samples],
+        "completion": [s["completion"] for s in samples],
+        "label": [s["label"] for s in samples],
+    })
+
+
+# ====================================================================
+# 2. TOKEN PROBABILITY CAPTURE (for visualization in the web app)
+# ====================================================================
+
+# We'll record how the model's predictions change after fine-tuning
+# by capturing the top-20 token probabilities for 5 example prompts.
+
+EXAMPLE_PROMPTS = [
+    generate_sample("OLTP Database"),
+    generate_sample("OLAP Analytics"),
+    generate_sample("AI ML Training"),
+    generate_sample("Video Streaming"),
+    generate_sample("Backup Archive"),
+]
+
+
+def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
+    """
+    For each prompt, run a forward pass and capture the top-k token
+    probabilities at the first generated position (i.e., what would
+    the model predict as the very next token?).
+
+    Returns a list of dicts with prompt text, top tokens, and probs.
+    """
+    model.eval()
+    results = []
+
+    for sample in prompts:
+        text = sample["prompt"] + "\n\n"
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            # Logits for the last token position → next-token prediction
+            logits = outputs.logits[:, -1, :]
+            probs = torch.softmax(logits, dim=-1)
+
+            top_probs, top_indices = torch.topk(probs[0], top_k)
+            top_tokens = [tokenizer.decode(idx.item()) for idx in top_indices]
+
+        results.append({
+            "prompt_snippet": sample["prompt"][:120] + "...",
+            "expected_label": sample["label"],
+            "top_tokens": top_tokens,
+            "top_probs": [round(p.item(), 6) for p in top_probs],
+        })
+
+    return results
+
+
+# ====================================================================
+# 3. SAMPLE OUTPUT GENERATION
+# ====================================================================
+
+def generate_outputs(model, tokenizer, prompts, device, max_new_tokens=80):
+    """Generate text outputs for a list of prompts."""
+    model.eval()
+    results = []
+
+    for sample in prompts:
+        text = sample["prompt"] + "\n\n"
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,          # Greedy for reproducibility
+                temperature=1.0,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+
+        # Decode only the newly generated tokens
+        generated = tokenizer.decode(
+            output_ids[0][inputs["input_ids"].shape[1]:],
+            skip_special_tokens=True,
+        )
+        results.append({
+            "prompt_snippet": sample["prompt"][:120] + "...",
+            "expected": sample["completion"],
+            "generated": generated.strip(),
+        })
+
+    return results
+
+
+# ====================================================================
+# 4. LoRA WEIGHT CAPTURE (simplified, for web app visualization)
+# ====================================================================
+
+def capture_lora_weights(model):
+    """
+    Extract a simplified summary of LoRA weight matrices.
+    We save the norms + a small slice of actual values so the
+    web app can render a heatmap / matrix visualization.
+    """
+    lora_info = {}
+
+    for name, param in model.named_parameters():
+        if "lora_" in name and param.requires_grad:
+            data = param.detach().cpu().float().numpy()
+            # Save: shape, frobenius norm, mean, std, and a small
+            # (max 16x16) slice of actual values for visualization
+            slice_r = min(data.shape[0], 16)
+            slice_c = min(data.shape[1], 16) if len(data.shape) > 1 else 1
+            if len(data.shape) == 1:
+                small = data[:slice_r].tolist()
+            else:
+                small = data[:slice_r, :slice_c].tolist()
+
+            lora_info[name] = {
+                "shape": list(data.shape),
+                "frobenius_norm": float(np.linalg.norm(data)),
+                "mean": float(np.mean(data)),
+                "std": float(np.std(data)),
+                "sample_values": small,
+            }
+
+    return lora_info
+
+
+# ====================================================================
+# 5. TRAINING LOSS CALLBACK
+# ====================================================================
+
+from transformers import TrainerCallback
+
+class LossRecorderCallback(TrainerCallback):
+    """Records training loss at each logging step so we can save the curve."""
+    def __init__(self):
+        self.losses = []
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if logs and "loss" in logs:
+            self.losses.append({
+                "step": state.global_step,
+                "loss": round(logs["loss"], 6),
+                "epoch": round(state.epoch, 4) if state.epoch else 0,
+            })
+
+
+# ====================================================================
+# 6. MAIN TRAINING PIPELINE
+# ====================================================================
+
+def main():
+    print("=" * 60)
+    print("  STEP 1: Supervised Fine-Tuning (SFT)")
+    print("=" * 60)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"\n[INFO] Using device: {device}")
+    if device != "cuda":
+        print("[WARNING] No GPU detected. Training will be slow!")
+
+    # ── 6a. Load base model and tokenizer ────────────────────────────
+    print(f"\n[1/7] Loading base model: {MODEL_NAME}")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True,
+        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+    ).to(device)
+
+    print(f"  Model parameters: {model.num_parameters():,}")
+
+    # ── 6b. Capture BASE model outputs (before fine-tuning) ──────────
+    print("\n[2/7] Capturing base model outputs (before fine-tuning)...")
+    base_probs = capture_token_probs(model, tokenizer, EXAMPLE_PROMPTS, device)
+    base_outputs = generate_outputs(model, tokenizer, EXAMPLE_PROMPTS, device)
+
+    with open(OUTPUT_DIR / "base_token_probs.json", "w") as f:
+        json.dump(base_probs, f, indent=2)
+    with open(OUTPUT_DIR / "base_outputs.json", "w") as f:
+        json.dump(base_outputs, f, indent=2)
+    print("  Saved base model token probabilities and sample outputs.")
+
+    # ── 6c. Build training dataset ───────────────────────────────────
+    print("\n[3/7] Building synthetic training dataset...")
+    dataset = build_dataset(n_per_class=80)
+
+    # ── 6d. Configure LoRA ───────────────────────────────────────────
+    # LoRA (Low-Rank Adaptation) adds small trainable matrices to the
+    # attention layers while keeping the base model weights frozen.
+    # This is dramatically more efficient than full fine-tuning:
+    #   - rank=16: each adapter matrix is 16-dimensional
+    #   - alpha=32: scaling factor (alpha/rank = 2x effective learning rate)
+    #   - Only ~0.5% of parameters are actually trained!
+    print("\n[4/7] Configuring LoRA adapters...")
+    lora_config = LoraConfig(
+        r=16,                           # Low-rank dimension
+        lora_alpha=32,                  # Scaling factor
+        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
+    model = get_peft_model(model, lora_config)
+    trainable, total = model.get_nb_trainable_parameters()
+    print(f"  Trainable parameters: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)")
+
+    # ── 6e. Training ─────────────────────────────────────────────────
+    print("\n[5/7] Starting SFT training...")
+    loss_callback = LossRecorderCallback()
+
+    # SFTConfig extends TrainingArguments with SFT-specific options
+    training_args = SFTConfig(
+        output_dir=str(OUTPUT_DIR / "checkpoints"),
+        num_train_epochs=3,
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4,       # Effective batch = 16
+        learning_rate=2e-4,
+        lr_scheduler_type="cosine",
+        warmup_ratio=0.1,
+        logging_steps=5,
+        save_strategy="epoch",
+        seed=SEED,
+        bf16=(device == "cuda"),
+        fp16=False,
+        max_seq_length=512,
+        dataset_text_field="text",           # Column containing formatted text
+        report_to="none",                    # Don't log to wandb etc.
+    )
+
+    trainer = SFTTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=dataset,
+        processing_class=tokenizer,
+        callbacks=[loss_callback],
+    )
+
+    train_start = time.time()
+    train_result = trainer.train()
+    train_time = time.time() - train_start
+
+    print(f"  Training complete in {train_time:.1f}s")
+    print(f"  Final loss: {train_result.training_loss:.4f}")
+
+    # ── 6f. Save the LoRA adapter ────────────────────────────────────
+    print("\n[6/7] Saving artifacts...")
+
+    # Save the LoRA adapter (small! usually < 5 MB)
+    adapter_path = OUTPUT_DIR / "adapter"
+    model.save_pretrained(str(adapter_path))
+    tokenizer.save_pretrained(str(adapter_path))
+    print(f"  Saved LoRA adapter to {adapter_path}")
+
+    # Save training loss curve
+    with open(OUTPUT_DIR / "training_loss.json", "w") as f:
+        json.dump({
+            "losses": loss_callback.losses,
+            "final_loss": round(train_result.training_loss, 6),
+            "training_time_seconds": round(train_time, 2),
+            "total_steps": train_result.global_step,
+        }, f, indent=2)
+
+    # Save LoRA weight visualization data
+    lora_weights = capture_lora_weights(model)
+    with open(OUTPUT_DIR / "lora_weights.json", "w") as f:
+        json.dump(lora_weights, f, indent=2)
+    print(f"  Saved LoRA weight data ({len(lora_weights)} matrices)")
+
+    # ── 6g. Capture SFT model outputs (after fine-tuning) ────────────
+    print("\n[7/7] Capturing fine-tuned model outputs...")
+    sft_probs = capture_token_probs(model, tokenizer, EXAMPLE_PROMPTS, device)
+    sft_outputs = generate_outputs(model, tokenizer, EXAMPLE_PROMPTS, device)
+
+    with open(OUTPUT_DIR / "sft_token_probs.json", "w") as f:
+        json.dump(sft_probs, f, indent=2)
+    with open(OUTPUT_DIR / "sft_outputs.json", "w") as f:
+        json.dump(sft_outputs, f, indent=2)
+
+    # Save before/after comparison
+    comparison = []
+    for i in range(len(EXAMPLE_PROMPTS)):
+        comparison.append({
+            "prompt_snippet": base_outputs[i]["prompt_snippet"],
+            "expected": base_outputs[i]["expected"],
+            "base_output": base_outputs[i]["generated"],
+            "sft_output": sft_outputs[i]["generated"],
+            "base_top3_tokens": base_probs[i]["top_tokens"][:3],
+            "sft_top3_tokens": sft_probs[i]["top_tokens"][:3],
+        })
+    with open(OUTPUT_DIR / "before_after_comparison.json", "w") as f:
+        json.dump(comparison, f, indent=2)
+
+    # ── Summary ──────────────────────────────────────────────────────
+    print("\n" + "=" * 60)
+    print("  SFT Training Complete!")
+    print("=" * 60)
+    print(f"  Adapter saved to:    {adapter_path}")
+    print(f"  Training time:       {train_time:.1f}s")
+    print(f"  Final loss:          {train_result.training_loss:.4f}")
+    print(f"  Trainable params:    {trainable:,} ({100*trainable/total:.2f}%)")
+    print(f"  Artifacts in:        {OUTPUT_DIR}")
+    print(f"\n  Next step: Run train_dpo.py")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,322 @@
+{
+  "AI ML Training": {
+    "count": 330,
+    "iops": {
+      "min": 8961.0,
+      "max": 31454.0,
+      "mean": 19879.77,
+      "std": 3819.57,
+      "median": 19967.0
+    },
+    "latency_ms": {
+      "min": 0.5,
+      "max": 3.66,
+      "mean": 1.75,
+      "std": 0.5,
+      "median": 1.73
+    },
+    "block_size_kb": {
+      "min": 128.0,
+      "max": 1024.0,
+      "mean": 536.05,
+      "std": 191.72,
+      "median": 512.0
+    },
+    "read_pct": {
+      "min": 91.0,
+      "max": 99.0,
+      "mean": 94.62,
+      "std": 1.61,
+      "median": 95.0
+    },
+    "write_pct": {
+      "min": 1.0,
+      "max": 9.0,
+      "mean": 5.38,
+      "std": 1.61,
+      "median": 5.0
+    },
+    "sequential_pct": {
+      "min": 83.0,
+      "max": 100.0,
+      "mean": 90.2,
+      "std": 2.26,
+      "median": 90.0
+    },
+    "queue_depth": {
+      "min": 32.0,
+      "max": 128.0,
+      "mean": 80.74,
+      "std": 18.72,
+      "median": 81.0
+    }
+  },
+  "Backup Archive": {
+    "count": 310,
+    "iops": {
+      "min": 2000.0,
+      "max": 8001.0,
+      "mean": 5011.19,
+      "std": 1082.93,
+      "median": 5003.5
+    },
+    "latency_ms": {
+      "min": 10.0,
+      "max": 50.0,
+      "mean": 30.71,
+      "std": 7.39,
+      "median": 30.36
+    },
+    "block_size_kb": {
+      "min": 256.0,
+      "max": 4096.0,
+      "mean": 1954.68,
+      "std": 789.15,
+      "median": 2048.0
+    },
+    "read_pct": {
+      "min": 5.0,
+      "max": 15.0,
+      "mean": 10.05,
+      "std": 1.76,
+      "median": 10.0
+    },
+    "write_pct": {
+      "min": 85.0,
+      "max": 95.0,
+      "mean": 89.95,
+      "std": 1.76,
+      "median": 90.0
+    },
+    "sequential_pct": {
+      "min": 85.0,
+      "max": 100.0,
+      "mean": 92.83,
+      "std": 2.09,
+      "median": 93.0
+    },
+    "queue_depth": {
+      "min": 1.0,
+      "max": 4.0,
+      "mean": 2.45,
+      "std": 0.62,
+      "median": 2.0
+    }
+  },
+  "OLAP Analytics": {
+    "count": 310,
+    "iops": {
+      "min": 4514.0,
+      "max": 14758.0,
+      "mean": 9997.11,
+      "std": 1848.88,
+      "median": 9944.0
+    },
+    "latency_ms": {
+      "min": 2.14,
+      "max": 8.89,
+      "mean": 5.13,
+      "std": 1.13,
+      "median": 5.08
+    },
+    "block_size_kb": {
+      "min": 64.0,
+      "max": 256.0,
+      "mean": 149.88,
+      "std": 51.37,
+      "median": 128.0
+    },
+    "read_pct": {
+      "min": 85.0,
+      "max": 95.0,
+      "mean": 89.97,
+      "std": 1.85,
+      "median": 90.0
+    },
+    "write_pct": {
+      "min": 5.0,
+      "max": 15.0,
+      "mean": 10.03,
+      "std": 1.85,
+      "median": 10.0
+    },
+    "sequential_pct": {
+      "min": 66.0,
+      "max": 92.0,
+      "mean": 80.27,
+      "std": 3.76,
+      "median": 80.0
+    },
+    "queue_depth": {
+      "min": 4.0,
+      "max": 16.0,
+      "mean": 9.91,
+      "std": 2.1,
+      "median": 10.0
+    }
+  },
+  "OLTP Database": {
+    "count": 380,
+    "iops": {
+      "min": 27000.0,
+      "max": 81021.0,
+      "mean": 54626.19,
+      "std": 8683.15,
+      "median": 54520.5
+    },
+    "latency_ms": {
+      "min": 0.1,
+      "max": 0.96,
+      "mean": 0.46,
+      "std": 0.13,
+      "median": 0.46
+    },
+    "block_size_kb": {
+      "min": 4.0,
+      "max": 8.0,
+      "mean": 6.08,
+      "std": 2.0,
+      "median": 8.0
+    },
+    "read_pct": {
+      "min": 60.0,
+      "max": 80.0,
+      "mean": 69.82,
+      "std": 3.66,
+      "median": 70.0
+    },
+    "write_pct": {
+      "min": 20.0,
+      "max": 40.0,
+      "mean": 30.18,
+      "std": 3.66,
+      "median": 30.0
+    },
+    "sequential_pct": {
+      "min": 7.0,
+      "max": 30.0,
+      "mean": 17.36,
+      "std": 3.01,
+      "median": 17.0
+    },
+    "queue_depth": {
+      "min": 16.0,
+      "max": 64.0,
+      "mean": 38.68,
+      "std": 8.75,
+      "median": 39.0
+    }
+  },
+  "VDI Virtual Desktop": {
+    "count": 360,
+    "iops": {
+      "min": 19364.0,
+      "max": 62394.0,
+      "mean": 40236.84,
+      "std": 7008.3,
+      "median": 40275.0
+    },
+    "latency_ms": {
+      "min": 0.21,
+      "max": 1.1,
+      "mean": 0.55,
+      "std": 0.14,
+      "median": 0.55
+    },
+    "block_size_kb": {
+      "min": 4.0,
+      "max": 16.0,
+      "mean": 9.18,
+      "std": 3.15,
+      "median": 8.0
+    },
+    "read_pct": {
+      "min": 50.0,
+      "max": 70.0,
+      "mean": 59.96,
+      "std": 3.68,
+      "median": 60.0
+    },
+    "write_pct": {
+      "min": 30.0,
+      "max": 50.0,
+      "mean": 40.04,
+      "std": 3.68,
+      "median": 40.0
+    },
+    "sequential_pct": {
+      "min": 15.0,
+      "max": 35.0,
+      "mean": 22.52,
+      "std": 2.97,
+      "median": 22.0
+    },
+    "queue_depth": {
+      "min": 32.0,
+      "max": 128.0,
+      "mean": 79.53,
+      "std": 17.52,
+      "median": 79.0
+    }
+  },
+  "Video Streaming": {
+    "count": 310,
+    "iops": {
+      "min": 887.0,
+      "max": 4867.0,
+      "mean": 2995.91,
+      "std": 731.82,
+      "median": 2967.5
+    },
+    "latency_ms": {
+      "min": 5.0,
+      "max": 17.74,
+      "mean": 10.22,
+      "std": 1.99,
+      "median": 9.96
+    },
+    "block_size_kb": {
+      "min": 256.0,
+      "max": 1024.0,
+      "mean": 583.85,
+      "std": 196.47,
+      "median": 512.0
+    },
+    "read_pct": {
+      "min": 95.0,
+      "max": 99.0,
+      "mean": 96.95,
+      "std": 0.78,
+      "median": 97.0
+    },
+    "write_pct": {
+      "min": 1.0,
+      "max": 5.0,
+      "mean": 3.05,
+      "std": 0.78,
+      "median": 3.0
+    },
+    "sequential_pct": {
+      "min": 90.0,
+      "max": 100.0,
+      "mean": 95.41,
+      "std": 1.48,
+      "median": 95.0
+    },
+    "queue_depth": {
+      "min": 1.0,
+      "max": 8.0,
+      "mean": 4.59,
+      "std": 1.24,
+      "median": 5.0
+    }
+  },
+  "_total": {
+    "count": 2000
+  },
+  "_splits": {
+    "train": 1400,
+    "val": 300,
+    "test": 300
+  }
+}
