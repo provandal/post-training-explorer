@@ -62,62 +62,35 @@ const tourSteps = [
 
   // === POST-TRAINING: SFT (Lower-Right) ===
   {
-    id: 'sft-before-after',
+    id: 'sft',
     quadrant: 'posttraining',
     subStop: 'sft',
     zigzagPosition: 4,
     title: 'SFT: Teaching by Example',
-    narration: `Supervised Fine-Tuning is like giving the model a training manual. We showed it 1,400 examples of "here's an I/O pattern, here's the correct classification." Same prompt, side by side: the base model vs. the fine-tuned model. The difference is dramatic.`,
+    narration: `Supervised Fine-Tuning is like giving the model a training manual. We showed it 1,400 examples of "here's an I/O pattern, here's the correct classification." Use the tabs to explore the problem, learn how SFT works, see before/after comparisons, and dig into the token probabilities and LoRA weights under the covers.`,
     component: 'SFTComparison',
-  },
-  {
-    id: 'sft-under-the-hood',
-    quadrant: 'posttraining',
-    subStop: 'sft',
-    zigzagPosition: 4,
-    title: 'SFT: Under the Covers',
-    narration: `Here's where it gets fascinating. Look at the token probability distributions. The base model spreads its bets across many possible classifications. The SFT model puts most of its probability on the correct answer. And look at the LoRA weights — these tiny matrices are ALL that changed. Just 0.12% of the model's parameters. This small delta is the difference between "confused" and "expert."`,
-    component: 'SFTUnderTheHood',
   },
 
   // === POST-TRAINING: DPO (Lower-Right, sub-stop) ===
   {
-    id: 'dpo-preferences',
+    id: 'dpo',
     quadrant: 'posttraining',
     subStop: 'dpo',
     zigzagPosition: 5,
     title: 'DPO: Learning from Your Preferences',
-    narration: `SFT taught the model WHAT to say. But what about HOW to say it? Both of these outputs are correct, but one is better — more concise, more confident, highlights the key indicators. Pick the one you prefer. You are now the "human" in "human feedback." DPO uses pairs like these to learn your style preferences directly — no reward model needed.`,
+    narration: `SFT taught the model WHAT to say. DPO teaches it HOW to say it. Both outputs might be correct, but one is better — more concise, more confident. Pick your preferred response and see how DPO uses pairs like these to reshape the model's style directly — no reward model needed.`,
     component: 'DPOPreferences',
-  },
-  {
-    id: 'dpo-under-the-hood',
-    quadrant: 'posttraining',
-    subStop: 'dpo',
-    zigzagPosition: 5,
-    title: 'DPO: Under the Covers',
-    narration: `Watch what your preference did. Before DPO, the model slightly favored the verbose, hedging response (it was more "cautious"). After DPO, the probability has flipped — the concise, confident response is now strongly preferred. Your single preference pair, multiplied across 400 examples, reshaped the model's style. And compared to RLHF, DPO did this with ONE model in memory instead of THREE.`,
-    component: 'DPOUnderTheHood',
   },
 
   // === POST-TRAINING: GRPO (Lower-Right, sub-stop) ===
   {
-    id: 'grpo-generations',
+    id: 'grpo',
     quadrant: 'posttraining',
     subStop: 'grpo',
     zigzagPosition: 6,
     title: 'GRPO: Self-Improving Reasoning',
-    narration: `This is the frontier — the technique behind DeepSeek R1. Instead of human preferences, GRPO uses verifiable rewards. The model generates 8 attempts to classify this I/O pattern. Each one is scored: correct classification = 1, incorrect = 0. No human in the loop. The answer itself is the teacher.`,
+    narration: `This is the frontier — the technique behind DeepSeek R1. Instead of human preferences, GRPO uses verifiable rewards. The model generates 8 attempts, scores each one, and learns from the group statistics. No human in the loop. The answer itself is the teacher. Explore the tabs to see how it works.`,
     component: 'GRPOGenerations',
-  },
-  {
-    id: 'grpo-under-the-hood',
-    quadrant: 'posttraining',
-    subStop: 'grpo',
-    zigzagPosition: 6,
-    title: 'GRPO: Under the Covers',
-    narration: `Here's the math that makes GRPO work. The group average reward is the baseline. Generations that beat the average get positive advantage — they're reinforced. Generations below average get negative advantage — they're suppressed. No critic network, no reward model — just group statistics. This is why GRPO uses 50% less compute than PPO.`,
-    component: 'GRPOUnderTheHood',
   },
 
   // === ALL OPTIONS (Upper-Right) ===

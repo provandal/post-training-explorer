@@ -11,11 +11,8 @@ import PromptLimitation from '../stops/PromptLimitation'
 import RAGSimple from '../stops/RAGSimple'
 import RAGLimitation from '../stops/RAGLimitation'
 import SFTComparison from '../stops/SFTComparison'
-import SFTUnderTheHood from '../stops/SFTUnderTheHood'
 import DPOPreferences from '../stops/DPOPreferences'
-import DPOUnderTheHood from '../stops/DPOUnderTheHood'
 import GRPOGenerations from '../stops/GRPOGenerations'
-import GRPOUnderTheHood from '../stops/GRPOUnderTheHood'
 import CombinedResults from '../stops/CombinedResults'
 import InfrastructureSummary from '../stops/InfrastructureSummary'
 import Epilogue from '../stops/Epilogue'
@@ -28,11 +25,8 @@ const STOP_COMPONENTS = {
   RAGSimple,
   RAGLimitation,
   SFTComparison,
-  SFTUnderTheHood,
   DPOPreferences,
-  DPOUnderTheHood,
   GRPOGenerations,
-  GRPOUnderTheHood,
   CombinedResults,
   InfrastructureSummary,
   Epilogue,
