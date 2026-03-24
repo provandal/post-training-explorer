@@ -546,14 +546,14 @@ def main():
                     rewards.append(0.0)
             return rewards
 
-        grpo_config = GRPOConfig(
+        grpo_base_kwargs = dict(
             output_dir=str(OUTPUT_DIR / "checkpoints"),
             num_train_epochs=2,
             per_device_train_batch_size=2,
             gradient_accumulation_steps=2,
             learning_rate=1e-5,
             lr_scheduler_type="cosine",
-            warmup_ratio=0.1,
+            warmup_steps=10,
             num_generations=8,
             logging_steps=5,
             save_strategy="epoch",
@@ -562,6 +562,18 @@ def main():
             max_completion_length=80,
             report_to="none",
         )
+
+        # Build config, dropping any args the installed TRL version doesn't recognize
+        try:
+            grpo_config = GRPOConfig(**grpo_base_kwargs)
+        except TypeError as e:
+            # Remove unrecognized kwargs and retry
+            bad_arg = str(e).split("'")[1] if "'" in str(e) else None
+            if bad_arg and bad_arg in grpo_base_kwargs:
+                del grpo_base_kwargs[bad_arg]
+                grpo_config = GRPOConfig(**grpo_base_kwargs)
+            else:
+                raise
 
         trainer = GRPOTrainer(
             model=policy_model,

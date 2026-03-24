@@ -393,23 +393,28 @@ def main():
     print("\n[5/6] Starting DPO training...")
     loss_callback = LossRecorderCallback()
 
-    dpo_config = DPOConfig(
+    dpo_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
         num_train_epochs=2,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,        # Effective batch = 8
         learning_rate=5e-5,                   # Lower LR for DPO (it's a refinement step)
         lr_scheduler_type="cosine",
-        warmup_ratio=0.1,
+        warmup_steps=10,
         beta=0.1,                             # DPO temperature parameter
         logging_steps=5,
         save_strategy="epoch",
         seed=SEED,
         bf16=(device == "cuda"),
         max_length=512,
-        max_prompt_length=400,
         report_to="none",
     )
+
+    # TRL 0.16+ removed max_prompt_length from DPOConfig
+    try:
+        dpo_config = DPOConfig(**dpo_base_kwargs, max_prompt_length=400)
+    except TypeError:
+        dpo_config = DPOConfig(**dpo_base_kwargs)
 
     trainer = DPOTrainer(
         model=model,
