@@ -410,8 +410,10 @@ def main():
     print("\n[5/7] Starting SFT training...")
     loss_callback = LossRecorderCallback()
 
-    # SFTConfig extends TrainingArguments with SFT-specific options
-    training_args = SFTConfig(
+    # SFTConfig extends TrainingArguments with SFT-specific options.
+    # TRL >=0.16 removed max_seq_length/dataset_text_field from SFTConfig
+    # and moved them to SFTTrainer kwargs.  We try both paths.
+    sft_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
         num_train_epochs=3,
         per_device_train_batch_size=4,
@@ -424,10 +426,24 @@ def main():
         seed=SEED,
         bf16=(device == "cuda"),
         fp16=False,
-        max_seq_length=512,
-        dataset_text_field="text",           # Column containing formatted text
         report_to="none",                    # Don't log to wandb etc.
     )
+
+    # Try with max_seq_length/dataset_text_field in SFTConfig first (TRL <0.16)
+    try:
+        training_args = SFTConfig(
+            **sft_base_kwargs,
+            max_seq_length=512,
+            dataset_text_field="text",
+        )
+        trainer_extra_kwargs = {}
+    except TypeError:
+        # Newer TRL: these args moved to SFTTrainer
+        training_args = SFTConfig(**sft_base_kwargs)
+        trainer_extra_kwargs = dict(
+            max_seq_length=512,
+            dataset_text_field="text",
+        )
 
     trainer = SFTTrainer(
         model=model,
@@ -435,6 +451,7 @@ def main():
         train_dataset=dataset,
         processing_class=tokenizer,
         callbacks=[loss_callback],
+        **trainer_extra_kwargs,
     )
 
     train_start = time.time()
