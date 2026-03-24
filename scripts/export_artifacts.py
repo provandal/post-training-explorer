@@ -348,7 +348,7 @@ def get_resource_info():
     info = {
         "gpu_available": torch.cuda.is_available(),
         "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A",
-        "gpu_memory_total_gb": round(torch.cuda.get_device_properties(0).total_mem / 1e9, 2) if torch.cuda.is_available() else 0,
+        "gpu_memory_total_gb": round(getattr(torch.cuda.get_device_properties(0), 'total_memory', 0) / 1e9, 2) if torch.cuda.is_available() else 0,
     }
 
     # Check adapter checkpoint sizes
