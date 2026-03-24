@@ -187,17 +187,13 @@ def build_dataset(n_per_class: int = 80) -> Dataset:
     random.shuffle(samples)
     print(f"  Created {len(samples)} training samples ({n_per_class} per class)")
 
-    # SFTTrainer expects a 'text' field with the full formatted conversation.
-    # We format as a simple prompt-completion pair.
-    texts = []
-    for s in samples:
-        texts.append(f"{s['prompt']}\n\n{s['completion']}")
-
+    # Use prompt + completion columns so TRL masks prompt tokens in the loss.
+    # This ensures the model only learns to predict the classification output,
+    # not the prompt text itself. The \n\n separator is appended to prompts
+    # to match inference format.
     return Dataset.from_dict({
-        "text": texts,
-        "prompt": [s["prompt"] for s in samples],
+        "prompt": [s["prompt"] + "\n\n" for s in samples],
         "completion": [s["completion"] for s in samples],
-        "label": [s["label"] for s in samples],
     })
 
 
@@ -415,15 +411,13 @@ def main():
     #   TRL 0.16+:  those args removed entirely; SFTTrainer auto-detects
     #               the text column and uses max_length from TrainingArguments
     #
-    # IMPORTANT: Newer TRL auto-detects column usage. If the dataset has
-    # 'prompt' + 'completion' columns, it uses those with a chat template
-    # instead of the raw 'text' column. We strip extra columns to force
-    # it to use 'text'.
-    sft_dataset = dataset.select_columns(["text"])
-
+    # Dataset has prompt + completion columns. TRL auto-detects these and:
+    #   - Concatenates prompt + completion
+    #   - Masks prompt tokens in the loss (only trains on completion)
+    # This is critical: the model learns the output format, not the prompt.
     sft_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
-        num_train_epochs=3,
+        num_train_epochs=5,                  # More epochs for small model
         per_device_train_batch_size=4,
         gradient_accumulation_steps=4,       # Effective batch = 16
         learning_rate=2e-4,
@@ -442,11 +436,10 @@ def main():
         training_args = SFTConfig(
             **sft_base_kwargs,
             max_seq_length=512,
-            dataset_text_field="text",
             packing=False,
         )
     except TypeError:
-        # Newer TRL: no max_seq_length/dataset_text_field — use max_length instead
+        # Newer TRL: no max_seq_length — use max_length instead
         training_args = SFTConfig(
             **sft_base_kwargs,
             max_length=512,
@@ -456,7 +449,7 @@ def main():
     trainer = SFTTrainer(
         model=model,
         args=training_args,
-        train_dataset=sft_dataset,
+        train_dataset=dataset,
         processing_class=tokenizer,
         callbacks=[loss_callback],
     )
