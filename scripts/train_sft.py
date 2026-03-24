@@ -414,6 +414,13 @@ def main():
     #   TRL <0.16:  max_seq_length + dataset_text_field in SFTConfig
     #   TRL 0.16+:  those args removed entirely; SFTTrainer auto-detects
     #               the text column and uses max_length from TrainingArguments
+    #
+    # IMPORTANT: Newer TRL auto-detects column usage. If the dataset has
+    # 'prompt' + 'completion' columns, it uses those with a chat template
+    # instead of the raw 'text' column. We strip extra columns to force
+    # it to use 'text'.
+    sft_dataset = dataset.select_columns(["text"])
+
     sft_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
         num_train_epochs=3,
@@ -436,18 +443,20 @@ def main():
             **sft_base_kwargs,
             max_seq_length=512,
             dataset_text_field="text",
+            packing=False,
         )
     except TypeError:
         # Newer TRL: no max_seq_length/dataset_text_field — use max_length instead
         training_args = SFTConfig(
             **sft_base_kwargs,
             max_length=512,
+            packing=False,
         )
 
     trainer = SFTTrainer(
         model=model,
         args=training_args,
-        train_dataset=dataset,
+        train_dataset=sft_dataset,
         processing_class=tokenizer,
         callbacks=[loss_callback],
     )
