@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import ModelOutput from '../components/ModelOutput'
 import TokenProbChart from '../components/TokenProbChart'
+import { isLoaded, getTokenProbsForChart } from '../data/loadArtifacts'
+import useStore from '../store'
 
 const EXAMPLE_INPUT = "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32"
 
@@ -23,7 +25,7 @@ const FEW_SHOT_RESPONSE = `Classification: OLTP Database
 
 The high IOPS of 45000 with very low latency of 0.3ms and small block size of 8K is characteristic of an OLTP database workload. The predominantly random access pattern (only 15% sequential) with a moderate read/write ratio further supports this classification.`
 
-const BASE_TOKEN_PROBS = [
+const FALLBACK_BASE_PROBS = [
   { token: 'This', probability: 0.18 },
   { token: 'The', probability: 0.14 },
   { token: 'Based', probability: 0.09 },
@@ -41,7 +43,7 @@ const BASE_TOKEN_PROBS = [
   { token: 'Given', probability: 0.02 },
 ]
 
-const FEW_SHOT_TOKEN_PROBS = [
+const FALLBACK_FEW_SHOT_PROBS = [
   { token: 'Classification', probability: 0.42 },
   { token: 'OLTP', probability: 0.18 },
   { token: 'The', probability: 0.06 },
@@ -62,9 +64,37 @@ const FEW_SHOT_TOKEN_PROBS = [
 export default function PromptFewShot() {
   const [showExamples, setShowExamples] = useState(true)
   const [showProbs, setShowProbs] = useState(false)
+  const selectedPromptId = useStore((s) => s.selectedPromptId)
+
+  // Use real base token prob data when available, fall back to hardcoded
+  const baseTokenProbs = (() => {
+    if (!isLoaded()) return FALLBACK_BASE_PROBS
+    const real = getTokenProbsForChart('base', selectedPromptId)
+    return real.length > 0 ? real : FALLBACK_BASE_PROBS
+  })()
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Intro — bridge from basic prompting */}
+      <div className="mb-5 p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
+        <h3 className="text-base font-semibold text-orange-400 mb-3">
+          What if we showed the model some examples first?
+        </h3>
+        <p className="text-sm text-slate-300 leading-relaxed mb-3">
+          What you just saw was <strong className="text-orange-300">zero-shot</strong> prompting
+          &mdash; instructions only, no examples. The model knew what we wanted but
+          had never seen a correct answer. Now we try <strong className="text-orange-300">few-shot</strong> prompting:
+          we prepend a handful of labeled examples directly into the prompt so the
+          model can mimic the pattern. The naming is literal &mdash; zero examples,
+          one example, or a few.
+        </p>
+        <p className="text-sm text-slate-400 leading-relaxed">
+          Below are three input &rarr; output pairs we inject before the real
+          question. The model sees them and learns the expected format on the
+          fly &mdash; no training required, just a longer prompt.
+        </p>
+      </div>
+
       {/* Few-shot examples */}
       <div className="mb-4">
         <button
@@ -121,8 +151,8 @@ export default function PromptFewShot() {
             learned the format. But "OLTP" is still only at 18%. It's better, but not confident.
           </p>
           <TokenProbChart
-            data={BASE_TOKEN_PROBS}
-            comparisonData={FEW_SHOT_TOKEN_PROBS}
+            data={baseTokenProbs}
+            comparisonData={FALLBACK_FEW_SHOT_PROBS}
             label="First Token: Basic Prompt vs Few-Shot"
             comparisonLabel="Few-Shot"
             highlightToken="Classification"

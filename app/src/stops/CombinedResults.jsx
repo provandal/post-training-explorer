@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import ModelOutput from '../components/ModelOutput'
+import PatternPicker from '../components/PatternPicker'
+import useStore from '../store'
+import {
+  isLoaded, getTestPrompts, getModelOutput, formatPromptMetrics,
+  getAccuracySummary, getCategories,
+} from '../data/loadArtifacts'
 
-const EXAMPLE_INPUT = "IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64"
-const CORRECT_LABEL = "VDI Virtual Desktop"
+const FALLBACK_INPUT = "IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64"
+const FALLBACK_LABEL = "VDI Virtual Desktop"
 
-// Progressive improvement through each technique
-const STAGES = [
+// Fallback hardcoded stages (used when precomputed_results.json is not available)
+const FALLBACK_STAGES = [
   {
     id: 'base',
     label: 'Base Model',
@@ -64,27 +70,150 @@ const STAGES = [
   },
 ]
 
+/**
+ * Check if a generated_text contains the correct label.
+ */
+function checkCorrect(generatedText, trueLabel) {
+  if (!generatedText || !trueLabel) return false
+  return generatedText.toLowerCase().includes(trueLabel.toLowerCase())
+}
+
+/**
+ * Build stages from real precomputed data for a given test prompt.
+ */
+function buildRealStages(promptId, trueLabel) {
+  const baseOut = getModelOutput('base', promptId)
+  const sftOut = getModelOutput('sft', promptId)
+  const dpoOut = getModelOutput('dpo', promptId)
+  const grpoOut = getModelOutput('grpo', promptId)
+
+  // If we don't have at least base and one trained model, fall back
+  if (!baseOut) return null
+
+  const stages = [
+    {
+      id: 'base',
+      label: 'Base Model',
+      variant: 'base',
+      correct: checkCorrect(baseOut.generated_text, trueLabel),
+      output: baseOut.generated_text,
+      note: checkCorrect(baseOut.generated_text, trueLabel)
+        ? 'Base model gets it right, but output is unstructured.'
+        : 'Describes but doesn\'t classify correctly.',
+    },
+  ]
+
+  // Few-shot is a prompting technique — no precomputed data for it.
+  // We keep a placeholder note.
+  stages.push({
+    id: 'fewshot',
+    label: '+ Few-Shot',
+    variant: 'default',
+    correct: false,
+    output: '(Few-shot is a prompting technique — results vary by prompt design, not by model training.)',
+    note: 'Few-shot prompting helps format but doesn\'t guarantee correctness.',
+  })
+
+  // RAG is also a prompting strategy — keep curated
+  stages.push({
+    id: 'rag',
+    label: '+ RAG',
+    variant: 'rag',
+    correct: true,
+    output: '(RAG retrieves reference patterns. Correct answer, but verbose.)',
+    note: 'RAG provides knowledge but doesn\'t control output format.',
+  })
+
+  if (sftOut) {
+    stages.push({
+      id: 'sft',
+      label: '+ SFT',
+      variant: 'sft',
+      correct: checkCorrect(sftOut.generated_text, trueLabel),
+      output: sftOut.generated_text,
+      note: checkCorrect(sftOut.generated_text, trueLabel)
+        ? 'Correct, formatted, explains reasoning.'
+        : 'Structured format but misclassified.',
+    })
+  }
+
+  if (dpoOut) {
+    stages.push({
+      id: 'dpo',
+      label: '+ DPO',
+      variant: 'dpo',
+      correct: checkCorrect(dpoOut.generated_text, trueLabel),
+      output: dpoOut.generated_text,
+      note: checkCorrect(dpoOut.generated_text, trueLabel)
+        ? 'Tighter phrasing, more confident.'
+        : 'Better style but misclassified.',
+    })
+  }
+
+  if (grpoOut) {
+    stages.push({
+      id: 'grpo',
+      label: '+ GRPO',
+      variant: 'grpo',
+      correct: checkCorrect(grpoOut.generated_text, trueLabel),
+      output: grpoOut.generated_text,
+      note: checkCorrect(grpoOut.generated_text, trueLabel)
+        ? 'Most precise. Uses definitive reasoning and specific thresholds.'
+        : 'Best reasoning style despite misclassification.',
+    })
+  }
+
+  return stages
+}
+
 export default function CombinedResults({ explore = false }) {
   const [visibleStages, setVisibleStages] = useState(1)
+  const selectedPromptId = useStore((s) => s.selectedPromptId)
+
+  const hasRealData = isLoaded()
+
+  // Build stages from real data or use fallback
+  let stages = FALLBACK_STAGES
+  let inputDisplay = FALLBACK_INPUT
+  let correctLabel = FALLBACK_LABEL
+
+  if (hasRealData) {
+    const testPrompts = getTestPrompts()
+    const selected = testPrompts.find(p => p.id === selectedPromptId) ?? testPrompts[0]
+    if (selected) {
+      const realStages = buildRealStages(selected.id, selected.true_label)
+      if (realStages) {
+        stages = realStages
+        inputDisplay = formatPromptMetrics(selected)
+        correctLabel = selected.true_label
+      }
+    }
+  }
+
+  // Get accuracy summary for the footer
+  const summary = hasRealData ? getAccuracySummary() : null
 
   const revealNext = () => {
-    if (visibleStages < STAGES.length) {
+    if (visibleStages < stages.length) {
       setVisibleStages(visibleStages + 1)
     }
   }
 
   return (
     <div className="max-w-5xl mx-auto">
+      {/* Pattern picker (only when real data is available) */}
+      {hasRealData && <PatternPicker onChange={() => setVisibleStages(1)} />}
+
       {/* Input */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-          Hard Example: Ambiguous I/O Pattern
+          {hasRealData ? 'Selected I/O Pattern' : 'Hard Example: Ambiguous I/O Pattern'}
         </label>
         <div className="bg-slate-800 border border-yellow-700/50 rounded-lg p-3 font-mono text-sm text-yellow-200">
-          {EXAMPLE_INPUT}
+          {inputDisplay}
         </div>
         <p className="text-xs text-slate-500 mt-1">
-          Correct: <span className="text-emerald-400 font-semibold">{CORRECT_LABEL}</span> — Watch the progressive improvement.
+          Correct: <span className="text-emerald-400 font-semibold">{correctLabel}</span> — Watch the progressive improvement.
         </p>
       </div>
 
@@ -92,13 +221,13 @@ export default function CombinedResults({ explore = false }) {
       <div className="flex items-center gap-3 mb-4">
         <button
           onClick={revealNext}
-          disabled={visibleStages >= STAGES.length}
+          disabled={visibleStages >= stages.length}
           className="px-4 py-2 text-sm bg-cyan-700 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-md transition-colors"
         >
-          Add next technique ({visibleStages}/{STAGES.length})
+          Add next technique ({visibleStages}/{stages.length})
         </button>
         <button
-          onClick={() => setVisibleStages(STAGES.length)}
+          onClick={() => setVisibleStages(stages.length)}
           className="px-4 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md transition-colors"
         >
           Show all
@@ -107,7 +236,7 @@ export default function CombinedResults({ explore = false }) {
 
       {/* Progressive stages */}
       <div className="space-y-3">
-        {STAGES.slice(0, visibleStages).map((stage, i) => (
+        {stages.slice(0, visibleStages).map((stage, i) => (
           <div key={stage.id} className="flex gap-3 items-start">
             {/* Step indicator */}
             <div className="flex flex-col items-center flex-shrink-0 pt-3">
@@ -138,16 +267,29 @@ export default function CombinedResults({ explore = false }) {
       </div>
 
       {/* Summary when all revealed */}
-      {visibleStages === STAGES.length && (
+      {visibleStages === stages.length && (
         <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-cyan-950/30 to-emerald-950/30 border border-cyan-800/30">
           <h4 className="text-sm font-semibold text-cyan-400 mb-2">The Full Journey</h4>
           <div className="grid grid-cols-7 gap-1 text-center text-xs mb-3">
-            {STAGES.map((s) => (
+            {stages.map((s) => (
               <div key={s.id} className={`py-1 px-0.5 rounded ${s.correct ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
                 {s.label.replace('+ ', '')}
               </div>
             ))}
           </div>
+
+          {/* Accuracy summary from real data */}
+          {summary && (
+            <div className="grid grid-cols-4 gap-2 text-center text-xs mb-3">
+              {Object.entries(summary).map(([variant, s]) => s && (
+                <div key={variant} className="py-1 px-1 rounded bg-slate-800/50">
+                  <div className="font-bold text-slate-200">{(s.accuracy * 100).toFixed(0)}%</div>
+                  <div className="text-slate-500">{variant.toUpperCase()}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <p className="text-sm text-slate-300">
             Each technique built on the last. Prompting gave format. RAG gave knowledge.
             SFT gave classification skill. DPO gave style. GRPO gave reasoning precision.

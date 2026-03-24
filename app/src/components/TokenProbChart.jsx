@@ -22,7 +22,7 @@ export default function TokenProbChart({
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    const margin = { top: 30, right: 20, bottom: 20, left: 100 }
+    const margin = { top: comparisonData ? 46 : 30, right: 20, bottom: 20, left: 100 }
     const w = width - margin.left - margin.right
     const h = height - margin.top - margin.bottom
 
@@ -149,12 +149,12 @@ export default function TokenProbChart({
         .delay(900)
         .attr('opacity', 1)
 
-      // Legend
-      const legend = svg.append('g').attr('transform', `translate(${margin.left + 10}, ${margin.top - 15})`)
+      // Legend — positioned below the title with breathing room
+      const legend = svg.append('g').attr('transform', `translate(${margin.left + 10}, ${margin.top - 12})`)
       legend.append('rect').attr('width', 10).attr('height', 10).attr('fill', '#ef4444').attr('opacity', 0.6).attr('rx', 2)
-      legend.append('text').attr('x', 14).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('Before')
-      legend.append('rect').attr('x', 70).attr('width', 10).attr('height', 10).attr('fill', '#3b82f6').attr('opacity', 0.8).attr('rx', 2)
-      legend.append('text').attr('x', 84).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text(comparisonLabel)
+      legend.append('text').attr('x', 14).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('Before (Zero-Shot)')
+      legend.append('rect').attr('x', 120).attr('width', 10).attr('height', 10).attr('fill', '#3b82f6').attr('opacity', 0.8).attr('rx', 2)
+      legend.append('text').attr('x', 134).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('After (Few-Shot)')
     } else {
       // Single distribution
       g.selectAll('.bar')

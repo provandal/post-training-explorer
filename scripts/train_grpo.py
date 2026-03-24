@@ -638,22 +638,46 @@ def main():
     # Save training curves
     with open(OUTPUT_DIR / "training_curves.json", "w") as f:
         json.dump({
-            "logs": training_logs,
+            "loss_curve": training_logs,  # [{"step": 0, "loss": ..., ...}, ...]
+            "logs": training_logs,        # backward-compat alias
             "training_time_seconds": round(train_time, 2),
             "total_steps": len(training_logs),
             "used_trl_grpo": use_trl_grpo,
         }, f, indent=2)
 
-    # Save generation logs (the rich data showing all 8 generations + scores)
+    # Save generation logs in the format the web app expects:
+    # {"examples": [{"input": "...", "true_label": "...",
+    #   "generations": [{"text": "...", "reward": 1.0, "correct": true}]}]}
+    def format_generation_logs(raw_logs):
+        """Convert internal generation log format to web app expected format."""
+        formatted = []
+        for entry in raw_logs:
+            example = {
+                "input": entry.get("prompt_snippet", ""),
+                "true_label": entry.get("true_label", ""),
+                "generations": [],
+            }
+            for comp in entry.get("completions", []):
+                predicted = comp.get("predicted_label", "")
+                t_label = entry.get("true_label", "")
+                example["generations"].append({
+                    "text": comp.get("text", ""),
+                    "reward": comp.get("reward", 0.0),
+                    "correct": predicted == t_label and predicted != "",
+                })
+            formatted.append(example)
+        return formatted
+
     if generation_logs:
+        formatted_gen_logs = format_generation_logs(generation_logs)
         with open(OUTPUT_DIR / "generation_logs.json", "w") as f:
-            json.dump(generation_logs, f, indent=2)
-        print(f"  Saved {len(generation_logs)} generation log entries "
-              f"(each with {8} completions + scores + advantages)")
+            json.dump({"examples": formatted_gen_logs}, f, indent=2)
+        print(f"  Saved {len(formatted_gen_logs)} generation log entries "
+              f"(each with {8} completions + scores)")
     else:
         # If using TRL's GRPOTrainer, generate some example logs post-hoc
         print("  Generating example generation logs post-training...")
-        example_logs = []
+        example_logs_raw = []
         policy_model.eval()
 
         for i, label in enumerate(LABELS):
@@ -681,45 +705,50 @@ def main():
                     completions.append(generated.strip())
 
             rewards = reward_fn(completions, label)
-            rewards_t = torch.tensor(rewards)
-            mean_r = rewards_t.mean().item()
-            std_r = rewards_t.std().item()
-            advantages = ((rewards_t - mean_r) / (std_r + 1e-8)).tolist() if std_r > 1e-8 else [0.0] * len(rewards)
 
-            entry = {
-                "step": "post-training",
+            entry_raw = {
                 "prompt_snippet": prompt[:120] + "...",
                 "true_label": label,
                 "completions": [],
-                "group_mean_reward": round(mean_r, 4),
-                "group_std_reward": round(std_r, 4),
             }
-            for comp, rew, adv in zip(completions, rewards, advantages):
+            for comp, rew in zip(completions, rewards):
                 predicted = extract_classification(comp)
-                entry["completions"].append({
+                entry_raw["completions"].append({
                     "text": comp[:200],
                     "predicted_label": predicted,
                     "reward": round(rew, 4),
-                    "advantage": round(adv, 4),
                 })
-            example_logs.append(entry)
+            example_logs_raw.append(entry_raw)
 
+        formatted_gen_logs = format_generation_logs(example_logs_raw)
         with open(OUTPUT_DIR / "generation_logs.json", "w") as f:
-            json.dump(example_logs, f, indent=2)
-        print(f"  Saved {len(example_logs)} post-training generation examples.")
+            json.dump({"examples": formatted_gen_logs}, f, indent=2)
+        print(f"  Saved {len(formatted_gen_logs)} post-training generation examples.")
+        generation_logs = example_logs_raw
 
-    # Save group statistics over training
+    # Save group statistics over training in the format the web app expects:
+    # {"accuracy_curve": [{"step": 0, "accuracy": 0.45}, ...],
+    #  "reward_curve": [{"step": 0, "mean_reward": 0.3}, ...],
+    #  "training_time_seconds": 2100}
     if training_logs:
+        accuracy_curve = [
+            {"step": l["step"], "accuracy": l.get("accuracy", 0)}
+            for l in training_logs
+        ]
+        reward_curve = [
+            {"step": l["step"], "mean_reward": l.get("mean_reward", l.get("reward", 0))}
+            for l in training_logs
+        ]
+
         stats_summary = {
+            "accuracy_curve": accuracy_curve,
+            "reward_curve": reward_curve,
+            "training_time_seconds": round(train_time, 2),
             "total_steps": len(training_logs),
             "initial_accuracy": training_logs[0].get("accuracy", 0),
             "final_accuracy": training_logs[-1].get("accuracy", 0),
             "initial_reward": training_logs[0].get("mean_reward", 0),
             "final_reward": training_logs[-1].get("mean_reward", 0),
-            "reward_trajectory": [
-                {"step": l["step"], "reward": l.get("mean_reward", l.get("reward", 0))}
-                for l in training_logs
-            ],
         }
         with open(OUTPUT_DIR / "group_statistics.json", "w") as f:
             json.dump(stats_summary, f, indent=2)

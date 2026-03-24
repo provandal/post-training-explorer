@@ -454,19 +454,58 @@ def main():
     print(f"  Saved LoRA adapter to {adapter_path}")
 
     # Save training loss curve
+    # Format: loss_curve for the web app, plus the raw losses for compatibility
     with open(OUTPUT_DIR / "training_loss.json", "w") as f:
         json.dump({
-            "losses": loss_callback.losses,
+            "loss_curve": loss_callback.losses,  # [{"step": 0, "loss": 2.8, "epoch": 0.0}, ...]
+            "losses": loss_callback.losses,      # backward-compat alias
             "final_loss": round(train_result.training_loss, 6),
             "training_time_seconds": round(train_time, 2),
             "total_steps": train_result.global_step,
         }, f, indent=2)
 
-    # Save LoRA weight visualization data
-    lora_weights = capture_lora_weights(model)
+    # Save LoRA weight visualization data (detailed per-layer format)
+    lora_weights_detailed = capture_lora_weights(model)
+    with open(OUTPUT_DIR / "lora_weights_detailed.json", "w") as f:
+        json.dump(lora_weights_detailed, f, indent=2)
+    print(f"  Saved detailed LoRA weight data ({len(lora_weights_detailed)} matrices)")
+
+    # Save simplified LoRA weight data in the format the web app expects:
+    # {"layer": "...", "lora_A": [[...]], "lora_B": [[...]], "rank": 16}
+    # We pick one representative attention layer to visualize.
+    lora_a_data = None
+    lora_b_data = None
+    target_layer_name = None
+    for name, param in model.named_parameters():
+        if "lora_A" in name and "q_proj" in name and param.requires_grad:
+            lora_a_data = param.detach().cpu().float().numpy()
+            # Derive the layer path from the parameter name
+            # e.g. "base_model.model.model.layers.8.self_attn.q_proj.lora_A.default.weight"
+            # We want something like "model.layers.8.self_attn.q_proj"
+            parts = name.replace(".lora_A.default.weight", "").replace(".lora_A.weight", "")
+            parts = parts.replace("base_model.model.", "")
+            target_layer_name = parts
+        if "lora_B" in name and "q_proj" in name and param.requires_grad:
+            lora_b_data = param.detach().cpu().float().numpy()
+
+    if lora_a_data is not None and lora_b_data is not None:
+        lora_weights_simple = {
+            "layer": target_layer_name,
+            "lora_A": lora_a_data.tolist(),
+            "lora_B": lora_b_data.tolist(),
+            "rank": int(lora_a_data.shape[0]),
+        }
+    else:
+        # Fallback: save from the detailed data
+        lora_weights_simple = {
+            "layer": "unknown",
+            "lora_A": [],
+            "lora_B": [],
+            "rank": 16,
+        }
     with open(OUTPUT_DIR / "lora_weights.json", "w") as f:
-        json.dump(lora_weights, f, indent=2)
-    print(f"  Saved LoRA weight data ({len(lora_weights)} matrices)")
+        json.dump(lora_weights_simple, f, indent=2)
+    print(f"  Saved LoRA weight visualization for layer: {target_layer_name}")
 
     # ── 6g. Capture SFT model outputs (after fine-tuning) ────────────
     print("\n[7/7] Capturing fine-tuned model outputs...")
@@ -478,19 +517,33 @@ def main():
     with open(OUTPUT_DIR / "sft_outputs.json", "w") as f:
         json.dump(sft_outputs, f, indent=2)
 
-    # Save before/after comparison
+    # Save before/after comparison in the format the web app expects:
+    # [{"input": "...", "base_output": "...", "sft_output": "...",
+    #   "true_label": "...", "base_correct": false, "sft_correct": true}]
     comparison = []
     for i in range(len(EXAMPLE_PROMPTS)):
+        true_label = EXAMPLE_PROMPTS[i]["label"]
+
+        # Check if each output contains the correct classification
+        base_text = base_outputs[i]["generated"]
+        sft_text = sft_outputs[i]["generated"]
+        base_correct = true_label.lower() in base_text.lower()
+        sft_correct = true_label.lower() in sft_text.lower()
+
         comparison.append({
-            "prompt_snippet": base_outputs[i]["prompt_snippet"],
-            "expected": base_outputs[i]["expected"],
-            "base_output": base_outputs[i]["generated"],
-            "sft_output": sft_outputs[i]["generated"],
+            "input": EXAMPLE_PROMPTS[i]["prompt"],
+            "base_output": base_text,
+            "sft_output": sft_text,
+            "true_label": true_label,
+            "base_correct": base_correct,
+            "sft_correct": sft_correct,
+            # Keep extra info for richer visualization
             "base_top3_tokens": base_probs[i]["top_tokens"][:3],
             "sft_top3_tokens": sft_probs[i]["top_tokens"][:3],
         })
     with open(OUTPUT_DIR / "before_after_comparison.json", "w") as f:
         json.dump(comparison, f, indent=2)
+    print(f"  Saved {len(comparison)} before/after comparison examples.")
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)

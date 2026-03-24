@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import * as d3 from 'd3'
 import LossChart from '../components/LossChart'
 import InfrastructureCard from '../components/InfrastructureCard'
+import SectionTabs from '../components/SectionTabs'
+import { isLoaded, getGRPOGenerationLogs, getGRPOAccuracyCurve, getGRPORewardCurve, getGRPOGroupStatistics, getTrainingTime } from '../data/loadArtifacts'
 
 // ---------------------------------------------------------------------------
 // Precomputed data: GRPO generation example (interactive demo)
@@ -69,7 +71,7 @@ const stdReward = Math.sqrt(rewards.reduce((sum, r) => sum + (r - meanReward) **
 // ---------------------------------------------------------------------------
 // Precomputed data: Training curves (Under the Covers)
 // ---------------------------------------------------------------------------
-const ACCURACY_CURVE = (() => {
+const FALLBACK_ACCURACY_CURVE = (() => {
   const data = []
   for (let step = 0; step <= 200; step += 2) {
     const base = 0.82 / (1 + Math.exp(-0.04 * (step - 60))) + 0.42
@@ -79,7 +81,7 @@ const ACCURACY_CURVE = (() => {
   return data
 })()
 
-const REWARD_CURVE = (() => {
+const FALLBACK_REWARD_CURVE = (() => {
   const data = []
   for (let step = 0; step <= 200; step += 2) {
     const base = 0.7 / (1 + Math.exp(-0.035 * (step - 70))) + 0.3
@@ -214,21 +216,59 @@ export default function GRPOGenerations({ explore = false }) {
   // --- under the covers state (deepdive tab) ---
   const [vizTab, setVizTab] = useState('advantage')
 
+  // --- Resolve real vs fallback data ---
+  const realLogs = isLoaded() ? getGRPOGenerationLogs() : null
+  const realFirstExample = realLogs?.examples?.[0] ?? null
+
+  // Use real generation example if available, otherwise fallback
+  const activeExample = realFirstExample
+    ? {
+        input: realFirstExample.input,
+        correctLabel: realFirstExample.true_label,
+        generations: realFirstExample.generations.map((g, i) => ({
+          id: i + 1,
+          text: g.text ?? g.generated_text ?? `Classification: ${g.label ?? 'Unknown'}`,
+          reward: g.reward ?? (g.correct ? 1.0 : 0.0),
+          correct: g.correct ?? false,
+        })),
+      }
+    : GRPO_EXAMPLE
+  const usingRealData = !!realFirstExample
+
+  // Accuracy & reward curves: map real data to LossChart's {step, loss} format
+  const rawAccuracy = isLoaded() ? getGRPOAccuracyCurve() : []
+  const accuracyCurve = rawAccuracy.length > 0
+    ? rawAccuracy.map(d => ({ step: d.step, loss: d.accuracy ?? d.loss }))
+    : FALLBACK_ACCURACY_CURVE
+
+  const rawReward = isLoaded() ? getGRPORewardCurve() : []
+  const rewardCurve = rawReward.length > 0
+    ? rawReward.map(d => ({ step: d.step, loss: d.mean_reward ?? d.loss }))
+    : FALLBACK_REWARD_CURVE
+
+  // Training time
+  const grpoTrainingTime = getTrainingTime('grpo')
+
+  // Group statistics for active example
+  const activeRewards = activeExample.generations.map(g => g.reward)
+  const activeMeanReward = activeRewards.reduce((a, b) => a + b, 0) / activeRewards.length
+  const activeStdReward = Math.sqrt(activeRewards.reduce((sum, r) => sum + (r - activeMeanReward) ** 2, 0) / activeRewards.length)
+
   const revealNext = () => {
-    if (revealedCount < GRPO_EXAMPLE.generations.length) {
+    if (revealedCount < activeExample.generations.length) {
       setRevealedCount(revealedCount + 1)
     }
-    if (revealedCount + 1 === GRPO_EXAMPLE.generations.length) {
+    if (revealedCount + 1 === activeExample.generations.length) {
       setShowStats(true)
     }
   }
 
   const revealAll = () => {
-    setRevealedCount(GRPO_EXAMPLE.generations.length)
+    setRevealedCount(activeExample.generations.length)
     setShowStats(true)
   }
 
-  const correctCount = GRPO_EXAMPLE.generations.filter(g => g.correct).length
+  const correctCount = activeExample.generations.filter(g => g.correct).length
 
   const tabs = [
     { id: 'problem', label: 'The Problem' },
@@ -245,21 +285,9 @@ export default function GRPOGenerations({ explore = false }) {
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* ---- Tab bar ---- */}
-      <div className="flex gap-1 mb-6 bg-slate-800 rounded-lg p-1 w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSection(tab.id)}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              section === tab.id
-                ? 'bg-emerald-600 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* ---- Tab bar (top) ---- */}
+      <div className="mb-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="emerald" />
       </div>
 
       {/* ================================================================= */}
@@ -477,7 +505,7 @@ export default function GRPOGenerations({ explore = false }) {
                 <div className="text-xs text-pink-400 mt-0.5">+ human preference labels</div>
               </div>
               <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-800/30">
-                <div className="text-2xl font-bold text-emerald-400">35 min</div>
+                <div className="text-2xl font-bold text-emerald-400">{grpoTrainingTime ? `${Math.round(grpoTrainingTime / 60)} min` : '35 min'}</div>
                 <div className="text-xs text-slate-400 mt-1">GRPO (Group Relative)</div>
                 <div className="text-xs text-emerald-400 mt-0.5">No labels needed</div>
               </div>
@@ -540,17 +568,25 @@ export default function GRPOGenerations({ explore = false }) {
             </p>
           </div>
 
+          {/* Real data indicator */}
+          {usingRealData && (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400/80 mb-2">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Using real training data
+            </div>
+          )}
+
           {/* Input */}
           <div className="mb-4">
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
               Challenge Input (Ambiguous: OLAP vs AI Training)
             </label>
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 font-mono text-sm text-slate-200">
-              {GRPO_EXAMPLE.input}
+              {activeExample.input}
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Correct answer: <span className="text-emerald-400 font-semibold">{GRPO_EXAMPLE.correctLabel}</span> |
-              The model generates <strong>8 attempts</strong>. Each is scored: correct = 1.0, incorrect = 0.0.
+              Correct answer: <span className="text-emerald-400 font-semibold">{activeExample.correctLabel}</span> |
+              The model generates <strong>{activeExample.generations.length} attempts</strong>. Each is scored: correct = 1.0, incorrect = 0.0.
             </p>
           </div>
 
@@ -558,10 +594,10 @@ export default function GRPOGenerations({ explore = false }) {
           <div className="flex gap-2 mb-4">
             <button
               onClick={revealNext}
-              disabled={revealedCount >= GRPO_EXAMPLE.generations.length}
+              disabled={revealedCount >= activeExample.generations.length}
               className="px-4 py-2 text-sm bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-md transition-colors"
             >
-              Reveal next generation ({revealedCount}/{GRPO_EXAMPLE.generations.length})
+              Reveal next generation ({revealedCount}/{activeExample.generations.length})
             </button>
             <button
               onClick={revealAll}
@@ -573,9 +609,9 @@ export default function GRPOGenerations({ explore = false }) {
 
           {/* Generation cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            {GRPO_EXAMPLE.generations.map((gen, i) => {
+            {activeExample.generations.map((gen, i) => {
               const isRevealed = i < revealedCount
-              const advantage = gen.reward - meanReward
+              const advantage = gen.reward - activeMeanReward
 
               return (
                 <div
@@ -629,15 +665,15 @@ export default function GRPOGenerations({ explore = false }) {
               <h4 className="text-sm font-semibold text-emerald-400 mb-3">Group Statistics (GRPO)</h4>
               <div className="grid grid-cols-4 gap-4 text-center mb-3">
                 <div>
-                  <div className="text-2xl font-bold text-emerald-400">{correctCount}/8</div>
+                  <div className="text-2xl font-bold text-emerald-400">{correctCount}/{activeExample.generations.length}</div>
                   <div className="text-xs text-slate-500">Correct</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-200">{meanReward.toFixed(3)}</div>
+                  <div className="text-2xl font-bold text-slate-200">{activeMeanReward.toFixed(3)}</div>
                   <div className="text-xs text-slate-500">Mean Reward</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-slate-200">{stdReward.toFixed(3)}</div>
+                  <div className="text-2xl font-bold text-slate-200">{activeStdReward.toFixed(3)}</div>
                   <div className="text-xs text-slate-500">Std Dev</div>
                 </div>
                 <div>
@@ -647,9 +683,9 @@ export default function GRPOGenerations({ explore = false }) {
               </div>
 
               <p className="text-xs text-slate-400">
-                <strong className="text-emerald-300">How GRPO learns:</strong> The mean reward ({meanReward.toFixed(3)}) is the baseline.
-                The {correctCount} correct generations get <span className="text-emerald-300">positive advantage</span> (+{(1.0 - meanReward).toFixed(2)}) &mdash; they're reinforced.
-                The {8 - correctCount} incorrect generations get <span className="text-red-300">negative advantage</span> ({(0 - meanReward).toFixed(2)}) &mdash; they're suppressed.
+                <strong className="text-emerald-300">How GRPO learns:</strong> The mean reward ({activeMeanReward.toFixed(3)}) is the baseline.
+                The {correctCount} correct generations get <span className="text-emerald-300">positive advantage</span> (+{(1.0 - activeMeanReward).toFixed(2)}) &mdash; they're reinforced.
+                The {activeExample.generations.length - correctCount} incorrect generations get <span className="text-red-300">negative advantage</span> ({(0 - activeMeanReward).toFixed(2)}) &mdash; they're suppressed.
                 No critic network, no reward model &mdash; just group statistics.
               </p>
 
@@ -668,6 +704,13 @@ export default function GRPOGenerations({ explore = false }) {
       {/* ================================================================= */}
       {section === 'deepdive' && (
         <div className="space-y-6">
+          {isLoaded() && (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400/80">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Using real training data
+            </div>
+          )}
+
           {/* Viz sub-tabs */}
           <div className="flex gap-1 bg-slate-800 rounded-lg p-1 w-fit">
             {vizTabs.map((tab) => (
@@ -712,7 +755,7 @@ export default function GRPOGenerations({ explore = false }) {
                 toward the correct ones.
               </p>
               <LossChart
-                data={ACCURACY_CURVE}
+                data={accuracyCurve}
                 label="Classification Accuracy Over Training"
                 color="#10b981"
                 width={550}
@@ -730,7 +773,7 @@ export default function GRPOGenerations({ explore = false }) {
                 A mean reward of 1.0 would mean every generation in every group is correct.
               </p>
               <LossChart
-                data={REWARD_CURVE}
+                data={rewardCurve}
                 label="Mean Group Reward Over Training"
                 color="#10b981"
                 width={550}
@@ -763,6 +806,11 @@ export default function GRPOGenerations({ explore = false }) {
           <InfrastructureCard data={GRPO_INFRA} />
         </div>
       )}
+
+      {/* ---- Tab bar (bottom) ---- */}
+      <div className="mt-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="emerald" />
+      </div>
     </div>
   )
 }

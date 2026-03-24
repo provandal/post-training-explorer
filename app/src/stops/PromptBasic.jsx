@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import ModelOutput from '../components/ModelOutput'
 import TokenProbChart from '../components/TokenProbChart'
+import SectionTabs from '../components/SectionTabs'
+import { isLoaded, getTestPrompts, getModelOutput, getTokenProbsForChart, formatPromptMetrics } from '../data/loadArtifacts'
+import useStore from '../store'
 
 // ---------------------------------------------------------------------------
 // Precomputed data
@@ -11,7 +14,7 @@ const EXAMPLE_INPUT =
 
 const BASE_RESPONSE = `This appears to be some kind of storage performance metrics. The IOPS value is 45000 which is relatively high. The latency is 0.3ms which is quite low. The block size is 8K. There is a 70/30 read to write ratio with 15% sequential access and a queue depth of 32. These metrics could be from various types of storage workloads depending on the specific use case and configuration being measured.`
 
-const BASE_TOKEN_PROBS = [
+const FALLBACK_BASE_TOKEN_PROBS = [
   { token: 'This', probability: 0.18 },
   { token: 'The', probability: 0.14 },
   { token: 'Based', probability: 0.09 },
@@ -78,6 +81,21 @@ const USER_MESSAGE = `Classify this storage I/O pattern into a workload type:\n\
 export default function PromptBasic({ explore = false }) {
   const [section, setSection] = useState('problem')
   const [selectedVariant, setSelectedVariant] = useState(0)
+  const selectedPromptId = useStore((s) => s.selectedPromptId)
+
+  // Use real token prob data when available, fall back to hardcoded
+  const baseTokenProbs = (() => {
+    if (!isLoaded()) return FALLBACK_BASE_TOKEN_PROBS
+    const real = getTokenProbsForChart('base', selectedPromptId)
+    return real.length > 0 ? real : FALLBACK_BASE_TOKEN_PROBS
+  })()
+
+  // Use real base model output for the demo tab when available
+  const demoBaseResponse = (() => {
+    if (!isLoaded()) return BASE_RESPONSE
+    const output = getModelOutput('base', 0)
+    return output?.generated_text ?? BASE_RESPONSE
+  })()
 
   const tabs = [
     { id: 'problem', label: 'The Problem' },
@@ -88,21 +106,9 @@ export default function PromptBasic({ explore = false }) {
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* ---- Tab bar ---- */}
-      <div className="flex gap-1 mb-6 bg-slate-800 rounded-lg p-1 w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSection(tab.id)}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              section === tab.id
-                ? 'bg-orange-600 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* ---- Tab bar (top) ---- */}
+      <div className="mb-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="orange" />
       </div>
 
       {/* ==================== THE PROBLEM ==================== */}
@@ -397,7 +403,7 @@ export default function PromptBasic({ explore = false }) {
           {/* Model response */}
           <ModelOutput
             label="Base Model Response (SmolLM2-360M, no fine-tuning)"
-            text={BASE_RESPONSE}
+            text={demoBaseResponse}
             variant="base"
             isCorrect={false}
           />
@@ -472,7 +478,7 @@ export default function PromptBasic({ explore = false }) {
           {/* Token prob chart */}
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
             <TokenProbChart
-              data={BASE_TOKEN_PROBS}
+              data={baseTokenProbs}
               label="Base Model: First Token Probabilities"
               highlightToken="OLTP"
             />
@@ -561,6 +567,11 @@ export default function PromptBasic({ explore = false }) {
           </div>
         </div>
       )}
+
+      {/* ---- Tab bar (bottom) ---- */}
+      <div className="mt-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="orange" />
+      </div>
     </div>
   )
 }

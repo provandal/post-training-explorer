@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { loadArtifacts, isLoaded } from './data/loadArtifacts'
 
 const useStore = create((set, get) => ({
   // Mode: 'landing' | 'tour' | 'explore'
@@ -16,17 +17,32 @@ const useStore = create((set, get) => ({
   userPreferences: [],  // For DPO stop - which outputs they preferred
   userPrompts: [],      // Custom prompts they've tried
 
-  // Model loading state (for future live inference)
+  // Precomputed data loading state
+  artifactsLoaded: false,
+  artifactsError: null,
+
+  // Selected test prompt for pattern picker (0-19)
+  selectedPromptId: 0,
+
+  // Model loading state (for client-side inference)
   modelsLoaded: {
     base: false,
-    sft: false,
-    dpo: false,
     grpo: false,
+  },
+  modelDownloadProgress: {
+    base: 0,
+    grpo: 0,
   },
 
   // Actions
-  startTour: () => set({ mode: 'tour', currentStep: 0 }),
-  startExplore: () => set({ mode: 'explore', activeQuadrant: 'prompt' }),
+  startTour: () => {
+    set({ mode: 'tour', currentStep: 0 })
+    get().loadArtifactsIfNeeded()
+  },
+  startExplore: () => {
+    set({ mode: 'explore', activeQuadrant: 'prompt' })
+    get().loadArtifactsIfNeeded()
+  },
 
   nextStep: () => {
     const { currentStep } = get()
@@ -55,9 +71,27 @@ const useStore = create((set, get) => ({
 
   setMode: (mode) => set({ mode }),
 
+  setSelectedPromptId: (id) => set({ selectedPromptId: id }),
+
+  loadArtifactsIfNeeded: async () => {
+    if (isLoaded()) {
+      set({ artifactsLoaded: true })
+      return
+    }
+    const success = await loadArtifacts()
+    set({ artifactsLoaded: success, artifactsError: success ? null : 'Failed to load precomputed data' })
+  },
+
+  setArtifactsLoaded: (loaded = true) => set({ artifactsLoaded: loaded }),
+
   setModelLoaded: (model) =>
     set((state) => ({
       modelsLoaded: { ...state.modelsLoaded, [model]: true },
+    })),
+
+  setModelDownloadProgress: (model, progress) =>
+    set((state) => ({
+      modelDownloadProgress: { ...state.modelDownloadProgress, [model]: progress },
     })),
 }))
 

@@ -9,6 +9,23 @@ This pattern shows high IOPS with low latency and small block sizes. However, th
 export default function PromptLimitation() {
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Intro — bridge from few-shot */}
+      <div className="mb-5 p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
+        <h3 className="text-base font-semibold text-orange-400 mb-3">
+          Where prompting breaks down
+        </h3>
+        <p className="text-sm text-slate-300 leading-relaxed mb-3">
+          Few-shot prompting worked well on clear-cut patterns. But real-world storage
+          workloads aren't always obvious &mdash; some patterns sit right on the boundary
+          between two categories. Below is an I/O profile that could plausibly be either
+          OLTP or VDI. Let's see how the model handles ambiguity.
+        </p>
+        <p className="text-sm text-slate-400 leading-relaxed">
+          This is the fundamental ceiling of prompt engineering: no matter how well you
+          phrase the question, you can't give the model expertise it doesn't have.
+        </p>
+      </div>
+
       {/* The hard example */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">

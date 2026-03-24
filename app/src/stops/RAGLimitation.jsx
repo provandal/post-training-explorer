@@ -19,6 +19,23 @@ Key indicators: Balanced R/W ratio (55/45) and high queue depth (64) distinguish
 export default function RAGLimitation() {
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Intro — bridge from RAG success */}
+      <div className="mb-5 p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
+        <h3 className="text-base font-semibold text-yellow-400 mb-3">
+          RAG gave the model knowledge. It didn't give it discipline.
+        </h3>
+        <p className="text-sm text-slate-300 leading-relaxed mb-3">
+          In the previous stop, RAG worked beautifully &mdash; the model pulled the right
+          reference pattern and classified correctly. But that was a clear-cut case. Now
+          we give it the same ambiguous I/O pattern that tripped up few-shot prompting
+          and see whether having a knowledge base is enough.
+        </p>
+        <p className="text-sm text-slate-400 leading-relaxed">
+          Spoiler: the model gets the right answer this time. The problem is <em>how</em> it
+          delivers it.
+        </p>
+      </div>
+
       {/* Input */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">

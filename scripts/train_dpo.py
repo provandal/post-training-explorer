@@ -436,9 +436,11 @@ def main():
     print(f"  Saved DPO adapter to {adapter_path}")
 
     # Save training curves
+    # Format: loss_curve for the web app, plus the raw logs for compatibility
     with open(OUTPUT_DIR / "training_curves.json", "w") as f:
         json.dump({
-            "logs": loss_callback.logs,
+            "loss_curve": loss_callback.logs,  # [{"step": 0, "loss": ..., ...}, ...]
+            "logs": loss_callback.logs,        # backward-compat alias
             "final_loss": round(train_result.training_loss, 6),
             "training_time_seconds": round(train_time, 2),
             "total_steps": train_result.global_step,
@@ -450,8 +452,93 @@ def main():
         json.dump(post_dpo_probs, f, indent=2)
 
     # Save probability shift analysis
-    # This shows how DPO moved the model's probability mass
-    prob_shifts = []
+    # Format expected by the web app:
+    # {"examples": [{"input": "...", "chosen_style": "concise", "rejected_style": "verbose",
+    #   "before": {"chosen_log_prob": -2.1, "rejected_log_prob": -1.8},
+    #   "after": {"chosen_log_prob": -0.9, "rejected_log_prob": -3.2}}]}
+    #
+    # We compute actual log probabilities for a few chosen/rejected pairs
+    # using both the pre-DPO (reference) and post-DPO (trained) models.
+    print("  Computing chosen/rejected log-probability shifts...")
+
+    # We need the reference model (pre-DPO SFT model) for "before" log probs.
+    # Re-load the SFT model as reference since the current model has been DPO-trained.
+    ref_base = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME, trust_remote_code=True,
+        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+    ).to(device)
+    ref_model_for_probs = PeftModel.from_pretrained(ref_base, str(SFT_ADAPTER))
+    ref_model_for_probs = ref_model_for_probs.merge_and_unload()
+    ref_model_for_probs.eval()
+
+    def compute_completion_log_prob(mdl, prompt_text, completion_text):
+        """Compute log probability of completion given prompt."""
+        full_text = prompt_text + "\n\n" + completion_text
+        inputs = tokenizer(full_text, return_tensors="pt", truncation=True, max_length=512).to(device)
+        prompt_only = tokenizer(prompt_text + "\n\n", return_tensors="pt", truncation=True, max_length=400)
+        prompt_len = prompt_only["input_ids"].shape[1]
+        with torch.no_grad():
+            outputs = mdl(**inputs)
+            logits = outputs.logits
+            shift_logits = logits[:, prompt_len - 1:-1, :]
+            shift_labels = inputs["input_ids"][:, prompt_len:]
+            log_probs = torch.log_softmax(shift_logits, dim=-1)
+            token_log_probs = log_probs.gather(2, shift_labels.unsqueeze(-1)).squeeze(-1)
+            # Return mean log prob per token (normalized by length)
+            return token_log_probs.mean().item()
+
+    # Use a subset of the raw preference pairs for probability shift examples
+    prob_shift_examples = []
+    shift_sample_pairs = raw_pairs[:8]  # Use first 8 pairs
+
+    for pair in shift_sample_pairs:
+        prompt = pair["prompt"]
+        chosen = pair["chosen"]
+        rejected = pair["rejected"]
+        strategy = pair["rejection_strategy"]
+
+        # Determine style labels
+        chosen_style = "concise"
+        if strategy == "wrong_label":
+            rejected_style = "wrong_label"
+        elif strategy == "verbose_correct":
+            rejected_style = "verbose"
+        else:
+            rejected_style = "wrong_and_verbose"
+
+        # Before (reference/SFT model) log probs
+        before_chosen_lp = compute_completion_log_prob(ref_model_for_probs, prompt, chosen)
+        before_rejected_lp = compute_completion_log_prob(ref_model_for_probs, prompt, rejected)
+
+        # After (DPO-trained model) log probs
+        after_chosen_lp = compute_completion_log_prob(model, prompt, chosen)
+        after_rejected_lp = compute_completion_log_prob(model, prompt, rejected)
+
+        prob_shift_examples.append({
+            "input": prompt[:200] + "..." if len(prompt) > 200 else prompt,
+            "chosen_style": chosen_style,
+            "rejected_style": rejected_style,
+            "before": {
+                "chosen_log_prob": round(before_chosen_lp, 4),
+                "rejected_log_prob": round(before_rejected_lp, 4),
+            },
+            "after": {
+                "chosen_log_prob": round(after_chosen_lp, 4),
+                "rejected_log_prob": round(after_rejected_lp, 4),
+            },
+        })
+
+    # Clean up reference model
+    del ref_model_for_probs
+    del ref_base
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+
+    with open(OUTPUT_DIR / "probability_shifts.json", "w") as f:
+        json.dump({"examples": prob_shift_examples}, f, indent=2)
+    print(f"  Saved probability shifts for {len(prob_shift_examples)} examples.")
+
+    # Also save the legacy top-token probability shift data
+    prob_shifts_legacy = []
     for i in range(len(EXAMPLE_PROMPTS_FOR_PROBS)):
         pre = pre_dpo_probs[i]
         post = post_dpo_probs[i]
@@ -461,10 +548,10 @@ def main():
             "pre_dpo_top5": list(zip(pre["top_tokens"][:5], pre["top_probs"][:5])),
             "post_dpo_top5": list(zip(post["top_tokens"][:5], post["top_probs"][:5])),
         }
-        prob_shifts.append(shift)
+        prob_shifts_legacy.append(shift)
 
-    with open(OUTPUT_DIR / "probability_shifts.json", "w") as f:
-        json.dump(prob_shifts, f, indent=2)
+    with open(OUTPUT_DIR / "token_probability_shifts.json", "w") as f:
+        json.dump(prob_shifts_legacy, f, indent=2)
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)

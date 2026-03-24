@@ -3,6 +3,8 @@ import * as d3 from 'd3'
 import useStore from '../store'
 import ModelOutput from '../components/ModelOutput'
 import InfrastructureCard from '../components/InfrastructureCard'
+import SectionTabs from '../components/SectionTabs'
+import { isLoaded, getDPOProbabilityShifts, getDPOLossCurve, getTestPrompts, getModelOutput, getTokenProbsForChart, formatPromptMetrics, getTrainingTime } from '../data/loadArtifacts'
 
 // ---------------------------------------------------------------------------
 // Precomputed data: Preference pairs (interactive demo)
@@ -48,7 +50,7 @@ Note: Could be confused with Video Streaming, but IOPS (22K) and queue depth are
 // ---------------------------------------------------------------------------
 // Precomputed data: Probability shift (Under the Covers)
 // ---------------------------------------------------------------------------
-const PROB_SHIFT = {
+const FALLBACK_PROB_SHIFT = {
   example: "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32",
   chosen: "Concise, confident, structured",
   rejected: "Verbose, hedging, uncertain",
@@ -82,6 +84,14 @@ const DPO_INFRA = {
 function ProbabilityShiftChart() {
   const svgRef = useRef()
 
+  // Resolve real vs fallback data
+  const realShifts = isLoaded() ? getDPOProbabilityShifts() : null
+  const realExample = realShifts?.examples?.[0] ?? null
+  const probData = realExample
+    ? { before: realExample.before, after: realExample.after }
+    : { before: FALLBACK_PROB_SHIFT.before, after: FALLBACK_PROB_SHIFT.after }
+  const usingReal = !!realExample
+
   useEffect(() => {
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
@@ -96,8 +106,8 @@ function ProbabilityShiftChart() {
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
     const categories = ['Chosen\n(concise)', 'Rejected\n(verbose)']
-    const beforeData = [PROB_SHIFT.before.chosenLogProb, PROB_SHIFT.before.rejectedLogProb]
-    const afterData = [PROB_SHIFT.after.chosenLogProb, PROB_SHIFT.after.rejectedLogProb]
+    const beforeData = [probData.before.chosenLogProb, probData.before.rejectedLogProb]
+    const afterData = [probData.after.chosenLogProb, probData.after.rejectedLogProb]
 
     const x = d3.scaleBand().domain(categories).range([0, w]).padding(0.4)
     const y = d3.scaleLinear().domain([-4, 0]).range([h, 0])
@@ -190,9 +200,19 @@ function ProbabilityShiftChart() {
     legend.append('text').attr('x', 14).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('Before DPO')
     legend.append('rect').attr('x', 100).attr('width', 10).attr('height', 10).attr('fill', '#22c55e').attr('opacity', 0.8).attr('rx', 2)
     legend.append('text').attr('x', 114).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('After DPO')
-  }, [])
+  }, [probData])
 
-  return <svg ref={svgRef} />
+  return (
+    <div>
+      <svg ref={svgRef} />
+      {usingReal && (
+        <div className="mt-1 text-xs text-emerald-400/70 flex items-center gap-1">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          Using real training data
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ===========================================================================
@@ -232,21 +252,9 @@ export default function DPOPreferences({ explore = false }) {
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* ---- Tab bar ---- */}
-      <div className="flex gap-1 mb-6 bg-slate-800 rounded-lg p-1 w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSection(tab.id)}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              section === tab.id
-                ? 'bg-pink-600 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* ---- Tab bar (top) ---- */}
+      <div className="mb-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="pink" />
       </div>
 
       {/* ================================================================= */}
@@ -409,7 +417,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                   <p className="text-slate-600 line-through">3. No value network needed</p>
                 </div>
                 <p className="text-xs text-green-300 mt-3 font-semibold">
-                  5.1 GB GPU memory. 8 min training. Stable.
+                  5.1 GB GPU memory. {(() => { const t = getTrainingTime('dpo'); return t ? `${Math.round(t / 60)} min` : '8 min' })()} training. Stable.
                 </p>
               </div>
             </div>
@@ -457,7 +465,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                 <strong>Key insight:</strong> DPO doesn't need a separate reward model. It
                 learns preferences directly from chosen/rejected pairs — same result as RLHF
                 with 60% less compute. For our demo: 400 preference pairs, 0.12% of
-                parameters trained via LoRA, 8 minutes of training on a single GPU.
+                parameters trained via LoRA, {(() => { const t = getTrainingTime('dpo'); return t ? `${Math.round(t / 60)} minutes` : '8 minutes' })()} of training on a single GPU.
               </p>
             </div>
           </div>
@@ -583,6 +591,13 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
       {/* ================================================================= */}
       {section === 'deepdive' && (
         <div className="space-y-6">
+          {isLoaded() && (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400/80">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Using real training data
+            </div>
+          )}
+
           {/* Probability shift visualization */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-pink-400 mb-3">
@@ -666,7 +681,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                 <li>Math proves this is equivalent to implicit reward modeling</li>
               </ol>
               <p className="text-xs text-green-300 mt-2 font-semibold">
-                1 model in memory. 8 minutes training. Same result.
+                1 model in memory. {(() => { const t = getTrainingTime('dpo'); return t ? `${Math.round(t / 60)} minutes` : '8 minutes' })()} training. Same result.
               </p>
             </div>
           </div>
@@ -680,6 +695,11 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           </div>
         </div>
       )}
+
+      {/* ---- Tab bar (bottom) ---- */}
+      <div className="mt-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="pink" />
+      </div>
     </div>
   )
 }

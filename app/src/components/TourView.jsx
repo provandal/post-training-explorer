@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import useStore from '../store'
 import tourSteps from '../data/tourSteps'
 import QuadrantMap from './QuadrantMap'
@@ -35,6 +36,24 @@ const STOP_COMPONENTS = {
 export default function TourView() {
   const currentStep = useStore((s) => s.currentStep)
   const step = tourSteps[currentStep]
+
+  // Keyboard navigation: Left/Right arrows move between tour steps
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't intercept when the user is typing in an input or textarea
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+
+      if (e.key === 'ArrowLeft') {
+        useStore.getState().prevStep()
+      } else if (e.key === 'ArrowRight') {
+        useStore.getState().nextStep()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const StopComponent = STOP_COMPONENTS[step.component]
 

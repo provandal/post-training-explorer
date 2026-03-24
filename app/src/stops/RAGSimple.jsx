@@ -2,6 +2,8 @@ import { useState } from 'react'
 import ModelOutput from '../components/ModelOutput'
 import AnimatedPipeline from '../components/AnimatedPipeline'
 import VectorSearchViz from '../components/VectorSearchViz'
+import SectionTabs from '../components/SectionTabs'
+import useStore from '../store'
 
 const EXAMPLE_INPUT = "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32"
 
@@ -55,30 +57,21 @@ const RAG_PIPELINE_STEPS = [
 
 export default function RAGSimple({ explore = false }) {
   const [section, setSection] = useState('problem')
-  const sections = ['problem', 'concept', 'demo', 'deepdive']
+  const [showContextAside, setShowContextAside] = useState(false)
+  const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
+  const setMode = useStore((s) => s.setMode)
+  const tabs = [
+    { id: 'problem', label: 'The Problem' },
+    { id: 'concept', label: 'How RAG Works' },
+    { id: 'demo', label: 'See It Work' },
+    { id: 'deepdive', label: 'Deep Dive: Vector Search' },
+  ]
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Section tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-800 rounded-lg p-1 w-fit">
-        {[
-          { id: 'problem', label: 'The Problem' },
-          { id: 'concept', label: 'How RAG Works' },
-          { id: 'demo', label: 'See It Work' },
-          { id: 'deepdive', label: 'Deep Dive: Vector Search' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSection(tab.id)}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              section === tab.id
-                ? 'bg-yellow-600 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Section tabs (top) */}
+      <div className="mb-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="yellow" />
       </div>
 
       {/* ==================== PROBLEM ==================== */}
@@ -97,9 +90,37 @@ export default function RAGSimple({ explore = false }) {
                 <h4 className="text-sm font-semibold text-red-300 mb-1">Context window is finite</h4>
                 <p className="text-xs text-slate-400">
                   Every example you add consumes tokens. With 6 workload categories and multiple
-                  examples each, you'd use thousands of tokens just for examples — leaving less room
+                  examples each, you'd use thousands of tokens just for examples &mdash; leaving less room
                   for the actual query and response.
                 </p>
+                <button
+                  onClick={() => setShowContextAside(!showContextAside)}
+                  className="mt-2 text-xs text-purple-400 hover:text-purple-300 underline underline-offset-4 cursor-pointer"
+                >
+                  {showContextAside ? 'Hide' : 'Why does this matter?'}
+                </button>
+                {showContextAside && (
+                  <div className="mt-2 p-3 rounded bg-purple-950/20 border border-purple-800/30">
+                    <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                      Language models process everything &mdash; system prompt, conversation
+                      history, RAG documents, few-shot examples, and their own response &mdash;
+                      inside a single fixed-size <strong className="text-purple-300">context window</strong>.
+                      When that window fills up, older content gets dropped or summarized, leading
+                      to <strong className="text-purple-300">context rot</strong>: the model
+                      quietly forgets instructions, contradicts earlier answers, or misses key
+                      details buried in the middle of long inputs.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setActiveQuadrant('context')
+                        setMode('explore')
+                      }}
+                      className="text-xs font-semibold text-purple-400 hover:text-purple-300 underline underline-offset-4 cursor-pointer"
+                    >
+                      Deep dive: Context windows, rot, and management strategies &rarr;
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="p-3 rounded bg-slate-800/50">
                 <h4 className="text-sm font-semibold text-red-300 mb-1">Static and inflexible</h4>
@@ -320,6 +341,11 @@ export default function RAGSimple({ explore = false }) {
           </div>
         </div>
       )}
+
+      {/* Section tabs (bottom) */}
+      <div className="mt-6">
+        <SectionTabs tabs={tabs} active={section} onSelect={setSection} color="yellow" />
+      </div>
     </div>
   )
 }

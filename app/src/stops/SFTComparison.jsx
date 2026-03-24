@@ -4,11 +4,19 @@ import ModelOutput from '../components/ModelOutput'
 import InfrastructureCard from '../components/InfrastructureCard'
 import TokenProbChart from '../components/TokenProbChart'
 import LossChart from '../components/LossChart'
+import SectionTabs from '../components/SectionTabs'
+import PatternPicker from '../components/PatternPicker'
+import useStore from '../store'
+import {
+  isLoaded, getTestPrompts, getModelOutput, getTokenProbsForChart,
+  getSFTLossCurve, getLoRAWeights, getSFTBeforeAfter, getModelSummary,
+  formatPromptMetrics, getTrainingTime,
+} from '../data/loadArtifacts'
 
 /* ──────────────────────────────────────────────
-   Pre-computed data: Examples for the demo tab
+   Fallback data: Examples for the demo tab
    ────────────────────────────────────────────── */
-const EXAMPLES = [
+const FALLBACK_EXAMPLES = [
   {
     id: 1,
     input: "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32",
@@ -79,11 +87,9 @@ const SFT_INFRA = {
 }
 
 /* ──────────────────────────────────────────────
-   Under-the-covers data
+   Fallback token probabilities
    ────────────────────────────────────────────── */
-
-// Pre-computed token probabilities for Example 1 (OLTP Database)
-const BASE_PROBS = [
+const FALLBACK_BASE_PROBS = [
   { token: 'This', probability: 0.18 },
   { token: 'The', probability: 0.14 },
   { token: 'Based', probability: 0.09 },
@@ -101,7 +107,7 @@ const BASE_PROBS = [
   { token: 'Given', probability: 0.02 },
 ]
 
-const SFT_PROBS = [
+const FALLBACK_SFT_PROBS = [
   { token: 'Classification', probability: 0.73 },
   { token: 'OLTP', probability: 0.08 },
   { token: 'This', probability: 0.03 },
@@ -119,8 +125,8 @@ const SFT_PROBS = [
   { token: 'Given', probability: 0.003 },
 ]
 
-// Realistic SFT loss curve (525 steps, 3 epochs)
-const LOSS_CURVE = (() => {
+// Fallback SFT loss curve (525 steps, 3 epochs)
+const FALLBACK_LOSS_CURVE = (() => {
   const data = []
   for (let step = 0; step <= 525; step += 3) {
     const baseDecay = 2.8 * Math.exp(-step / 120) + 0.25
@@ -136,6 +142,9 @@ const LOSS_CURVE = (() => {
    ────────────────────────────────────────────── */
 function LoRAWeightHeatmap() {
   const svgRef = useRef()
+
+  // Try to use real LoRA weight data
+  const realWeights = isLoaded() ? getLoRAWeights() : null
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
@@ -153,16 +162,33 @@ function LoRAWeightHeatmap() {
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
     const weights = []
-    for (let i = 0; i < rows; i++) {
-      for (let j = 0; j < cols; j++) {
-        const signal = (i < 4 ? 0.3 : 0.1) * Math.sin(i * 0.8 + j * 0.3) * Math.cos(j * 0.5 - i * 0.2)
-        const noise = (Math.random() - 0.5) * 0.1
-        weights.push({ row: i, col: j, value: signal + noise })
+    if (realWeights?.lora_A && realWeights?.lora_B) {
+      // Use real LoRA weight matrices
+      const A = realWeights.lora_A
+      const B = realWeights.lora_B
+      for (let i = 0; i < Math.min(rows, A.length); i++) {
+        for (let j = 0; j < Math.min(cols, (B[0] || []).length); j++) {
+          let value = 0
+          for (let k = 0; k < Math.min(A[0]?.length || 0, B.length); k++) {
+            value += (A[i]?.[k] || 0) * (B[k]?.[j] || 0)
+          }
+          weights.push({ row: i, col: j, value })
+        }
+      }
+    } else {
+      // Fallback: synthetic but structured weights
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+          const signal = (i < 4 ? 0.3 : 0.1) * Math.sin(i * 0.8 + j * 0.3) * Math.cos(j * 0.5 - i * 0.2)
+          const noise = (Math.random() - 0.5) * 0.1
+          weights.push({ row: i, col: j, value: signal + noise })
+        }
       }
     }
 
+    const maxAbs = d3.max(weights, d => Math.abs(d.value)) || 0.4
     const colorScale = d3.scaleSequential(d3.interpolateRdBu)
-      .domain([0.4, -0.4])
+      .domain([maxAbs, -maxAbs])
 
     g.selectAll('rect')
       .data(weights)
@@ -179,11 +205,12 @@ function LoRAWeightHeatmap() {
       .duration(300)
       .attr('opacity', 1)
 
+    const layerLabel = realWeights?.layer || 'layer 8, q_proj'
     svg.append('text')
       .attr('x', width / 2).attr('y', 15)
       .attr('text-anchor', 'middle')
       .attr('fill', '#94a3b8').attr('font-size', '11').attr('font-weight', '600')
-      .text('LoRA Weight Delta (layer 8, q_proj)')
+      .text(`LoRA Weight Delta (${layerLabel})`)
 
     svg.append('text')
       .attr('x', margin.left + (cols * cellSize) / 2).attr('y', margin.top + rows * cellSize + 20)
@@ -196,10 +223,10 @@ function LoRAWeightHeatmap() {
       .attr('x', -(margin.top + (rows * cellSize) / 2)).attr('y', 15)
       .attr('text-anchor', 'middle')
       .attr('fill', '#64748b').attr('font-size', '9')
-      .text('LoRA rank (r=16)')
+      .text(`LoRA rank (r=${realWeights?.rank || 16})`)
 
     const legendG = svg.append('g').attr('transform', `translate(${margin.left + cols * cellSize + 15}, ${margin.top})`)
-    const legendScale = d3.scaleLinear().domain([-0.4, 0.4]).range([rows * cellSize, 0])
+    const legendScale = d3.scaleLinear().domain([-maxAbs, maxAbs]).range([rows * cellSize, 0])
     const legendAxis = d3.axisRight(legendScale).ticks(5).tickFormat(d3.format('.1f'))
 
     const defs = svg.append('defs')
@@ -215,7 +242,7 @@ function LoRAWeightHeatmap() {
     legendG.append('g').attr('transform', 'translate(14,0)')
       .call(legendAxis)
       .selectAll('text').attr('fill', '#64748b').attr('font-size', '8')
-  }, [])
+  }, [realWeights])
 
   return <svg ref={svgRef} />
 }
@@ -227,8 +254,59 @@ export default function SFTComparison({ explore = false }) {
   const [section, setSection] = useState('problem')
   const [selectedExample, setSelectedExample] = useState(0)
   const [deepTab, setDeepTab] = useState('probs')
+  const [showTransformerAside, setShowTransformerAside] = useState(false)
+  const [showLoRAAside, setShowLoRAAside] = useState(false)
+  const selectedPromptId = useStore((s) => s.selectedPromptId)
+  const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
+  const setMode = useStore((s) => s.setMode)
 
-  const ex = EXAMPLES[selectedExample]
+  const hasRealData = isLoaded()
+
+  // Build demo examples from real data or use fallback
+  let examples = FALLBACK_EXAMPLES
+  if (hasRealData) {
+    const testPrompts = getTestPrompts()
+    const realExamples = testPrompts.slice(0, 5).map((tp) => {
+      const baseOut = getModelOutput('base', tp.id)
+      const sftOut = getModelOutput('sft', tp.id)
+      return {
+        id: tp.id,
+        input: formatPromptMetrics(tp),
+        label: tp.true_label,
+        difficulty: tp.id < 8 ? 'Easy' : tp.id < 16 ? 'Medium' : 'Hard',
+        baseOutput: baseOut?.generated_text ?? '(No base model data)',
+        sftOutput: sftOut?.generated_text ?? '(No SFT data)',
+        baseCorrect: baseOut ? baseOut.generated_text.toLowerCase().includes(tp.true_label.toLowerCase()) : false,
+        sftCorrect: sftOut ? sftOut.generated_text.toLowerCase().includes(tp.true_label.toLowerCase()) : false,
+      }
+    })
+    if (realExamples.length > 0 && realExamples[0].baseOutput !== '(No base model data)') {
+      examples = realExamples
+    }
+  }
+
+  const ex = examples[selectedExample] || examples[0]
+
+  // Token probs — use real data or fallback
+  let baseProbs = FALLBACK_BASE_PROBS
+  let sftProbs = FALLBACK_SFT_PROBS
+  if (hasRealData) {
+    const realBase = getTokenProbsForChart('base', selectedPromptId)
+    const realSft = getTokenProbsForChart('sft', selectedPromptId)
+    if (realBase.length > 0) baseProbs = realBase
+    if (realSft.length > 0) sftProbs = realSft
+  }
+
+  // Loss curve — use real data or fallback
+  const realLoss = hasRealData ? getSFTLossCurve() : []
+  const lossCurve = realLoss.length > 0 ? realLoss : FALLBACK_LOSS_CURVE
+
+  // Training time
+  const trainingTimeSec = hasRealData ? getTrainingTime('sft') : null
+  const trainingTimeMin = trainingTimeSec ? Math.round(trainingTimeSec / 60) : 12
+
+  // Accuracy summary
+  const sftSummary = hasRealData ? getModelSummary('sft') : null
 
   const TABS = [
     { id: 'problem', label: 'The Problem' },
@@ -245,21 +323,9 @@ export default function SFTComparison({ explore = false }) {
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* ── Section tabs ─────────────────────────── */}
-      <div className="flex gap-1 mb-6 bg-slate-800 rounded-lg p-1 w-fit">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSection(tab.id)}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              section === tab.id
-                ? 'bg-violet-600 text-white font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* ── Section tabs (top) ─────────────────────────── */}
+      <div className="mb-6">
+        <SectionTabs tabs={TABS} active={section} onSelect={setSection} color="violet" />
       </div>
 
       {/* ════════════════ THE PROBLEM ════════════════ */}
@@ -362,7 +428,6 @@ export default function SFTComparison({ explore = false }) {
       {/* ════════════════ HOW SFT WORKS ════════════════ */}
       {section === 'concept' && (
         <div className="space-y-5">
-          {/* Core explanation */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-violet-400 mb-3">
               Supervised Fine-Tuning (SFT)
@@ -383,7 +448,6 @@ export default function SFTComparison({ explore = false }) {
             </div>
           </div>
 
-          {/* Training data format */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
               What a Training Example Looks Like
@@ -394,7 +458,6 @@ export default function SFTComparison({ explore = false }) {
               response we want the model to produce. Here is one of the 1,400 examples:
             </p>
             <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-3 items-center">
-              {/* Input */}
               <div className="p-3 rounded bg-slate-900 border border-slate-700">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                   Input (I/O Metrics)
@@ -409,7 +472,6 @@ Queue Depth: 32`}
                 </pre>
               </div>
 
-              {/* Arrow */}
               <div className="hidden md:flex flex-col items-center text-violet-500">
                 <span className="text-2xl">&#8594;</span>
                 <span className="text-xs mt-1 text-slate-500">train on</span>
@@ -418,7 +480,6 @@ Queue Depth: 32`}
                 <span className="text-2xl">&#8595;</span>
               </div>
 
-              {/* Desired output */}
               <div className="p-3 rounded bg-violet-950/30 border border-violet-800/40">
                 <div className="text-xs font-semibold text-violet-400 uppercase tracking-wide mb-2">
                   Desired Output (Label)
@@ -437,12 +498,9 @@ processing.`}
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
               The dataset contains 1,400 examples across 6 workload categories (OLTP, OLAP,
               VDI, Backup, AI/ML Training, Video Streaming) with varying difficulty levels.
-              Each example was labeled by storage engineers who documented the reasoning
-              behind their classification.
             </p>
           </div>
 
-          {/* LoRA explanation */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
               LoRA: Training a Patch, Not the Whole Model
@@ -463,7 +521,6 @@ processing.`}
               </p>
             </div>
 
-            {/* Parameter comparison visual */}
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50 text-center">
                 <div className="text-2xl font-bold text-slate-300">360M</div>
@@ -483,15 +540,48 @@ processing.`}
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              LoRA works by inserting small rank-decomposed matrices into each transformer
-              layer. During inference, the adapter weights are merged with the base model
+            <p className="text-xs text-slate-400 leading-relaxed mb-2">
+              LoRA targets the <strong className="text-slate-300">attention projections</strong>{' '}
+              (q_proj and v_proj) inside each of the model's 32 transformer layers. These are the
+              matrices that control what the model pays attention to and what information it carries
+              forward. By adapting just these projections with a rank-16 decomposition, LoRA captures
+              the essential behavioral change in a tiny number of parameters.
+            </p>
+            <button
+              onClick={() => setShowLoRAAside(!showLoRAAside)}
+              className="text-xs text-violet-400 hover:text-violet-300 underline underline-offset-4 cursor-pointer"
+            >
+              {showLoRAAside ? 'Hide' : 'How does LoRA select which parameters to train?'}
+            </button>
+            {showLoRAAside && (
+              <div className="mt-2 p-3 rounded bg-violet-950/20 border border-violet-800/30">
+                <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                  LoRA doesn't search for parameters &mdash; you configure which weight matrices
+                  to target. The standard choice is the <strong className="text-violet-300">query
+                  and value projections</strong> (q_proj, v_proj) in each attention layer, because
+                  research shows these have the most impact on model behavior. The adapter itself
+                  is a pair of small matrices (A and B) whose product approximates the weight change
+                  that full fine-tuning would make. The "rank" (16 in our case) controls how
+                  expressive the adapter is &mdash; higher rank = more capacity, but more parameters.
+                </p>
+                <button
+                  onClick={() => {
+                    setActiveQuadrant('lora')
+                    setMode('explore')
+                  }}
+                  className="text-xs font-semibold text-violet-400 hover:text-violet-300 underline underline-offset-4 cursor-pointer"
+                >
+                  Deep dive: LoRA parameter selection, rank decomposition, and the training loop &rarr;
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-slate-500 leading-relaxed mt-3">
+              During inference, the adapter weights are merged with the base model
               at near-zero cost. You can even swap different adapters for different tasks
               on the same base model &mdash; like hot-swapping firmware modules.
             </p>
           </div>
 
-          {/* Training stats summary */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
               Training at a Glance
@@ -510,13 +600,12 @@ processing.`}
                 <div className="text-xs text-slate-500 mt-1">params trained</div>
               </div>
               <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
-                <div className="text-2xl font-bold text-violet-400">12 min</div>
+                <div className="text-2xl font-bold text-violet-400">{trainingTimeMin} min</div>
                 <div className="text-xs text-slate-500 mt-1">training time</div>
               </div>
             </div>
           </div>
 
-          {/* Key insight box */}
           <div className="p-4 rounded-lg bg-gradient-to-r from-violet-950/30 to-blue-950/30 border border-violet-700/30">
             <p className="text-xs text-blue-300 leading-relaxed">
               <strong>Key insight:</strong> SFT changes the model's weights. After training,
@@ -533,13 +622,16 @@ processing.`}
       {/* ════════════════ SEE IT WORK ════════════════ */}
       {section === 'demo' && (
         <div className="space-y-4">
+          {/* Pattern picker for real data */}
+          {hasRealData && <PatternPicker compact />}
+
           {/* Example selector */}
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
               Choose an example
             </label>
-            <div className="flex gap-2">
-              {EXAMPLES.map((e, i) => (
+            <div className="flex gap-2 flex-wrap">
+              {examples.map((e, i) => (
                 <button
                   key={i}
                   onClick={() => setSelectedExample(i)}
@@ -597,8 +689,12 @@ processing.`}
                 <div className="text-xs text-slate-500">params trained (LoRA)</div>
               </div>
               <div>
-                <div className="text-lg font-bold text-violet-400">12 min</div>
-                <div className="text-xs text-slate-500">training time</div>
+                <div className="text-lg font-bold text-violet-400">
+                  {sftSummary ? `${(sftSummary.accuracy * 100).toFixed(0)}%` : `${trainingTimeMin} min`}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {sftSummary ? `accuracy (${sftSummary.correct}/${sftSummary.total})` : 'training time'}
+                </div>
               </div>
             </div>
           </div>
@@ -609,15 +705,14 @@ processing.`}
               <span className="font-semibold text-violet-400">What changed?</span>{' '}
               The base model sees the same metrics and produces vague, hedging descriptions.
               It never commits to a classification, never uses a structured format, and often
-              gets the category wrong entirely (look at the "Hard" VDI example &mdash; the base
-              model misclassifies it as OLTP).
+              gets the category wrong entirely.
             </p>
             <p className="text-sm text-slate-300 leading-relaxed">
               After SFT, the model has learned three things: <strong className="text-slate-200">the format</strong>{' '}
               (Classification / Confidence / Key indicators), <strong className="text-slate-200">the task</strong>{' '}
               (commit to a specific workload category), and <strong className="text-slate-200">the reasoning
               style</strong> (cite the specific metrics that led to the decision). All from
-              1,400 examples and 12 minutes of training.
+              1,400 examples and {trainingTimeMin} minutes of training.
             </p>
           </div>
         </div>
@@ -661,27 +756,24 @@ processing.`}
                 A language model generates text one token at a time. At each step, it assigns a
                 probability to every possible next token. The chart below shows the probability
                 distribution for the <strong className="text-slate-200">very first token</strong>{' '}
-                the model generates in response to the OLTP example. Before SFT, probability is
-                spread across generic words ("This", "The", "Based"). After SFT,{' '}
-                <strong className="text-violet-400">73%</strong> of probability mass lands on
-                "Classification" &mdash; the model learned to start with the exact format from
-                the training examples.
+                the model generates. Before SFT, probability is
+                spread across generic words ("This", "The", "Based"). After SFT,
+                probability mass concentrates on structured tokens like "Classification".
               </p>
               <TokenProbChart
-                data={BASE_PROBS}
-                comparisonData={SFT_PROBS}
+                data={baseProbs}
+                comparisonData={sftProbs}
                 label="First Token: Base Model vs SFT"
                 comparisonLabel="After SFT"
                 highlightToken="Classification"
                 width={550}
                 height={400}
               />
-              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                Notice that "OLTP" also increased from 4% to 8% &mdash; the model is more confident
-                about the actual classification too. But the bigger story is the format:
-                starting with "Classification:" means the rest of the output follows the
-                structured template the ops team needs.
-              </p>
+              {hasRealData && (
+                <p className="text-xs text-cyan-400/60 mt-2">
+                  Using real token probabilities from trained model.
+                </p>
+              )}
             </div>
           )}
 
@@ -691,13 +783,40 @@ processing.`}
               <h4 className="text-sm font-semibold text-violet-400 mb-2">
                 The Actual Weight Changes
               </h4>
-              <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-                This heatmap shows the LoRA weight delta for one attention layer (layer 8,
-                query projection). Each cell represents how much that specific weight was
-                adjusted during training. The structured patterns &mdash; not random noise &mdash;
-                confirm the model learned meaningful features rather than memorizing
-                individual examples.
+              <p className="text-sm text-slate-300 mb-3 leading-relaxed">
+                This heatmap shows the LoRA weight delta for one attention layer. Each cell
+                represents how much that specific weight was adjusted during training. The
+                structured patterns &mdash; not random noise &mdash; confirm the model learned
+                meaningful features rather than memorizing individual examples.
               </p>
+              <button
+                onClick={() => setShowTransformerAside(!showTransformerAside)}
+                className="mb-4 text-xs text-violet-400 hover:text-violet-300 underline underline-offset-4 cursor-pointer"
+              >
+                {showTransformerAside ? 'Hide' : 'What is an attention layer?'}
+              </button>
+              {showTransformerAside && (
+                <div className="mb-4 p-3 rounded bg-violet-950/20 border border-violet-800/30">
+                  <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                    Language models are built from <strong className="text-violet-300">Transformers</strong> &mdash;
+                    a stack of identical layers (SmolLM2 has 32). Each layer contains an{' '}
+                    <strong className="text-violet-300">attention mechanism</strong> that lets every
+                    token in the input "look at" every other token to decide what's relevant.
+                    This is how the model connects "IOPS: 45000" with "OLTP Database" even when
+                    they're far apart. The attention mechanism uses learned weight matrices (Q, K, V)
+                    &mdash; and that's exactly where LoRA inserts its small trainable adapters.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setActiveQuadrant('transformers')
+                      setMode('explore')
+                    }}
+                    className="text-xs font-semibold text-violet-400 hover:text-violet-300 underline underline-offset-4 cursor-pointer"
+                  >
+                    Deep dive: Transformers, attention, and how LoRA fits in &rarr;
+                  </button>
+                </div>
+              )}
               <LoRAWeightHeatmap />
               <div className="mt-4 grid grid-cols-3 gap-4 text-center">
                 <div className="p-2 rounded bg-slate-800">
@@ -713,13 +832,6 @@ processing.`}
                   <div className="text-xs text-slate-500">adapter file size</div>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 mt-3 italic leading-relaxed">
-                LoRA decomposes the weight update into two small matrices (rank 16).
-                During inference, these get merged with the original weights at negligible
-                cost. You can even hot-swap adapters for different tasks without
-                reloading the base model &mdash; useful when you want one model to serve
-                multiple classification domains.
-              </p>
             </div>
           )}
 
@@ -730,43 +842,41 @@ processing.`}
                 Training Progress Over Time
               </h4>
               <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-                The loss curve shows how the model improved over 525 optimization steps
-                (3 epochs over 1,400 examples). <strong className="text-slate-200">Loss</strong>{' '}
-                measures how far the model's output is from the desired output &mdash; lower
-                is better. The steep initial drop means the model learned the output format
-                quickly; the slower tail is where it refined classification accuracy on
-                harder examples.
+                The loss curve shows how the model improved over {lossCurve.length > 0 ? lossCurve[lossCurve.length - 1].step : 525} optimization steps.{' '}
+                <strong className="text-slate-200">Loss</strong> measures how far the model's
+                output is from the desired output &mdash; lower is better.
               </p>
               <LossChart
-                data={LOSS_CURVE}
+                data={lossCurve}
                 label="SFT Training Loss"
                 color="#8b5cf6"
                 width={550}
                 height={250}
               />
+              {hasRealData && realLoss.length > 0 && (
+                <p className="text-xs text-cyan-400/60 mt-2">
+                  Real training loss from actual SFT run.
+                </p>
+              )}
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
                   <div className="text-xs text-slate-500">Epoch Boundaries</div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Small bumps at steps 175 and 350 are normal &mdash; the model sees the
-                    data in a new random order each epoch, causing a brief spike before
-                    it re-adapts.
+                    Small bumps at epoch boundaries are normal &mdash; the model sees the
+                    data in a new random order each epoch.
                   </p>
                 </div>
                 <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
                   <div className="text-xs text-slate-500">Final Loss</div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    The loss converges around 0.25. Going lower would risk overfitting
-                    &mdash; memorizing training examples rather than learning generalizable
-                    patterns. Three epochs is a common sweet spot.
+                    The loss converges around {lossCurve.length > 0 ? lossCurve[lossCurve.length - 1].loss.toFixed(2) : '0.25'}. Going lower would risk overfitting.
                   </p>
                 </div>
                 <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
                   <div className="text-xs text-slate-500">Storage I/O Impact</div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Each checkpoint write (~every 50 steps) creates a burst of storage
-                    I/O. The training data stream is a steady sequential read. Plan
-                    your storage accordingly during fine-tuning jobs.
+                    Each checkpoint write creates a burst of storage I/O. The training data
+                    stream is a steady sequential read.
                   </p>
                 </div>
               </div>
@@ -778,15 +888,15 @@ processing.`}
             <h4 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
               Infrastructure Profile
             </h4>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              These are the hardware resources consumed during our SFT training run.
-              Fine-tuning with LoRA is remarkably lightweight &mdash; a single consumer GPU
-              handles the entire job in under 15 minutes.
-            </p>
             <InfrastructureCard data={SFT_INFRA} />
           </div>
         </div>
       )}
+
+      {/* ── Section tabs (bottom) ─────────────────────────── */}
+      <div className="mt-6">
+        <SectionTabs tabs={TABS} active={section} onSelect={setSection} color="violet" />
+      </div>
     </div>
   )
 }

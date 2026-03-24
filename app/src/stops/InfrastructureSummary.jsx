@@ -1,21 +1,37 @@
 import { useState, useRef, useEffect } from 'react'
 import * as d3 from 'd3'
+import { isLoaded, getResourceUtilization, getTrainingTime } from '../data/loadArtifacts'
 
-const TECHNIQUES = [
-  { name: 'Prompting', gpu: 0, time: 0, cost: 1, models: 1, color: '#f97316', storage: 'None (inference only)' },
-  { name: 'RAG', gpu: 0, time: 5, cost: 1.2, models: 1, color: '#eab308', storage: 'Vector DB: ~2-10 GB for embeddings' },
-  { name: 'SFT\n(LoRA)', gpu: 4.2, time: 12, cost: 3, models: 1, color: '#8b5cf6', storage: 'Checkpoints: 1.7 MB adapter + base model reads' },
-  { name: 'DPO\n(LoRA)', gpu: 5.1, time: 8, cost: 4, models: 1, color: '#ec4899', storage: 'Similar to SFT + preference pair dataset' },
-  { name: 'RLHF\n(PPO)', gpu: 12.8, time: 45, cost: 10, models: 3, color: '#ef4444', storage: '3x model checkpoints + reward model + value model' },
-  { name: 'GRPO', gpu: 6.8, time: 35, cost: 7, models: 1, color: '#10b981', storage: 'Heavy burst I/O during generation phases' },
-]
+// Build techniques data, optionally using real resource utilization
+function buildTechniques() {
+  const res = isLoaded() ? getResourceUtilization() : null
 
-function ComparisonChart({ metric }) {
+  const sftTime = (isLoaded() ? getTrainingTime('sft') : null)
+  const dpoTime = (isLoaded() ? getTrainingTime('dpo') : null)
+  const grpoTime = (isLoaded() ? getTrainingTime('grpo') : null)
+
+  return [
+    { name: 'Prompting', gpu: 0, time: 0, cost: 1, models: 1, color: '#f97316', storage: 'None (inference only)' },
+    { name: 'RAG', gpu: 0, time: 5, cost: 1.2, models: 1, color: '#eab308', storage: 'Vector DB: ~2-10 GB for embeddings' },
+    { name: 'SFT\n(LoRA)', gpu: 4.2, time: sftTime ? Math.round(sftTime / 60) : 12, cost: 3, models: 1, color: '#8b5cf6',
+      storage: `Checkpoints: ${res?.sft_checkpoint_size_mb ? res.sft_checkpoint_size_mb + ' MB' : '1.7 MB'} adapter + base model reads` },
+    { name: 'DPO\n(LoRA)', gpu: 5.1, time: dpoTime ? Math.round(dpoTime / 60) : 8, cost: 4, models: 1, color: '#ec4899',
+      storage: 'Similar to SFT + preference pair dataset' },
+    { name: 'RLHF\n(PPO)', gpu: 12.8, time: 45, cost: 10, models: 3, color: '#ef4444',
+      storage: '3x model checkpoints + reward model + value model' },
+    { name: 'GRPO', gpu: 6.8, time: grpoTime ? Math.round(grpoTime / 60) : 35, cost: 7, models: 1, color: '#10b981',
+      storage: 'Heavy burst I/O during generation phases' },
+  ]
+}
+
+function ComparisonChart({ metric, techniques }) {
   const svgRef = useRef()
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
+
+    const TECHNIQUES = techniques
 
     const configs = {
       gpu: { key: 'gpu', label: 'GPU Memory (GB)', format: v => `${v} GB` },
@@ -95,13 +111,14 @@ function ComparisonChart({ metric }) {
       })
     })
 
-  }, [metric])
+  }, [metric, techniques])
 
   return <svg ref={svgRef} />
 }
 
 export default function InfrastructureSummary() {
   const [metric, setMetric] = useState('gpu')
+  const TECHNIQUES = buildTechniques()
 
   const metrics = [
     { id: 'gpu', label: 'GPU Memory' },
@@ -131,7 +148,7 @@ export default function InfrastructureSummary() {
 
       {/* Chart */}
       <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50 mb-6">
-        <ComparisonChart metric={metric} />
+        <ComparisonChart metric={metric} techniques={TECHNIQUES} />
       </div>
 
       {/* Storage I/O patterns table */}
