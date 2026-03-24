@@ -410,9 +410,10 @@ def main():
     print("\n[5/7] Starting SFT training...")
     loss_callback = LossRecorderCallback()
 
-    # SFTConfig extends TrainingArguments with SFT-specific options.
-    # TRL >=0.16 removed max_seq_length/dataset_text_field from SFTConfig
-    # and moved them to SFTTrainer kwargs.  We try both paths.
+    # SFTConfig/SFTTrainer API varies across TRL versions:
+    #   TRL <0.16:  max_seq_length + dataset_text_field in SFTConfig
+    #   TRL 0.16+:  those args removed entirely; SFTTrainer auto-detects
+    #               the text column and uses max_length from TrainingArguments
     sft_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
         num_train_epochs=3,
@@ -420,7 +421,7 @@ def main():
         gradient_accumulation_steps=4,       # Effective batch = 16
         learning_rate=2e-4,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.1,
+        warmup_steps=10,
         logging_steps=5,
         save_strategy="epoch",
         seed=SEED,
@@ -429,20 +430,18 @@ def main():
         report_to="none",                    # Don't log to wandb etc.
     )
 
-    # Try with max_seq_length/dataset_text_field in SFTConfig first (TRL <0.16)
+    # Try old-style SFTConfig first, then fall back to minimal config
     try:
         training_args = SFTConfig(
             **sft_base_kwargs,
             max_seq_length=512,
             dataset_text_field="text",
         )
-        trainer_extra_kwargs = {}
     except TypeError:
-        # Newer TRL: these args moved to SFTTrainer
-        training_args = SFTConfig(**sft_base_kwargs)
-        trainer_extra_kwargs = dict(
-            max_seq_length=512,
-            dataset_text_field="text",
+        # Newer TRL: no max_seq_length/dataset_text_field — use max_length instead
+        training_args = SFTConfig(
+            **sft_base_kwargs,
+            max_length=512,
         )
 
     trainer = SFTTrainer(
@@ -451,7 +450,6 @@ def main():
         train_dataset=dataset,
         processing_class=tokenizer,
         callbacks=[loss_callback],
-        **trainer_extra_kwargs,
     )
 
     train_start = time.time()
