@@ -502,6 +502,13 @@ def main():
             packing=False,
         )
 
+    # Suppress noisy TRL tokenization mismatch warnings.
+    # These fire on every example but are harmless — TRL still masks
+    # prompt tokens correctly using a fallback strategy.
+    import logging
+    trl_logger = logging.getLogger("trl.trainer.sft_trainer")
+    trl_logger.setLevel(logging.ERROR)
+
     trainer = SFTTrainer(
         model=model,
         args=training_args,
@@ -509,6 +516,9 @@ def main():
         processing_class=tokenizer,
         callbacks=[loss_callback],
     )
+
+    # Restore logger after dataset processing
+    trl_logger.setLevel(logging.WARNING)
 
     train_start = time.time()
     train_result = trainer.train()
