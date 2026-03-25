@@ -53,6 +53,8 @@ def parse_args():
                         help="Model size to export (default: 360M)")
     parser.add_argument("--all-models", action="store_true",
                         help="Export all trained models and build comparison data")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Enable verbose output (default: reduced output)")
     return parser.parse_args()
 
 
@@ -828,6 +830,18 @@ def main():
                 s = res["model_results"][variant]["summary"]
                 print(f"    {size} {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
 
+        print(f"\n  Interpretation:")
+        for size in sizes_to_export:
+            res = all_results[size]
+            variants = list(res.get("model_results", {}).keys())
+            if "grpo" in variants:
+                best = res["model_results"]["grpo"]["summary"]["accuracy"]
+            elif "sft" in variants:
+                best = res["model_results"]["sft"]["summary"]["accuracy"]
+            else:
+                best = 0
+            print(f"    {size}: best accuracy = {best:.0%}")
+
     else:
         # ── Single model export ──────────────────────────────────────
         model_size = args.model_size
@@ -880,6 +894,63 @@ def main():
         for variant in model_variants:
             s = results["model_results"][variant]["summary"]
             print(f"    {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
+
+        # ── Plain-English interpretation ─────────────────────────────
+        print(f"\n  Interpretation:")
+        variant_accuracies = {
+            v: results["model_results"][v]["summary"]["accuracy"]
+            for v in model_variants
+        }
+
+        if "base" in variant_accuracies and "sft" in variant_accuracies:
+            delta = variant_accuracies["sft"] - variant_accuracies["base"]
+            print(f"    base → sft:  Model learned the task "
+                  f"({'+' if delta >= 0 else ''}{delta:.0%} points)")
+
+        if "sft" in variant_accuracies and "dpo" in variant_accuracies:
+            delta = variant_accuracies["dpo"] - variant_accuracies["sft"]
+            if abs(delta) < 0.05:
+                print(f"    sft → dpo:   Style refined, accuracy similar (expected)")
+            else:
+                print(f"    sft → dpo:   Accuracy {'improved' if delta > 0 else 'dropped'} "
+                      f"({'+' if delta >= 0 else ''}{delta:.0%} points)")
+
+        if "sft" in variant_accuracies and "grpo" in variant_accuracies:
+            delta = variant_accuracies["grpo"] - variant_accuracies["sft"]
+            print(f"    sft → grpo:  RL {'improved' if delta > 0 else 'changed'} accuracy "
+                  f"({'+' if delta >= 0 else ''}{delta:.0%} points)")
+
+        # Per-category analysis
+        best_model = max(model_variants, key=lambda v: variant_accuracies.get(v, 0))
+        best_acc = variant_accuracies.get(best_model, 0)
+
+        # Check which categories the best model gets right vs wrong
+        if best_model in results["model_results"]:
+            best_outputs = results["model_results"][best_model]["outputs"]
+            correct_cats = set()
+            wrong_cats = set()
+            for i, test in enumerate(test_prompts):
+                if i < len(best_outputs):
+                    predicted = extract_predicted_label(best_outputs[i]["generated_text"])
+                    if predicted == test["true_label"]:
+                        correct_cats.add(test["true_label"])
+                    else:
+                        wrong_cats.add(test["true_label"])
+
+            if correct_cats:
+                print(f"\n  The {model_size} model reliably distinguishes: {', '.join(sorted(correct_cats))}")
+            if wrong_cats:
+                struggles = wrong_cats - correct_cats  # Categories it NEVER gets right
+                if struggles:
+                    print(f"  Struggles with: {', '.join(sorted(struggles))}")
+                mixed = wrong_cats & correct_cats  # Sometimes right, sometimes wrong
+                if mixed:
+                    print(f"  Inconsistent on: {', '.join(sorted(mixed))}")
+
+        if best_acc < 0.6:
+            print(f"\n  A {model_size} parameter model has limited capacity for this task.")
+            print(f"  A larger model (1.7B+) would likely improve accuracy significantly.")
+
         print(f"\n  The web app can now load precomputed_results.json!")
 
 

@@ -63,6 +63,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="GRPO training")
     parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
                         help="Model size to train (default: 360M)")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Enable verbose output (default: reduced output)")
     return parser.parse_args()
 
 
@@ -661,6 +663,9 @@ def main():
     global _reward_debug_counter
     _reward_debug_counter = 0
 
+    global _REWARD_DEBUG_LIMIT
+    _REWARD_DEBUG_LIMIT = 10 if args.verbose else 0
+
     batch_size = cfg["grpo_batch"]
     num_generations = cfg["grpo_gens"]
 
@@ -716,7 +721,7 @@ def main():
             warmup_steps=10,
             num_generations=trl_num_gens,
             temperature=0.5,       # Lower temp = stay closer to SFT policy
-            logging_steps=5,
+            logging_steps=5 if args.verbose else 25,
             save_strategy="epoch",
             seed=SEED,
             bf16=(device == "cuda"),
@@ -787,7 +792,7 @@ def main():
                 metrics = grpo.train_step(batch_prompts, batch_labels, step)
                 step += 1
 
-                if step % 5 == 0:
+                if step % (5 if args.verbose else 20) == 0:
                     print(f"    Step {step}: loss={metrics['loss']:.4f}, "
                           f"reward={metrics['mean_reward']:.3f}, "
                           f"accuracy={metrics['accuracy']:.3f}")
@@ -925,6 +930,137 @@ def main():
         }
         with open(OUTPUT_DIR / "group_statistics.json", "w") as f:
             json.dump(stats_summary, f, indent=2)
+
+    # ── Sanity check: run 5 sample inferences ────────────────────
+    print("\n  Running post-GRPO sanity check...")
+
+    sanity_labels = LABELS[:5]
+    sanity_results = []
+    policy_model.eval()
+
+    # Load SFT sanity check for comparison
+    sft_sanity_path = SFT_DIR / "sft_sanity_check.json"
+    sft_accuracy = None
+    if sft_sanity_path.exists():
+        with open(sft_sanity_path) as f:
+            sft_sanity = json.load(f)
+            sft_accuracy = sft_sanity.get("sample_accuracy", None)
+
+    for label in sanity_labels:
+        prompt = generate_io_prompt(label) + "\n\nClassification: "
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
+        with torch.no_grad():
+            output_ids = policy_model.generate(
+                **inputs, max_new_tokens=80, do_sample=False,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+
+        predicted = extract_classification(generated)
+        correct = predicted == label
+        sanity_results.append({
+            "expected": label,
+            "predicted": predicted if predicted else "(unparseable)",
+            "generated_snippet": generated[:100],
+            "correct": correct,
+        })
+
+    num_correct = sum(1 for r in sanity_results if r["correct"])
+    sample_accuracy = num_correct / len(sanity_results)
+
+    # Get accuracy trajectory from training logs
+    initial_accuracy = training_logs[0].get("accuracy", 0) if training_logs else None
+    mid_idx = len(training_logs) // 2 if training_logs else 0
+    mid_accuracy = training_logs[mid_idx].get("accuracy", 0) if training_logs and mid_idx > 0 else None
+    final_accuracy = training_logs[-1].get("accuracy", 0) if training_logs else None
+
+    # Find best and worst from generation logs
+    best_gen = None
+    worst_gen = None
+    if generation_logs:
+        for entry in generation_logs:
+            for comp in entry.get("completions", []):
+                if comp.get("reward", 0) > 0 and best_gen is None:
+                    best_gen = {"label": entry["true_label"], "text": comp["text"][:120]}
+                if comp.get("reward", 0) == 0 and worst_gen is None:
+                    worst_gen = {"label": entry["true_label"], "text": comp["text"][:120]}
+                if best_gen and worst_gen:
+                    break
+            if best_gen and worst_gen:
+                break
+
+    # Determine verdict
+    checks = []
+    if initial_accuracy is not None and final_accuracy is not None:
+        if final_accuracy > initial_accuracy:
+            checks.append(("pass", f"Accuracy improved during training ({initial_accuracy:.0%} → {final_accuracy:.0%})"))
+        elif final_accuracy == initial_accuracy:
+            checks.append(("warn", f"Accuracy plateaued ({final_accuracy:.0%}) — model may have hit capacity"))
+        else:
+            checks.append(("warn", f"Accuracy decreased ({initial_accuracy:.0%} → {final_accuracy:.0%})"))
+
+    if sft_accuracy is not None:
+        if sample_accuracy >= sft_accuracy:
+            checks.append(("pass", f"GRPO improved over SFT ({sample_accuracy:.0%} vs {sft_accuracy:.0%})"))
+        else:
+            checks.append(("warn", f"GRPO below SFT ({sample_accuracy:.0%} vs {sft_accuracy:.0%})"))
+
+    any_fail = any(c[0] == "fail" for c in checks)
+    all_pass = all(c[0] == "pass" for c in checks)
+    verdict = "HEALTHY" if all_pass else ("ISSUES DETECTED" if any_fail else "OK WITH WARNINGS")
+
+    # Print structured results
+    print("\n" + "=" * 60)
+    print("  GRPO RESULTS")
+    print("=" * 60)
+    print(f"  Training:  {train_time/60:.0f}m {train_time%60:.0f}s")
+    if initial_accuracy is not None:
+        trajectory = f"{initial_accuracy:.0%}"
+        if mid_accuracy is not None:
+            trajectory += f" → {mid_accuracy:.0%}"
+        if final_accuracy is not None:
+            trajectory += f" → {final_accuracy:.0%}"
+        print(f"  Accuracy trajectory: {trajectory}")
+    print()
+    print("  Sample outputs (5 prompts, one per class):")
+    for r in sanity_results:
+        mark = "✓" if r["correct"] else "✗"
+        print(f'    {r["expected"]:<20s} → {r["predicted"]:<22s} {mark}')
+    print(f"  Sample accuracy: {num_correct}/{len(sanity_results)} ({sample_accuracy:.0%})")
+    if sft_accuracy is not None:
+        delta = sample_accuracy - sft_accuracy
+        direction = "+" if delta >= 0 else ""
+        print(f"  vs SFT accuracy:  {direction}{delta:.0%}")
+
+    if best_gen:
+        print(f"\n  Best output:  [{best_gen['label']}] {best_gen['text']}")
+    if worst_gen:
+        print(f"  Worst output: [{worst_gen['label']}] {worst_gen['text']}")
+
+    print()
+    print("  Sanity check:")
+    for status, msg in checks:
+        icon = "✓" if status == "pass" else ("⚠" if status == "warn" else "✗")
+        print(f"    {icon} {msg}")
+    print(f"\n  Verdict: {verdict} — {'proceed to Export' if not any_fail else 'investigate'}")
+    print("=" * 60)
+
+    # Save sanity check JSON
+    sanity_data = {
+        "training_time_seconds": round(train_time, 2),
+        "initial_accuracy": initial_accuracy,
+        "mid_accuracy": mid_accuracy,
+        "final_accuracy": final_accuracy,
+        "sample_results": sanity_results,
+        "sample_accuracy": sample_accuracy,
+        "sft_accuracy": sft_accuracy,
+        "best_generation": best_gen,
+        "worst_generation": worst_gen,
+        "checks": [{"status": s, "message": m} for s, m in checks],
+        "verdict": verdict,
+    }
+    with open(OUTPUT_DIR / "grpo_sanity_check.json", "w") as f:
+        json.dump(sanity_data, f, indent=2)
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)

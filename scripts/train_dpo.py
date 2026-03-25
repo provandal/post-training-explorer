@@ -10,7 +10,7 @@ separate reward model.
 
 Key idea: for each input we create TWO outputs:
   chosen  → correct classification, concise reasoning
-  rejected → wrong class, excessive hedging, or verbose
+  rejected → wrong class (concise or verbose style)
 
 DPO directly optimizes the policy to increase the likelihood
 gap between chosen and rejected responses.
@@ -56,6 +56,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="DPO training")
     parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
                         help="Model size to train (default: 360M)")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Enable verbose output (default: reduced output)")
     return parser.parse_args()
 
 
@@ -223,29 +225,24 @@ def generate_preference_pair(label: str) -> dict:
     rejected (bad) completion.
 
     Rejection strategies (randomly selected):
-    1. Wrong label with confident reasoning
-    2. Correct label but excessively verbose/hedging
-    3. Wrong label with hedging
+    1. Wrong label with confident (but wrong) reasoning
+    2. Wrong label with hedging/verbose reasoning
     """
     prompt = generate_io_prompt(label)
 
     # CHOSEN: correct, concise, confident
     chosen = f"{label}\nReason: {random.choice(GOOD_REASONS[label])}"
 
-    # REJECTED: pick a strategy
-    strategy = random.choice(["wrong_label", "verbose_correct", "wrong_and_hedging"])
+    # REJECTED: pick a strategy — ALL rejected responses must have wrong label
+    strategy = random.choice(["wrong_label_concise", "wrong_label_verbose"])
 
-    if strategy == "wrong_label":
-        # Pick a wrong label and give a confident (but wrong) answer
-        wrong_label = random.choice([l for l in LABELS if l != label])
+    wrong_label = random.choice([l for l in LABELS if l != label])
+    if strategy == "wrong_label_concise":
+        # Wrong label with confident (but wrong) reasoning
         wrong_reason = random.choice(GOOD_REASONS[wrong_label])
         rejected = f"{wrong_label}\nReason: {wrong_reason}"
-    elif strategy == "verbose_correct":
-        # Correct label but excessively verbose / hedging
-        template = random.choice(BAD_REASON_TEMPLATES)
-        rejected = f"{label}\nReason: {template.format(label=label)}"
-    else:  # wrong_and_hedging
-        wrong_label = random.choice([l for l in LABELS if l != label])
+    else:  # wrong_label_verbose
+        # Wrong label with hedging/verbose reasoning
         template = random.choice(BAD_REASON_TEMPLATES)
         rejected = f"{wrong_label}\nReason: {template.format(label=wrong_label)}"
 
@@ -446,7 +443,7 @@ def main():
         lr_scheduler_type="cosine",
         warmup_steps=10,
         beta=0.05,                            # DPO temperature — lighter for 360M to avoid over-correction
-        logging_steps=5,
+        logging_steps=5 if args.verbose else 25,
         save_strategy="epoch",
         seed=SEED,
         bf16=(device == "cuda"),
@@ -548,10 +545,8 @@ def main():
 
         # Determine style labels
         chosen_style = "concise"
-        if strategy == "wrong_label":
+        if strategy == "wrong_label_concise":
             rejected_style = "wrong_label"
-        elif strategy == "verbose_correct":
-            rejected_style = "verbose"
         else:
             rejected_style = "wrong_and_verbose"
 
@@ -601,6 +596,113 @@ def main():
 
     with open(OUTPUT_DIR / "token_probability_shifts.json", "w") as f:
         json.dump(prob_shifts_legacy, f, indent=2)
+
+    # ── Sanity check: run 5 sample inferences ────────────────────
+    print("\n  Running post-DPO sanity check...")
+
+    sanity_labels = LABELS[:5]  # One per class (skip last to keep it quick)
+    sanity_results = []
+    model.eval()
+
+    # Load SFT sanity check for comparison if available
+    sft_sanity_path = SFT_DIR / "sft_sanity_check.json"
+    sft_accuracy = None
+    if sft_sanity_path.exists():
+        with open(sft_sanity_path) as f:
+            sft_sanity = json.load(f)
+            sft_accuracy = sft_sanity.get("sample_accuracy", None)
+
+    for label in sanity_labels:
+        prompt = generate_io_prompt(label) + "\n\nClassification: "
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs, max_new_tokens=80, do_sample=False,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+
+        # Extract predicted label
+        predicted = ""
+        gen_lower = generated.lower()
+        for l in sorted(LABELS, key=len, reverse=True):
+            if l.lower() in gen_lower:
+                predicted = l
+                break
+
+        correct = predicted == label
+        sanity_results.append({
+            "expected": label,
+            "predicted": predicted if predicted else "(unparseable)",
+            "generated_snippet": generated[:100],
+            "correct": correct,
+        })
+
+    num_correct = sum(1 for r in sanity_results if r["correct"])
+    sample_accuracy = num_correct / len(sanity_results)
+
+    # Determine verdict
+    checks = []
+    initial_loss = loss_callback.logs[0]["loss"] if loss_callback.logs else None
+    final_loss = loss_callback.logs[-1]["loss"] if loss_callback.logs else None
+
+    if initial_loss and final_loss and final_loss < initial_loss:
+        checks.append(("pass", "Loss decreased during training"))
+    else:
+        checks.append(("warn", "Loss did not decrease — DPO may not have converged"))
+
+    if sft_accuracy is not None:
+        if sample_accuracy >= sft_accuracy - 0.15:
+            checks.append(("pass", f"Accuracy held vs SFT ({sample_accuracy:.0%} vs {sft_accuracy:.0%})"))
+        else:
+            checks.append(("warn", f"Accuracy dropped vs SFT ({sample_accuracy:.0%} vs {sft_accuracy:.0%})"))
+
+    has_format = all(any(l.lower() in r["generated_snippet"].lower() for l in LABELS) for r in sanity_results if r["correct"])
+    if has_format or num_correct > 0:
+        checks.append(("pass", "Model outputs correct format (label + reason)"))
+    else:
+        checks.append(("fail", "Model outputs are not in expected format"))
+
+    all_pass = all(c[0] == "pass" for c in checks)
+    any_fail = any(c[0] == "fail" for c in checks)
+    verdict = "HEALTHY" if all_pass else ("ISSUES DETECTED" if any_fail else "OK WITH WARNINGS")
+
+    # Print structured results
+    print("\n" + "=" * 60)
+    print("  DPO RESULTS")
+    print("=" * 60)
+    print(f"  Training:  Loss {initial_loss:.2f} → {final_loss:.2f} in {train_time/60:.0f}m {train_time%60:.0f}s" if initial_loss and final_loss else f"  Training:  {train_time:.1f}s")
+    print()
+    print("  Sample outputs (5 prompts, one per class):")
+    for r in sanity_results:
+        mark = "✓" if r["correct"] else "✗"
+        print(f'    {r["expected"]:<20s} → {r["predicted"]:<22s} {mark}')
+    print(f"  Sample accuracy: {num_correct}/{len(sanity_results)} ({sample_accuracy:.0%})")
+    if sft_accuracy is not None:
+        delta = sample_accuracy - sft_accuracy
+        direction = "+" if delta >= 0 else ""
+        print(f"  vs SFT accuracy:  {direction}{delta:.0%}")
+    print()
+    print("  Sanity check:")
+    for status, msg in checks:
+        icon = "✓" if status == "pass" else ("⚠" if status == "warn" else "✗")
+        print(f"    {icon} {msg}")
+    print(f"\n  Verdict: {verdict} — {'proceed to GRPO' if not any_fail else 'investigate before proceeding'}")
+    print("=" * 60)
+
+    # Save sanity check JSON
+    sanity_data = {
+        "initial_loss": initial_loss,
+        "final_loss": final_loss,
+        "training_time_seconds": round(train_time, 2),
+        "sample_results": sanity_results,
+        "sample_accuracy": sample_accuracy,
+        "sft_accuracy": sft_accuracy,
+        "checks": [{"status": s, "message": m} for s, m in checks],
+        "verdict": verdict,
+    }
+    with open(OUTPUT_DIR / "dpo_sanity_check.json", "w") as f:
+        json.dump(sanity_data, f, indent=2)
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)

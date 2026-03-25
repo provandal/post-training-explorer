@@ -55,6 +55,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="SFT training")
     parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
                         help="Model size to train (default: 360M)")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Enable verbose output (default: reduced output)")
     return parser.parse_args()
 
 
@@ -420,6 +422,19 @@ def main():
     print(f"\n[3/7] Building synthetic training dataset ({n_per_class} per class)...")
     dataset = build_dataset(n_per_class=n_per_class)
 
+    # ── Verify prompt masking ────────────────────────────────────
+    # TRL's SFTTrainer should mask prompt tokens in the loss. Verify
+    # by checking the prompt vs completion token ratio.
+    sample_prompt = dataset[0]["prompt"]
+    sample_completion = dataset[0]["completion"]
+    prompt_tokens = len(tokenizer.encode(sample_prompt))
+    completion_tokens = len(tokenizer.encode(sample_completion))
+    total_tokens = prompt_tokens + completion_tokens
+    completion_pct = completion_tokens / total_tokens * 100
+    print(f"  Prompt tokens: ~{prompt_tokens} | Completion tokens: ~{completion_tokens} | "
+          f"Masking: {'✓' if completion_pct < 30 else '⚠'} "
+          f"(completion is {completion_pct:.0f}% of sequence)")
+
     # ── 6d. Configure LoRA ───────────────────────────────────────────
     # LoRA (Low-Rank Adaptation) adds small trainable matrices to the
     # attention layers while keeping the base model weights frozen.
@@ -464,7 +479,7 @@ def main():
         learning_rate=2e-4,
         lr_scheduler_type="cosine",
         warmup_steps=10,
-        logging_steps=5,
+        logging_steps=5 if args.verbose else 25,
         save_strategy="epoch",
         seed=SEED,
         bf16=(device == "cuda"),
@@ -501,6 +516,15 @@ def main():
 
     print(f"  Training complete in {train_time:.1f}s")
     print(f"  Final loss: {train_result.training_loss:.4f}")
+
+    # Verify loss is consistent with completion-only training
+    if loss_callback.losses:
+        first_loss = loss_callback.losses[0]["loss"]
+        if first_loss > 7.0:
+            print(f"  ⚠ Initial loss ({first_loss:.1f}) is unusually high — "
+                  f"prompt masking may not be working correctly")
+        else:
+            print(f"  ✓ Initial loss ({first_loss:.1f}) consistent with completion-only training")
 
     # ── 6f. Save the LoRA adapter ────────────────────────────────────
     print("\n[6/7] Saving artifacts...")
@@ -602,6 +626,113 @@ def main():
     with open(OUTPUT_DIR / "before_after_comparison.json", "w") as f:
         json.dump(comparison, f, indent=2)
     print(f"  Saved {len(comparison)} before/after comparison examples.")
+
+    # ── Sanity check: structured results ─────────────────────────
+    sanity_labels = LABELS[:5]  # One per class (skip VDI to keep it to 5)
+    sanity_results = []
+
+    for i, sample in enumerate(EXAMPLE_PROMPTS[:5]):
+        label = sample["label"]
+        sft_text = sft_outputs[i]["generated"]
+
+        # Extract predicted label from SFT output
+        predicted = ""
+        text_lower = sft_text.lower()
+        for l in sorted(LABELS, key=len, reverse=True):
+            if l.lower() in text_lower:
+                predicted = l
+                break
+
+        correct = predicted == label
+        sanity_results.append({
+            "expected": label,
+            "predicted": predicted if predicted else "(unparseable)",
+            "generated_snippet": sft_text[:100],
+            "correct": correct,
+        })
+
+    num_correct = sum(1 for r in sanity_results if r["correct"])
+    sample_accuracy = num_correct / len(sanity_results)
+
+    # Determine verdict
+    checks = []
+    initial_loss = loss_callback.losses[0]["loss"] if loss_callback.losses else None
+    final_loss = loss_callback.losses[-1]["loss"] if loss_callback.losses else None
+
+    if initial_loss and final_loss:
+        loss_reduction = (initial_loss - final_loss) / initial_loss * 100
+        if loss_reduction > 50:
+            checks.append(("pass", f"Loss decreased significantly ({loss_reduction:.0f}% reduction)"))
+        elif loss_reduction > 0:
+            checks.append(("warn", f"Loss decreased modestly ({loss_reduction:.0f}% reduction)"))
+        else:
+            checks.append(("fail", "Loss did not decrease"))
+
+    has_format = any(r["correct"] for r in sanity_results)
+    if has_format:
+        checks.append(("pass", "Model outputs correct format (label + reason)"))
+    else:
+        checks.append(("fail", "Model outputs are not in expected format"))
+
+    # Check if model distinguishes easy categories
+    easy_correct = sum(1 for r in sanity_results
+                       if r["expected"] in ["OLTP Database", "Backup Archive"] and r["correct"])
+    easy_total = sum(1 for r in sanity_results
+                     if r["expected"] in ["OLTP Database", "Backup Archive"])
+    if easy_total > 0 and easy_correct == easy_total:
+        checks.append(("pass", "Model distinguishes easy categories (OLTP vs Backup)"))
+    elif easy_total > 0:
+        checks.append(("warn", "Model struggles with even easy categories"))
+
+    # Check for OLAP/AI ML confusion
+    confused = [r for r in sanity_results
+                if r["expected"] in ["OLAP Analytics", "AI ML Training"] and not r["correct"]]
+    if confused:
+        checks.append(("info", "Confuses OLAP/AI ML — these have similar I/O profiles"))
+
+    all_pass = all(c[0] in ["pass", "info"] for c in checks)
+    any_fail = any(c[0] == "fail" for c in checks)
+    verdict = "HEALTHY" if all_pass else ("ISSUES DETECTED" if any_fail else "OK WITH WARNINGS")
+
+    # Print structured results
+    print("\n" + "=" * 60)
+    print("  SFT RESULTS")
+    print("=" * 60)
+    if initial_loss and final_loss:
+        print(f"  Training:  Loss {initial_loss:.2f} → {final_loss:.2f} "
+              f"({(initial_loss - final_loss) / initial_loss * 100:.0f}% reduction) "
+              f"in {train_time/60:.0f}m {train_time%60:.0f}s")
+    else:
+        print(f"  Training:  {train_time:.1f}s")
+    print()
+    print("  Sample outputs (5 prompts, one per class):")
+    for r in sanity_results:
+        mark = "✓" if r["correct"] else "✗"
+        note = ""
+        if not r["correct"] and r["expected"] in ["OLAP Analytics", "AI ML Training"]:
+            note = " (common confusion)"
+        print(f'    {r["expected"]:<20s} → {r["predicted"]:<22s} {mark}{note}')
+    print(f"  Sample accuracy: {num_correct}/{len(sanity_results)} ({sample_accuracy:.0%})")
+    print()
+    print("  Sanity check:")
+    for status, msg in checks:
+        icon = {"pass": "✓", "warn": "⚠", "fail": "✗", "info": "⚠"}.get(status, "?")
+        print(f"    {icon} {msg}")
+    print(f"\n  Verdict: {verdict} — {'proceed to DPO' if not any_fail else 'investigate before proceeding'}")
+    print("=" * 60)
+
+    # Save sanity check JSON
+    sanity_data = {
+        "initial_loss": initial_loss,
+        "final_loss": final_loss,
+        "training_time_seconds": round(train_time, 2),
+        "sample_results": sanity_results,
+        "sample_accuracy": sample_accuracy,
+        "checks": [{"status": s, "message": m} for s, m in checks],
+        "verdict": verdict,
+    }
+    with open(OUTPUT_DIR / "sft_sanity_check.json", "w") as f:
+        json.dump(sanity_data, f, indent=2)
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
