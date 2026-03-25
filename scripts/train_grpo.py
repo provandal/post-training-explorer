@@ -652,7 +652,7 @@ def main():
     print("\n[3/5] Adding LoRA adapters for GRPO...")
     lora_config = LoraConfig(
         r=16,
-        lora_alpha=32,
+        lora_alpha=64,
         target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
         lora_dropout=0.05,
         bias="none",

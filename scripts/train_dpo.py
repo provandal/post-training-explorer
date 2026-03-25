@@ -466,7 +466,7 @@ def main():
     print("\n[4/6] Configuring LoRA for DPO training...")
     lora_config = LoraConfig(
         r=16,
-        lora_alpha=32,
+        lora_alpha=64,
         target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
         lora_dropout=0.05,
         bias="none",
@@ -742,8 +742,13 @@ def main():
 
     # Determine verdict
     checks = []
-    initial_loss = loss_callback.logs[0]["loss"] if loss_callback.logs else None
-    final_loss = loss_callback.logs[-1]["loss"] if loss_callback.logs else None
+    initial_loss = loss_callback.logs[0].get("loss") if loss_callback.logs else None
+    # Find last log entry that actually has a loss value (final entry may be summary-only)
+    final_loss = None
+    for log_entry in reversed(loss_callback.logs):
+        if "loss" in log_entry:
+            final_loss = log_entry["loss"]
+            break
 
     if initial_loss and final_loss and final_loss < initial_loss:
         checks.append(("pass", "Loss decreased during training"))
