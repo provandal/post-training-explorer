@@ -661,15 +661,20 @@ def main():
                     rewards.append(0.0)
             return rewards
 
+        # TRL GRPOTrainer requires generation_batch_size divisible by num_generations.
+        # Use num_generations=4 for TRL path (manual path uses the full cfg value).
+        trl_num_gens = min(num_generations, 4)
+        trl_batch_size = max(batch_size, trl_num_gens)  # Must be >= num_generations
+
         grpo_base_kwargs = dict(
             output_dir=str(OUTPUT_DIR / "checkpoints"),
             num_train_epochs=2,
-            per_device_train_batch_size=batch_size,
+            per_device_train_batch_size=trl_batch_size,
             gradient_accumulation_steps=2,
             learning_rate=1e-5,
             lr_scheduler_type="cosine",
             warmup_steps=10,
-            num_generations=num_generations,
+            num_generations=trl_num_gens,
             logging_steps=5,
             save_strategy="epoch",
             seed=SEED,
