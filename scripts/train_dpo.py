@@ -537,6 +537,7 @@ def main():
     # Suppress default trainer logging (we use our colored callback instead)
     import logging
     logging.getLogger("transformers.trainer").setLevel(logging.WARNING)
+    logging.getLogger("trl.trainer.dpo_trainer").setLevel(logging.ERROR)
 
     trainer = DPOTrainer(
         model=model,
