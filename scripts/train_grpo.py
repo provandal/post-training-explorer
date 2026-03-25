@@ -806,9 +806,11 @@ def main():
             else:
                 raise
 
-        # Suppress default trainer logging (we use our colored callback instead)
+        # Suppress default trainer logging and noisy TRL warnings
         import logging as _logging
         _logging.getLogger("transformers.trainer").setLevel(_logging.WARNING)
+        _logging.getLogger("trl.trainer.grpo_trainer").setLevel(_logging.ERROR)
+        _logging.getLogger("trl.trainer.sft_trainer").setLevel(_logging.ERROR)
 
         trainer = GRPOTrainer(
             model=policy_model,
