@@ -556,9 +556,21 @@ def main():
     # ── 4f. Save artifacts ───────────────────────────────────────────
     print("\n[6/6] Saving artifacts...")
 
+    # IMPORTANT: Use trainer.model — TRL may swap the model object during training.
+    trained_model = trainer.model
+    print(f"  model is trainer.model: {model is trained_model}")
+
+    # Verify LoRA weights were actually updated
+    lora_b_stds = [p.std().item() for n, p in trained_model.named_parameters() if "lora_B" in n]
+    if lora_b_stds:
+        avg_std = sum(lora_b_stds) / len(lora_b_stds)
+        print(f"  LoRA B weight avg std: {avg_std:.6f} ({len(lora_b_stds)} matrices)")
+        if avg_std < 0.001:
+            print(f"  ⚠ WARNING: LoRA B weights are near-zero!")
+
     # Save the DPO LoRA adapter
     adapter_path = OUTPUT_DIR / "adapter"
-    model.save_pretrained(str(adapter_path))
+    trained_model.save_pretrained(str(adapter_path))
     tokenizer.save_pretrained(str(adapter_path))
     print(f"  Saved DPO adapter to {adapter_path}")
 
@@ -683,7 +695,8 @@ def main():
 
     sanity_labels = LABELS[:5]  # One per class (skip last to keep it quick)
     sanity_results = []
-    model.eval()
+    trained_model.eval()
+    eos_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
 
     # Load SFT sanity check for comparison if available
     sft_sanity_path = SFT_DIR / "sft_sanity_check.json"
@@ -695,13 +708,17 @@ def main():
 
     for label in sanity_labels:
         prompt = generate_io_prompt(label) + "\n\nClassification: "
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
+        input_ids = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
+        input_len = input_ids.shape[1]
+        # Manual greedy decoding — more reliable than model.generate() post-TRL
         with torch.no_grad():
-            output_ids = model.generate(
-                **inputs, max_new_tokens=80, do_sample=False,
-                pad_token_id=tokenizer.eos_token_id,
-            )
-        generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+            for _ in range(80):
+                logits = trained_model(input_ids).logits[:, -1, :]
+                next_token = logits.argmax(dim=-1, keepdim=True)
+                if next_token.item() == eos_id:
+                    break
+                input_ids = torch.cat([input_ids, next_token], dim=-1)
+        generated = tokenizer.decode(input_ids[0][input_len:], skip_special_tokens=True).strip()
 
         # Extract predicted label
         predicted = ""

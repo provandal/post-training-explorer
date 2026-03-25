@@ -289,28 +289,33 @@ def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
 # ====================================================================
 
 def generate_outputs(model, tokenizer, prompts, device, max_new_tokens=80):
-    """Generate text outputs for a list of prompts."""
+    """Generate text outputs for a list of prompts using manual greedy decoding.
+
+    We use manual token-by-token generation instead of model.generate() because
+    TRL's SFTTrainer can leave the model/generation config in a state where
+    generate() silently produces empty output.
+    """
     model.eval()
+    eos_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
     results = []
 
     for sample in prompts:
         text = sample["prompt"] + "\n\nClassification: "
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
+        input_ids = tokenizer(text, return_tensors="pt", truncation=True,
+                              max_length=512)["input_ids"].to(device)
+        input_len = input_ids.shape[1]
 
+        # Manual greedy decoding — more reliable than model.generate() post-TRL
         with torch.no_grad():
-            output_ids = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,          # Greedy for reproducibility
-                temperature=1.0,
-                pad_token_id=tokenizer.eos_token_id,
-            )
+            for _ in range(max_new_tokens):
+                logits = model(input_ids).logits[:, -1, :]
+                next_token = logits.argmax(dim=-1, keepdim=True)
+                if next_token.item() == eos_id:
+                    break
+                input_ids = torch.cat([input_ids, next_token], dim=-1)
 
-        # Decode only the newly generated tokens
-        generated = tokenizer.decode(
-            output_ids[0][inputs["input_ids"].shape[1]:],
-            skip_special_tokens=True,
-        )
+        generated = tokenizer.decode(input_ids[0][input_len:],
+                                     skip_special_tokens=True)
         results.append({
             "prompt_snippet": sample["prompt"][:120] + "...",
             "expected": sample["completion"],
@@ -615,9 +620,27 @@ def main():
     # ── 6f. Save the LoRA adapter ────────────────────────────────────
     print("\n[6/7] Saving artifacts...")
 
+    # IMPORTANT: Use trainer.model, not `model`. TRL's SFTTrainer may wrap or
+    # replace the model object during training. The `model` variable could point
+    # to an untrained copy while trainer.model has the actual trained weights.
+    trained_model = trainer.model
+    print(f"  model is trainer.model: {model is trained_model}")
+    print(f"  trainer.model type: {type(trained_model).__name__}")
+
+    # Verify LoRA weights were actually updated during training
+    lora_b_stats = []
+    for name, param in trained_model.named_parameters():
+        if "lora_B" in name:
+            lora_b_stats.append((name, param.std().item()))
+    if lora_b_stats:
+        avg_std = sum(s for _, s in lora_b_stats) / len(lora_b_stats)
+        print(f"  LoRA B weight avg std: {avg_std:.6f} ({len(lora_b_stats)} matrices)")
+        if avg_std < 0.001:
+            print(f"  ⚠ WARNING: LoRA B weights are near-zero — adapter may not have trained!")
+
     # Save the LoRA adapter (small! usually < 5 MB)
     adapter_path = OUTPUT_DIR / "adapter"
-    model.save_pretrained(str(adapter_path))
+    trained_model.save_pretrained(str(adapter_path))
     tokenizer.save_pretrained(str(adapter_path))
     print(f"  Saved LoRA adapter to {adapter_path}")
 
@@ -633,7 +656,7 @@ def main():
         }, f, indent=2)
 
     # Save LoRA weight visualization data (detailed per-layer format)
-    lora_weights_detailed = capture_lora_weights(model)
+    lora_weights_detailed = capture_lora_weights(trained_model)
     with open(OUTPUT_DIR / "lora_weights_detailed.json", "w") as f:
         json.dump(lora_weights_detailed, f, indent=2)
     print(f"  Saved detailed LoRA weight data ({len(lora_weights_detailed)} matrices)")
@@ -644,7 +667,7 @@ def main():
     lora_a_data = None
     lora_b_data = None
     target_layer_name = None
-    for name, param in model.named_parameters():
+    for name, param in trained_model.named_parameters():
         if "lora_A" in name and "q_proj" in name and param.requires_grad:
             lora_a_data = param.detach().cpu().float().numpy()
             # Derive the layer path from the parameter name
@@ -676,41 +699,18 @@ def main():
     print(f"  Saved LoRA weight visualization for layer: {target_layer_name}")
 
     # ── 6g. Capture SFT model outputs (after fine-tuning) ────────────
-    # Reload the model from the saved adapter — TRL's SFTTrainer leaves
-    # the in-memory model in a state where generate() produces empty output.
+    # Use trainer.model directly with manual greedy decoding.
+    # We avoid model.generate() because TRL's SFTTrainer can leave the
+    # generation config in a broken state. Manual decoding uses the
+    # model's forward pass, which is always reliable.
     print("\n[7/7] Capturing fine-tuned model outputs...")
-    del model
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
-
-    sft_base = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True,
-        dtype=torch.float32 if device == "cpu" else torch.bfloat16,
-    ).to(device)
-    model = PeftModel.from_pretrained(sft_base, str(adapter_path))
+    model = trained_model
     model.eval()
-
-    # Quick smoke test — verify the reloaded model can generate
-    _test_input = tokenizer(
-        EXAMPLE_PROMPTS[0]["prompt"] + "\n\nClassification: ",
-        return_tensors="pt", truncation=True, max_length=512,
-    ).to(device)
-    with torch.no_grad():
-        _test_ids = model.generate(**_test_input, max_new_tokens=20, do_sample=False,
-                                   pad_token_id=tokenizer.eos_token_id)
-    _test_out = tokenizer.decode(_test_ids[0][_test_input["input_ids"].shape[1]:],
-                                 skip_special_tokens=True).strip()
-    if _test_out:
-        print(f"  Smoke test: \"{_test_out[:60]}\" ✓")
-    else:
-        print(f"  ⚠ Smoke test: model generated empty output!")
-        print(f"    Raw IDs: {_test_ids[0][-20:].tolist()}")
-        print(f"    Input length: {_test_input['input_ids'].shape[1]}")
-        print(f"    Output length: {_test_ids.shape[1]}")
 
     sft_probs = capture_token_probs(model, tokenizer, EXAMPLE_PROMPTS, device)
     sft_outputs = generate_outputs(model, tokenizer, EXAMPLE_PROMPTS, device)
 
-    # Print what was actually generated (debug)
+    # Print what was actually generated
     for i, out in enumerate(sft_outputs[:3]):
         gen = out["generated"][:80] if out["generated"] else "(empty)"
         print(f"  Sample {i}: {gen}")

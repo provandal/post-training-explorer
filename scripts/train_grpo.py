@@ -1032,15 +1032,20 @@ def main():
             sft_sanity = json.load(f)
             sft_accuracy = sft_sanity.get("sample_accuracy", None)
 
+    eos_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
     for label in sanity_labels:
         prompt = generate_io_prompt(label) + "\n\nClassification: "
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
+        input_ids = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
+        input_len = input_ids.shape[1]
+        # Manual greedy decoding — more reliable than model.generate() post-TRL
         with torch.no_grad():
-            output_ids = policy_model.generate(
-                **inputs, max_new_tokens=80, do_sample=False,
-                pad_token_id=tokenizer.eos_token_id,
-            )
-        generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+            for _ in range(80):
+                logits = policy_model(input_ids).logits[:, -1, :]
+                next_token = logits.argmax(dim=-1, keepdim=True)
+                if next_token.item() == eos_id:
+                    break
+                input_ids = torch.cat([input_ids, next_token], dim=-1)
+        generated = tokenizer.decode(input_ids[0][input_len:], skip_special_tokens=True).strip()
 
         predicted = extract_classification(generated)
         correct = predicted == label
