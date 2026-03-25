@@ -179,33 +179,62 @@ def generate_io_prompt(label: str) -> str:
     )
 
 
+# Keyword shortcuts: if the model generates a near-miss label like
+# "VDI Virtual Machine Delivery" or "Backup Video Archive", we can
+# still identify the intended category by matching distinguishing keywords.
+# Ordered from most-specific to least-specific to avoid false matches.
+LABEL_KEYWORDS = {
+    "OLTP Database":       ["oltp", "transactional", "database"],
+    "OLAP Analytics":      ["olap", "analytics", "analytical", "warehouse", "data warehouse"],
+    "AI ML Training":      ["ai ml", "ml training", "ai training", "machine learning", "gpu training"],
+    "Video Streaming":     ["video streaming", "streaming", "media streaming"],
+    "VDI Virtual Desktop": ["vdi", "virtual desktop"],
+    "Backup Archive":      ["backup", "archive", "archival"],
+}
+
+
 def extract_classification(text: str) -> str:
     """
     Parse the model's output to extract the predicted classification label.
     Returns the label string if found, or empty string if parsing fails.
 
     Robust extraction strategy:
-    1. Try to match "Classification: <label>" pattern
-    2. Fall back to matching any known label appearing in the text (case-insensitive)
-    3. Log when extraction fails for debugging
+    1. Try to match "Classification: <label>" — exact label match
+    2. Try keyword matching on the Classification line (handles near-miss labels
+       like "VDI Virtual Machine Delivery" → matches "vdi" → VDI Virtual Desktop)
+    3. Fall back to matching any known label in the full text
+    4. Fall back to keyword matching on the full text
+    5. Log when extraction fails for debugging
     """
-    # Strategy 1: Try to match "Classification: <label>"
+    text_lower = text.lower()
+
+    # Strategy 1: Try to match "Classification: <label>" with exact label match
     match = re.search(r"Classification:\s*(.+?)(?:\n|$)", text, re.IGNORECASE)
     if match:
-        predicted = match.group(1).strip()
-        # Fuzzy-match against known labels
+        predicted = match.group(1).strip().lower()
+        # Exact or substring match against known labels
         for label in LABELS:
-            if label.lower() in predicted.lower() or predicted.lower() in label.lower():
+            if label.lower() in predicted or predicted in label.lower():
                 return label
+        # Strategy 2: Keyword match on the Classification line
+        for label, keywords in LABEL_KEYWORDS.items():
+            for kw in keywords:
+                if kw in predicted:
+                    return label
 
-    # Strategy 2: Fall back to matching any known label in the full text (case-insensitive)
-    # Check longer labels first to avoid partial matches (e.g., "AI ML Training" before "AI")
+    # Strategy 3: Fall back to matching any known label in the full text
     labels_by_length = sorted(LABELS, key=len, reverse=True)
     for label in labels_by_length:
-        if label.lower() in text.lower():
+        if label.lower() in text_lower:
             return label
 
-    # Strategy 3: Log extraction failure for debugging
+    # Strategy 4: Keyword match on the full text
+    for label, keywords in LABEL_KEYWORDS.items():
+        for kw in keywords:
+            if kw in text_lower:
+                return label
+
+    # Strategy 5: Log extraction failure for debugging
     snippet = text[:100].replace("\n", " ")
     print(f"  [extract_classification] FAILED to extract label from: '{snippet}...'")
     return ""

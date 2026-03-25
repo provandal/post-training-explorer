@@ -216,20 +216,41 @@ def build_test_set() -> list[dict]:
     return test_prompts
 
 
+LABEL_KEYWORDS = {
+    "OLTP Database":       ["oltp", "transactional", "database"],
+    "OLAP Analytics":      ["olap", "analytics", "analytical", "warehouse"],
+    "AI ML Training":      ["ai ml", "ml training", "ai training", "machine learning"],
+    "Video Streaming":     ["video streaming", "streaming", "media streaming"],
+    "VDI Virtual Desktop": ["vdi", "virtual desktop"],
+    "Backup Archive":      ["backup", "archive", "archival"],
+}
+
+
 def extract_predicted_label(generated_text: str) -> str:
     """Extract predicted label from generated text. Returns label or empty string."""
+    text_lower = generated_text.lower()
     match = re.search(r"Classification:\s*(.+?)(?:\n|$)",
                       generated_text, re.IGNORECASE)
     if match:
-        predicted = match.group(1).strip()
+        predicted = match.group(1).strip().lower()
         for label in LABELS:
-            if label.lower() in predicted.lower():
+            if label.lower() in predicted or predicted in label.lower():
                 return label
+        # Keyword match on the Classification line
+        for label, keywords in LABEL_KEYWORDS.items():
+            for kw in keywords:
+                if kw in predicted:
+                    return label
     # Fallback: check for any known label in the text
     labels_by_length = sorted(LABELS, key=len, reverse=True)
     for label in labels_by_length:
-        if label.lower() in generated_text.lower():
+        if label.lower() in text_lower:
             return label
+    # Keyword fallback on full text
+    for label, keywords in LABEL_KEYWORDS.items():
+        for kw in keywords:
+            if kw in text_lower:
+                return label
     return ""
 
 
