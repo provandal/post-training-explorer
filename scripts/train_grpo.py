@@ -175,7 +175,9 @@ def generate_io_prompt(label: str) -> str:
         f"- Access Pattern: {random_pct}% random / {sequential_pct}% sequential\n"
         f"- Block Size: {block_kb} KB\n"
         f"- Queue Depth: {queue_depth}\n\n"
-        f"Provide the workload classification and a brief reason."
+        f"Choose one of: OLTP Database, OLAP Analytics, AI ML Training, "
+        f"Video Streaming, VDI Virtual Desktop, Backup Archive.\n"
+        f"Provide the classification and a brief reason."
     )
 
 
@@ -186,9 +188,10 @@ def generate_io_prompt(label: str) -> str:
 LABEL_KEYWORDS = {
     "OLTP Database":       ["oltp", "transactional", "database"],
     "OLAP Analytics":      ["olap", "analytics", "analytical", "warehouse", "data warehouse"],
-    "AI ML Training":      ["ai ml", "ml training", "ai training", "machine learning", "gpu training"],
-    "Video Streaming":     ["video streaming", "streaming", "media streaming"],
-    "VDI Virtual Desktop": ["vdi", "virtual desktop"],
+    "AI ML Training":      ["ai ml", "ml training", "ai training", "machine learning",
+                            "gpu training", "training data", "model training"],
+    "Video Streaming":     ["video streaming", "streaming", "media streaming", "video"],
+    "VDI Virtual Desktop": ["vdi", "virtual desktop", "desktop"],
     "Backup Archive":      ["backup", "archive", "archival"],
 }
 

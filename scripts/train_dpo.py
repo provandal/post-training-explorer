@@ -211,7 +211,9 @@ def generate_io_prompt(label: str) -> str:
         f"- Access Pattern: {random_pct}% random / {sequential_pct}% sequential\n"
         f"- Block Size: {block_kb} KB\n"
         f"- Queue Depth: {queue_depth}\n\n"
-        f"Provide the workload classification and a brief reason."
+        f"Choose one of: OLTP Database, OLAP Analytics, AI ML Training, "
+        f"Video Streaming, VDI Virtual Desktop, Backup Archive.\n"
+        f"Provide the classification and a brief reason."
     )
 
 
