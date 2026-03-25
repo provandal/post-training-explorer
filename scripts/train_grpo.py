@@ -387,8 +387,8 @@ class SimpleGRPO:
                     **inputs,
                     max_new_tokens=self.max_new_tokens,
                     do_sample=True,
-                    temperature=0.8,
-                    top_p=0.9,
+                    temperature=0.5,
+                    top_p=0.85,
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
                 generated = self.tokenizer.decode(
@@ -707,6 +707,7 @@ def main():
             lr_scheduler_type="cosine",
             warmup_steps=10,
             num_generations=trl_num_gens,
+            temperature=0.5,       # Lower temp = stay closer to SFT policy
             logging_steps=5,
             save_strategy="epoch",
             seed=SEED,
