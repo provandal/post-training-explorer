@@ -600,7 +600,19 @@ def main():
     print(f"  Saved LoRA weight visualization for layer: {target_layer_name}")
 
     # ── 6g. Capture SFT model outputs (after fine-tuning) ────────────
+    # Reload the model from the saved adapter — TRL's SFTTrainer leaves
+    # the in-memory model in a state where generate() produces empty output.
     print("\n[7/7] Capturing fine-tuned model outputs...")
+    del model
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+
+    sft_base = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME, trust_remote_code=True,
+        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+    ).to(device)
+    model = PeftModel.from_pretrained(sft_base, str(adapter_path))
+    model.eval()
+
     sft_probs = capture_token_probs(model, tokenizer, EXAMPLE_PROMPTS, device)
     sft_outputs = generate_outputs(model, tokenizer, EXAMPLE_PROMPTS, device)
 
