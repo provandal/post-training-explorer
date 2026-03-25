@@ -35,6 +35,7 @@ import json
 import time
 import random
 import re
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -49,23 +50,41 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
-# ── Paths ────────────────────────────────────────────────────────────
+# ── Model configurations ─────────────────────────────────────────────
+MODELS = {
+    "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
+             "sft_batch": 4, "grpo_batch": 2, "grpo_gens": 8},
+    "1.7B": {"name": "HuggingFaceTB/SmolLM2-1.7B", "slug": "smollm2-1.7b",
+             "sft_batch": 2, "grpo_batch": 1, "grpo_gens": 4},
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="GRPO training")
+    parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
+                        help="Model size to train (default: 360M)")
+    return parser.parse_args()
+
+
+def get_paths(model_size):
+    """Get input/output paths based on model size."""
+    if model_size == "360M":
+        # Backward compatible: use existing flat structure
+        sft_dir = SCRIPT_DIR / "outputs" / "sft"
+        output_dir = SCRIPT_DIR / "outputs" / "grpo"
+    else:
+        slug = MODELS[model_size]["slug"]
+        sft_dir = SCRIPT_DIR / "outputs" / slug / "sft"
+        output_dir = SCRIPT_DIR / "outputs" / slug / "grpo"
+    return sft_dir, output_dir
+
+
+# ── Paths (defaults for 360M, overridden in main() based on args) ────
 SCRIPT_DIR = Path(__file__).resolve().parent
 SFT_DIR = SCRIPT_DIR / "outputs" / "sft"
 OUTPUT_DIR = SCRIPT_DIR / "outputs" / "grpo"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_NAME = "HuggingFaceTB/SmolLM2-360M"
-
-# ── Check prerequisites ─────────────────────────────────────────────
-SFT_ADAPTER = SFT_DIR / "adapter"
-if not SFT_ADAPTER.exists():
-    print("=" * 60)
-    print("  ERROR: SFT adapter not found!")
-    print(f"  Expected at: {SFT_ADAPTER}")
-    print("  Please run train_sft.py first.")
-    print("=" * 60)
-    sys.exit(1)
 
 # ====================================================================
 # 1. DATA + REWARD FUNCTION
@@ -164,8 +183,13 @@ def extract_classification(text: str) -> str:
     """
     Parse the model's output to extract the predicted classification label.
     Returns the label string if found, or empty string if parsing fails.
+
+    Robust extraction strategy:
+    1. Try to match "Classification: <label>" pattern
+    2. Fall back to matching any known label appearing in the text (case-insensitive)
+    3. Log when extraction fails for debugging
     """
-    # Try to match "Classification: <label>"
+    # Strategy 1: Try to match "Classification: <label>"
     match = re.search(r"Classification:\s*(.+?)(?:\n|$)", text, re.IGNORECASE)
     if match:
         predicted = match.group(1).strip()
@@ -173,22 +197,52 @@ def extract_classification(text: str) -> str:
         for label in LABELS:
             if label.lower() in predicted.lower() or predicted.lower() in label.lower():
                 return label
+
+    # Strategy 2: Fall back to matching any known label in the full text (case-insensitive)
+    # Check longer labels first to avoid partial matches (e.g., "AI ML Training" before "AI")
+    labels_by_length = sorted(LABELS, key=len, reverse=True)
+    for label in labels_by_length:
+        if label.lower() in text.lower():
+            return label
+
+    # Strategy 3: Log extraction failure for debugging
+    snippet = text[:100].replace("\n", " ")
+    print(f"  [extract_classification] FAILED to extract label from: '{snippet}...'")
     return ""
+
+
+# Module-level counter for debug logging in reward_fn
+_reward_debug_counter = 0
+_REWARD_DEBUG_LIMIT = 10
 
 
 def reward_fn(completions: list[str], true_label: str) -> list[float]:
     """
     Binary reward function for classification accuracy.
-      1.0 → correct classification
-      0.0 → incorrect or unparseable
+      1.0 -> correct classification
+      0.0 -> incorrect or unparseable
 
     This is intentionally simple — more complex reward functions could
     give partial credit for close answers, reward conciseness, etc.
+
+    Debug logging: prints the first few raw completions to stdout so the
+    user can see what the model is actually generating during GRPO.
     """
+    global _reward_debug_counter
     rewards = []
     for completion in completions:
         predicted = extract_classification(completion)
-        rewards.append(1.0 if predicted == true_label else 0.0)
+        reward = 1.0 if predicted == true_label else 0.0
+        rewards.append(reward)
+
+        # Debug: print first N completions to stdout for visibility
+        if _reward_debug_counter < _REWARD_DEBUG_LIMIT:
+            snippet = completion[:120].replace("\n", " | ")
+            print(f"  [GRPO DEBUG #{_reward_debug_counter}] true={true_label}, "
+                  f"predicted={predicted or '(empty)'}, reward={reward:.0f}, "
+                  f"text='{snippet}...'")
+            _reward_debug_counter += 1
+
     return rewards
 
 
@@ -252,12 +306,20 @@ class SimpleGRPO:
     5. Update the policy using the REINFORCE-style gradient:
        loss = -sum(advantage_i * log_prob(completion_i))
        (with KL penalty to stay near the reference policy)
+
+    Single-model architecture: uses adapter enable/disable for
+    reference log probs instead of loading a separate reference model.
+    When use_adapter_ref=True, the model's LoRA adapters are disabled
+    to compute reference log probs (i.e., the merged SFT base serves
+    as the reference).
     """
 
-    def __init__(self, model, ref_model, tokenizer, device,
+    def __init__(self, model, tokenizer, device,
+                 ref_model=None, use_adapter_ref=False,
                  num_generations=8, lr=1e-5, kl_coeff=0.05, max_new_tokens=80):
         self.model = model
         self.ref_model = ref_model
+        self.use_adapter_ref = use_adapter_ref
         self.tokenizer = tokenizer
         self.device = device
         self.num_generations = num_generations
@@ -275,8 +337,12 @@ class SimpleGRPO:
         self.generation_logs = []
 
     def generate_completions(self, prompt_text: str) -> list[str]:
-        """Generate K completions for a single prompt using sampling."""
-        full_text = prompt_text + "\n\n"
+        """Generate K completions for a single prompt using sampling.
+
+        Includes "Classification:" as a prefix hint so the model starts
+        generating from the classification label, producing parseable output.
+        """
+        full_text = prompt_text + "\n\nClassification:"
         inputs = self.tokenizer(
             full_text, return_tensors="pt", truncation=True, max_length=400
         ).to(self.device)
@@ -297,7 +363,8 @@ class SimpleGRPO:
                     output_ids[0][inputs["input_ids"].shape[1]:],
                     skip_special_tokens=True,
                 )
-                completions.append(generated.strip())
+                # Prepend "Classification:" since it was part of the prompt hint
+                completions.append("Classification:" + generated.strip())
 
         return completions
 
@@ -306,13 +373,13 @@ class SimpleGRPO:
         Compute log probability of a completion given a prompt.
         Returns the sum of log probs over completion tokens.
         """
-        full_text = prompt_text + "\n\n" + completion_text
+        full_text = prompt_text + "\n\nClassification:" + completion_text.replace("Classification:", "", 1)
         inputs = self.tokenizer(
             full_text, return_tensors="pt", truncation=True, max_length=512
         ).to(self.device)
 
         prompt_only = self.tokenizer(
-            prompt_text + "\n\n", return_tensors="pt", truncation=True, max_length=400
+            prompt_text + "\n\nClassification:", return_tensors="pt", truncation=True, max_length=400
         )
         prompt_len = prompt_only["input_ids"].shape[1]
 
@@ -328,6 +395,18 @@ class SimpleGRPO:
         token_log_probs = log_probs.gather(2, shift_labels.unsqueeze(-1)).squeeze(-1)
 
         return token_log_probs.sum()
+
+    def _compute_ref_log_probs(self, prompt_text: str, completion_text: str) -> torch.Tensor:
+        """Compute reference log probs using either a separate ref model or adapter disable."""
+        if self.use_adapter_ref:
+            # Single-model path: disable LoRA adapters to get reference (SFT base) log probs
+            with torch.no_grad():
+                with self.model.disable_adapter():
+                    return self.compute_log_probs(self.model, prompt_text, completion_text)
+        else:
+            # Two-model path: use the separate frozen reference model
+            with torch.no_grad():
+                return self.compute_log_probs(self.ref_model, prompt_text, completion_text)
 
     def train_step(self, prompts: list[str], true_labels: list[str], step_num: int):
         """
@@ -396,8 +475,7 @@ class SimpleGRPO:
                 policy_log_prob = self.compute_log_probs(self.model, prompt, completion)
 
                 # Log prob under reference (frozen SFT model) for KL penalty
-                with torch.no_grad():
-                    ref_log_prob = self.compute_log_probs(self.ref_model, prompt, completion)
+                ref_log_prob = self._compute_ref_log_probs(prompt, completion)
 
                 # KL divergence estimate (per-sample)
                 kl = policy_log_prob - ref_log_prob
@@ -443,8 +521,28 @@ class SimpleGRPO:
 # ====================================================================
 
 def main():
+    args = parse_args()
+    cfg = MODELS[args.model_size]
+
+    # Override module-level defaults based on args
+    global MODEL_NAME, SFT_DIR, OUTPUT_DIR
+    MODEL_NAME = cfg["name"]
+    SFT_DIR, OUTPUT_DIR = get_paths(args.model_size)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Check prerequisites (must be inside main() since paths depend on args)
+    SFT_ADAPTER = SFT_DIR / "adapter"
+    if not SFT_ADAPTER.exists():
+        print("=" * 60)
+        print("  ERROR: SFT adapter not found!")
+        print(f"  Expected at: {SFT_ADAPTER}")
+        print("  Please run train_sft.py first.")
+        print("=" * 60)
+        sys.exit(1)
+
     print("=" * 60)
     print("  STEP 3: Group Relative Policy Optimization (GRPO)")
+    print(f"  Model: {cfg['name']} ({args.model_size})")
     print("=" * 60)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -452,13 +550,19 @@ def main():
     if device != "cuda":
         print("[WARNING] No GPU detected. Training will be VERY slow!")
 
+    dtype = torch.float32 if device == "cpu" else torch.bfloat16
+
+    # ── Determine single-model vs two-model architecture ─────────────
+    # For 1.7B, loading two full model copies won't fit on a T4 (16 GB).
+    # Instead, we load one base model, merge SFT, add LoRA for GRPO,
+    # and use disable_adapter() to get reference log probs.
+    use_single_model = (args.model_size != "360M")
+
     # ── Load base model + SFT adapter ────────────────────────────────
     print(f"\n[1/5] Loading base model + SFT adapter...")
     tokenizer = AutoTokenizer.from_pretrained(str(SFT_ADAPTER), trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-
-    dtype = torch.float32 if device == "cpu" else torch.bfloat16
 
     # Policy model (will be trained)
     base_model = AutoModelForCausalLM.from_pretrained(
@@ -467,15 +571,19 @@ def main():
     policy_model = PeftModel.from_pretrained(base_model, str(SFT_ADAPTER))
     policy_model = policy_model.merge_and_unload()
 
-    # Reference model (frozen copy of SFT model for KL penalty)
-    ref_base = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
-    ).to(device)
-    ref_model = PeftModel.from_pretrained(ref_base, str(SFT_ADAPTER))
-    ref_model = ref_model.merge_and_unload()
-    ref_model.eval()
-    for param in ref_model.parameters():
-        param.requires_grad = False
+    ref_model = None
+    if not use_single_model:
+        # Two-model path (360M): load a separate frozen reference copy
+        ref_base = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
+        ).to(device)
+        ref_model = PeftModel.from_pretrained(ref_base, str(SFT_ADAPTER))
+        ref_model = ref_model.merge_and_unload()
+        ref_model.eval()
+        for param in ref_model.parameters():
+            param.requires_grad = False
+    else:
+        print("  [INFO] Using single-model architecture (adapter disable for reference)")
 
     print(f"  Policy model parameters: {policy_model.num_parameters():,}")
 
@@ -508,6 +616,13 @@ def main():
     # ── Training ─────────────────────────────────────────────────────
     print("\n[4/5] Starting GRPO training...")
     train_start = time.time()
+
+    # Reset debug counter for this run
+    global _reward_debug_counter
+    _reward_debug_counter = 0
+
+    batch_size = cfg["grpo_batch"]
+    num_generations = cfg["grpo_gens"]
 
     if use_trl_grpo:
         # ── TRL GRPOTrainer path ─────────────────────────────────────
@@ -549,12 +664,12 @@ def main():
         grpo_base_kwargs = dict(
             output_dir=str(OUTPUT_DIR / "checkpoints"),
             num_train_epochs=2,
-            per_device_train_batch_size=4,
+            per_device_train_batch_size=batch_size,
             gradient_accumulation_steps=2,
             learning_rate=1e-5,
             lr_scheduler_type="cosine",
             warmup_steps=10,
-            num_generations=4,
+            num_generations=num_generations,
             logging_steps=5,
             save_strategy="epoch",
             seed=SEED,
@@ -598,17 +713,17 @@ def main():
         # ── Manual GRPO path ─────────────────────────────────────────
         grpo = SimpleGRPO(
             model=policy_model,
-            ref_model=ref_model,
             tokenizer=tokenizer,
             device=device,
-            num_generations=8,
+            ref_model=ref_model,
+            use_adapter_ref=use_single_model,
+            num_generations=num_generations,
             lr=1e-5,
             kl_coeff=0.05,
             max_new_tokens=80,
         )
 
         prompts = dataset["prompt"]
-        batch_size = 2
         num_epochs = 2
         step = 0
 
@@ -685,7 +800,7 @@ def main():
         with open(OUTPUT_DIR / "generation_logs.json", "w") as f:
             json.dump({"examples": formatted_gen_logs}, f, indent=2)
         print(f"  Saved {len(formatted_gen_logs)} generation log entries "
-              f"(each with {8} completions + scores)")
+              f"(each with {num_generations} completions + scores)")
     else:
         # If using TRL's GRPOTrainer, generate some example logs post-hoc
         print("  Generating example generation logs post-training...")
@@ -698,8 +813,8 @@ def main():
             prompt = generate_io_prompt(label)
             completions = []
             with torch.no_grad():
-                for _ in range(8):
-                    text = prompt + "\n\n"
+                for _ in range(num_generations):
+                    text = prompt + "\n\nClassification:"
                     inputs = tokenizer(text, return_tensors="pt",
                                        truncation=True, max_length=400).to(device)
                     output_ids = policy_model.generate(
@@ -714,7 +829,7 @@ def main():
                         output_ids[0][inputs["input_ids"].shape[1]:],
                         skip_special_tokens=True,
                     )
-                    completions.append(generated.strip())
+                    completions.append("Classification:" + generated.strip())
 
             rewards = reward_fn(completions, label)
 
@@ -769,6 +884,7 @@ def main():
     print("\n" + "=" * 60)
     print("  GRPO Training Complete!")
     print("=" * 60)
+    print(f"  Model:               {cfg['name']} ({args.model_size})")
     print(f"  Adapter saved to:    {adapter_path}")
     print(f"  Training time:       {train_time:.1f}s")
     if training_logs:

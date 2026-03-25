@@ -10,6 +10,9 @@ to show real model outputs without needing a GPU at runtime.
 This is the "cooking show reveal" — everything is pre-baked
 so the web demo can show genuine model behavior.
 
+Supports --model-size to export for a specific model, and
+--all-models to build a cross-model comparison summary.
+
 Run in Google Colab with a GPU runtime.
 ============================================================
 """
@@ -22,6 +25,8 @@ import sys
 import json
 import time
 import random
+import re
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -35,37 +40,47 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
-# ── Paths ────────────────────────────────────────────────────────────
+# ── Model configurations ─────────────────────────────────────────────
+MODELS = {
+    "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m"},
+    "1.7B": {"name": "HuggingFaceTB/SmolLM2-1.7B", "slug": "smollm2-1.7b"},
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Export artifacts for web app")
+    parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
+                        help="Model size to export (default: 360M)")
+    parser.add_argument("--all-models", action="store_true",
+                        help="Export all trained models and build comparison data")
+    return parser.parse_args()
+
+
+def get_paths(model_size):
+    """Get adapter paths and output dirs based on model size."""
+    if model_size == "360M":
+        # Backward compatible: use existing flat structure
+        sft_adapter = SCRIPT_DIR / "outputs" / "sft" / "adapter"
+        dpo_adapter = SCRIPT_DIR / "outputs" / "dpo" / "adapter"
+        grpo_adapter = SCRIPT_DIR / "outputs" / "grpo" / "adapter"
+        export_dir = SCRIPT_DIR / "outputs" / "export"
+    else:
+        slug = MODELS[model_size]["slug"]
+        sft_adapter = SCRIPT_DIR / "outputs" / slug / "sft" / "adapter"
+        dpo_adapter = SCRIPT_DIR / "outputs" / slug / "dpo" / "adapter"
+        grpo_adapter = SCRIPT_DIR / "outputs" / slug / "grpo" / "adapter"
+        export_dir = SCRIPT_DIR / "outputs" / slug / "export"
+    return sft_adapter, dpo_adapter, grpo_adapter, export_dir
+
+
+# ── Paths (defaults for 360M, overridden in main() based on args) ────
 SCRIPT_DIR = Path(__file__).resolve().parent
-SFT_ADAPTER = SCRIPT_DIR / "outputs" / "sft" / "adapter"
-DPO_ADAPTER = SCRIPT_DIR / "outputs" / "dpo" / "adapter"
-GRPO_ADAPTER = SCRIPT_DIR / "outputs" / "grpo" / "adapter"
 
 # The web app's public data directory
 # Adjust this path if your project structure differs
 WEBAPP_DATA_DIR = SCRIPT_DIR.parent / "app" / "public" / "data"
-WEBAPP_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-# Also save to the scripts outputs directory
-EXPORT_DIR = SCRIPT_DIR / "outputs" / "export"
-EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_NAME = "HuggingFaceTB/SmolLM2-360M"
-
-# ── Check prerequisites ─────────────────────────────────────────────
-missing = []
-for name, path in [("SFT", SFT_ADAPTER), ("DPO", DPO_ADAPTER), ("GRPO", GRPO_ADAPTER)]:
-    if not path.exists():
-        missing.append(f"  - {name} adapter: {path}")
-
-if missing:
-    print("=" * 60)
-    print("  WARNING: Some adapters are missing!")
-    for m in missing:
-        print(m)
-    print("\n  Will export results for available models only.")
-    print("  Run the missing training scripts first for complete results.")
-    print("=" * 60)
 
 
 # ====================================================================
@@ -201,6 +216,23 @@ def build_test_set() -> list[dict]:
     return test_prompts
 
 
+def extract_predicted_label(generated_text: str) -> str:
+    """Extract predicted label from generated text. Returns label or empty string."""
+    match = re.search(r"Classification:\s*(.+?)(?:\n|$)",
+                      generated_text, re.IGNORECASE)
+    if match:
+        predicted = match.group(1).strip()
+        for label in LABELS:
+            if label.lower() in predicted.lower():
+                return label
+    # Fallback: check for any known label in the text
+    labels_by_length = sorted(LABELS, key=len, reverse=True)
+    for label in labels_by_length:
+        if label.lower() in generated_text.lower():
+            return label
+    return ""
+
+
 # ====================================================================
 # 2. INFERENCE + PROBABILITY CAPTURE
 # ====================================================================
@@ -292,50 +324,50 @@ def run_inference(model, tokenizer, prompt_text: str, device: str,
 # 3. MODEL LOADING HELPERS
 # ====================================================================
 
-def load_base_model(device, dtype):
+def load_base_model(model_name, device, dtype):
     """Load the unmodified base model."""
-    print(f"  Loading base model: {MODEL_NAME}")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+    print(f"  Loading base model: {model_name}")
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
+        model_name, trust_remote_code=True, torch_dtype=dtype,
     ).to(device)
     return model, tokenizer
 
 
-def load_sft_model(base_model, device):
+def load_sft_model(base_model, sft_adapter_path, device):
     """Load base + SFT adapter."""
-    print(f"  Loading SFT adapter from {SFT_ADAPTER}")
-    model = PeftModel.from_pretrained(base_model, str(SFT_ADAPTER))
+    print(f"  Loading SFT adapter from {sft_adapter_path}")
+    model = PeftModel.from_pretrained(base_model, str(sft_adapter_path))
     return model
 
 
-def load_dpo_model(device, dtype):
+def load_dpo_model(model_name, sft_adapter_path, dpo_adapter_path, device, dtype):
     """Load base + SFT (merged) + DPO adapter."""
     print(f"  Loading DPO model (base + SFT merged + DPO adapter)")
     base = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
+        model_name, trust_remote_code=True, torch_dtype=dtype,
     ).to(device)
     # First merge SFT
-    sft_model = PeftModel.from_pretrained(base, str(SFT_ADAPTER))
+    sft_model = PeftModel.from_pretrained(base, str(sft_adapter_path))
     merged = sft_model.merge_and_unload()
     # Then add DPO adapter
-    model = PeftModel.from_pretrained(merged, str(DPO_ADAPTER))
+    model = PeftModel.from_pretrained(merged, str(dpo_adapter_path))
     return model
 
 
-def load_grpo_model(device, dtype):
+def load_grpo_model(model_name, sft_adapter_path, grpo_adapter_path, device, dtype):
     """Load base + SFT (merged) + GRPO adapter."""
     print(f"  Loading GRPO model (base + SFT merged + GRPO adapter)")
     base = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
+        model_name, trust_remote_code=True, torch_dtype=dtype,
     ).to(device)
     # First merge SFT
-    sft_model = PeftModel.from_pretrained(base, str(SFT_ADAPTER))
+    sft_model = PeftModel.from_pretrained(base, str(sft_adapter_path))
     merged = sft_model.merge_and_unload()
     # Then add GRPO adapter
-    model = PeftModel.from_pretrained(merged, str(GRPO_ADAPTER))
+    model = PeftModel.from_pretrained(merged, str(grpo_adapter_path))
     return model
 
 
@@ -343,7 +375,7 @@ def load_grpo_model(device, dtype):
 # 4. RESOURCE UTILIZATION
 # ====================================================================
 
-def get_resource_info():
+def get_resource_info(model_size, sft_adapter, dpo_adapter, grpo_adapter):
     """Collect resource utilization info for the summary."""
     info = {
         "gpu_available": torch.cuda.is_available(),
@@ -352,7 +384,7 @@ def get_resource_info():
     }
 
     # Check adapter checkpoint sizes
-    for name, path in [("sft", SFT_ADAPTER), ("dpo", DPO_ADAPTER), ("grpo", GRPO_ADAPTER)]:
+    for name, path in [("sft", sft_adapter), ("dpo", dpo_adapter), ("grpo", grpo_adapter)]:
         if path.exists():
             total_size = sum(
                 f.stat().st_size for f in path.rglob("*") if f.is_file()
@@ -362,9 +394,16 @@ def get_resource_info():
             info[f"{name}_checkpoint_size_mb"] = None
 
     # Load training time info from each stage
+    # Check both flat (360M) and slug-based paths
     for name in ["sft", "dpo", "grpo"]:
-        curves_file = SCRIPT_DIR / "outputs" / name / "training_curves.json"
-        loss_file = SCRIPT_DIR / "outputs" / name / "training_loss.json"
+        if model_size == "360M":
+            base_dir = SCRIPT_DIR / "outputs" / name
+        else:
+            slug = MODELS[model_size]["slug"]
+            base_dir = SCRIPT_DIR / "outputs" / slug / name
+
+        curves_file = base_dir / "training_curves.json"
+        loss_file = base_dir / "training_loss.json"
         for f in [curves_file, loss_file]:
             if f.exists():
                 with open(f) as fh:
@@ -377,38 +416,44 @@ def get_resource_info():
 
 
 # ====================================================================
-# 5. MAIN EXPORT PIPELINE
+# 5. SINGLE-MODEL EXPORT
 # ====================================================================
 
-def main():
-    print("=" * 60)
-    print("  STEP 4: Export Artifacts for Web App")
-    print("=" * 60)
+def export_single_model(model_size, test_prompts, device, dtype):
+    """Run the full export pipeline for a single model size. Returns the results dict."""
+    cfg = MODELS[model_size]
+    model_name = cfg["name"]
+    sft_adapter, dpo_adapter, grpo_adapter, export_dir = get_paths(model_size)
+    export_dir.mkdir(parents=True, exist_ok=True)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float32 if device == "cpu" else torch.bfloat16
-    print(f"\n[INFO] Using device: {device}")
+    # Check prerequisites
+    missing = []
+    for name, path in [("SFT", sft_adapter), ("DPO", dpo_adapter), ("GRPO", grpo_adapter)]:
+        if not path.exists():
+            missing.append(f"  - {name} adapter: {path}")
 
-    # ── Build test set ───────────────────────────────────────────────
-    print("\n[1/4] Building standardized test set (20 prompts)...")
-    test_prompts = build_test_set()
-    print(f"  Created {len(test_prompts)} test prompts across {len(LABELS)} categories")
+    if missing:
+        print(f"\n  WARNING ({model_size}): Some adapters are missing!")
+        for m in missing:
+            print(m)
+        print("  Will export results for available models only.")
 
-    # ── Define which models to evaluate ──────────────────────────────
+    # Define which models to evaluate
     model_variants = ["base"]
-    if SFT_ADAPTER.exists():
+    if sft_adapter.exists():
         model_variants.append("sft")
-    if DPO_ADAPTER.exists():
+    if dpo_adapter.exists():
         model_variants.append("dpo")
-    if GRPO_ADAPTER.exists():
+    if grpo_adapter.exists():
         model_variants.append("grpo")
 
-    print(f"\n[2/4] Will evaluate models: {model_variants}")
+    print(f"\n  Will evaluate models: {model_variants}")
 
-    # ── Run inference for each model ─────────────────────────────────
+    # Build results structure
     results = {
         "metadata": {
-            "base_model": MODEL_NAME,
+            "base_model": model_name,
+            "model_size": model_size,
             "num_test_prompts": len(test_prompts),
             "model_variants": model_variants,
             "categories": LABELS,
@@ -419,25 +464,25 @@ def main():
         "model_results": {},
     }
 
-    print(f"\n[3/4] Running inference...")
+    print(f"\n  Running inference for {model_size}...")
 
     for variant in model_variants:
-        print(f"\n  --- {variant.upper()} model ---")
+        print(f"\n  --- {variant.upper()} model ({model_size}) ---")
 
         # Load the appropriate model
         if variant == "base":
-            model, tokenizer = load_base_model(device, dtype)
+            model, tokenizer = load_base_model(model_name, device, dtype)
         elif variant == "sft":
-            base_model, tokenizer = load_base_model(device, dtype)
-            model = load_sft_model(base_model, device)
+            base_model, tokenizer = load_base_model(model_name, device, dtype)
+            model = load_sft_model(base_model, sft_adapter, device)
         elif variant == "dpo":
-            model = load_dpo_model(device, dtype)
-            tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+            model = load_dpo_model(model_name, sft_adapter, dpo_adapter, device, dtype)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
         elif variant == "grpo":
-            model = load_grpo_model(device, dtype)
-            tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, trust_remote_code=True)
+            model = load_grpo_model(model_name, sft_adapter, grpo_adapter, device, dtype)
+            tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
 
@@ -452,16 +497,9 @@ def main():
             total_time += result["generation_time_ms"]
 
             # Check if classification is correct
-            import re
-            match = re.search(r"Classification:\s*(.+?)(?:\n|$)",
-                              result["generated_text"], re.IGNORECASE)
-            if match:
-                predicted = match.group(1).strip()
-                for label in LABELS:
-                    if label.lower() in predicted.lower():
-                        if label == test["true_label"]:
-                            correct += 1
-                        break
+            predicted_label = extract_predicted_label(result["generated_text"])
+            if predicted_label == test["true_label"]:
+                correct += 1
 
             if (i + 1) % 5 == 0:
                 print(f"    Completed {i + 1}/{len(test_prompts)} prompts")
@@ -487,14 +525,19 @@ def main():
             del base_model
         torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
-    # ── Collect training artifacts from each stage ───────────────────
-    print("\n[4/4] Collecting training artifacts and resource info...")
+    # Collect training artifacts from each stage
+    print(f"\n  Collecting training artifacts for {model_size}...")
 
-    # Load training curves from each step
     training_data = {}
     for name in ["sft", "dpo", "grpo"]:
+        if model_size == "360M":
+            base_dir = SCRIPT_DIR / "outputs" / name
+        else:
+            slug = cfg["slug"]
+            base_dir = SCRIPT_DIR / "outputs" / slug / name
+
         for fname in ["training_loss.json", "training_curves.json"]:
-            fpath = SCRIPT_DIR / "outputs" / name / fname
+            fpath = base_dir / fname
             if fpath.exists():
                 with open(fpath) as f:
                     training_data[name] = json.load(f)
@@ -503,86 +546,314 @@ def main():
     results["training_data"] = training_data
 
     # Load preference pair examples (DPO)
-    pref_examples = SCRIPT_DIR / "outputs" / "dpo" / "preference_pair_examples.json"
+    if model_size == "360M":
+        dpo_dir = SCRIPT_DIR / "outputs" / "dpo"
+    else:
+        dpo_dir = SCRIPT_DIR / "outputs" / cfg["slug"] / "dpo"
+
+    pref_examples = dpo_dir / "preference_pair_examples.json"
     if pref_examples.exists():
         with open(pref_examples) as f:
             results["dpo_preference_examples"] = json.load(f)
 
     # Load generation logs (GRPO)
-    gen_logs = SCRIPT_DIR / "outputs" / "grpo" / "generation_logs.json"
+    if model_size == "360M":
+        grpo_dir = SCRIPT_DIR / "outputs" / "grpo"
+    else:
+        grpo_dir = SCRIPT_DIR / "outputs" / cfg["slug"] / "grpo"
+
+    gen_logs = grpo_dir / "generation_logs.json"
     if gen_logs.exists():
         with open(gen_logs) as f:
             results["grpo_generation_logs"] = json.load(f)
 
     # Load LoRA weight visualization data
-    lora_weights = SCRIPT_DIR / "outputs" / "sft" / "lora_weights.json"
+    if model_size == "360M":
+        sft_dir = SCRIPT_DIR / "outputs" / "sft"
+    else:
+        sft_dir = SCRIPT_DIR / "outputs" / cfg["slug"] / "sft"
+
+    lora_weights = sft_dir / "lora_weights.json"
     if lora_weights.exists():
         with open(lora_weights) as f:
             results["lora_weight_visualization"] = json.load(f)
 
     # Load before/after comparison from SFT
-    comparison = SCRIPT_DIR / "outputs" / "sft" / "before_after_comparison.json"
+    comparison = sft_dir / "before_after_comparison.json"
     if comparison.exists():
         with open(comparison) as f:
             results["sft_before_after"] = json.load(f)
 
     # Load probability shift data from DPO
-    prob_shifts = SCRIPT_DIR / "outputs" / "dpo" / "probability_shifts.json"
+    prob_shifts = dpo_dir / "probability_shifts.json"
     if prob_shifts.exists():
         with open(prob_shifts) as f:
             results["dpo_probability_shifts"] = json.load(f)
 
     # Load GRPO group statistics
-    grpo_stats = SCRIPT_DIR / "outputs" / "grpo" / "group_statistics.json"
+    grpo_stats = grpo_dir / "group_statistics.json"
     if grpo_stats.exists():
         with open(grpo_stats) as f:
             results["grpo_group_statistics"] = json.load(f)
 
     # Resource utilization
-    results["resource_utilization"] = get_resource_info()
+    results["resource_utilization"] = get_resource_info(model_size, sft_adapter, dpo_adapter, grpo_adapter)
 
-    # ── Save precomputed_results.json ────────────────────────────────
-    output_path = WEBAPP_DATA_DIR / "precomputed_results.json"
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2)
-    print(f"\n  Saved precomputed_results.json to {output_path}")
-    size_mb = output_path.stat().st_size / 1e6
-    print(f"  File size: {size_mb:.2f} MB")
+    return results, export_dir, model_variants
 
-    # Also save a copy in the export directory
-    export_copy = EXPORT_DIR / "precomputed_results.json"
-    with open(export_copy, "w") as f:
-        json.dump(results, f, indent=2)
 
-    # Save a standalone resource summary
-    resource_summary = results["resource_utilization"]
-    resource_summary["model_accuracies"] = {
-        variant: results["model_results"][variant]["summary"]["accuracy"]
-        for variant in model_variants
+# ====================================================================
+# 6. MULTI-MODEL COMPARISON
+# ====================================================================
+
+def build_model_comparison(all_results: dict, test_prompts: list[dict]) -> dict:
+    """
+    Build a model_size_comparison structure across all exported model sizes.
+
+    all_results: dict mapping model_size -> results dict from export_single_model
+    test_prompts: the shared test prompt set
+    """
+    available_sizes = sorted(all_results.keys())
+
+    # Build accuracy_by_technique
+    techniques = ["base", "sft", "dpo", "grpo"]
+    accuracy_by_technique = {}
+    for technique in techniques:
+        technique_data = {}
+        for size in available_sizes:
+            res = all_results[size]
+            if technique in res.get("model_results", {}):
+                technique_data[size] = res["model_results"][technique]["summary"]["accuracy"]
+        if technique_data:
+            accuracy_by_technique[technique] = technique_data
+
+    # Build training_time_minutes from resource info
+    training_time_minutes = {}
+    for technique in ["sft", "dpo", "grpo"]:
+        technique_times = {}
+        for size in available_sizes:
+            res = all_results[size]
+            resource = res.get("resource_utilization", {})
+            key = f"{technique}_training_time_seconds"
+            if key in resource and resource[key] is not None:
+                technique_times[size] = round(resource[key] / 60, 1)
+        if technique_times:
+            training_time_minutes[technique] = technique_times
+
+    # GPU memory (estimated from known values)
+    gpu_memory_gb = {}
+    for size in available_sizes:
+        res = all_results[size]
+        resource = res.get("resource_utilization", {})
+        if resource.get("gpu_memory_total_gb", 0) > 0:
+            # Use actual GPU info if available; otherwise estimate
+            gpu_memory_gb[size] = resource["gpu_memory_total_gb"]
+        else:
+            # Rough estimates for common model sizes
+            estimates = {"360M": 3.2, "1.7B": 12.5}
+            gpu_memory_gb[size] = estimates.get(size, 0)
+
+    # Head-to-head: first 10 test prompts, each model's classification per technique
+    head_to_head = []
+    for i, test in enumerate(test_prompts[:10]):
+        entry = {
+            "prompt_id": test["id"],
+            "prompt_snippet": test["prompt"][:120] + "...",
+            "true_label": test["true_label"],
+            "results": {},
+        }
+        for size in available_sizes:
+            size_results = {}
+            res = all_results[size]
+            for technique in ["sft", "dpo", "grpo"]:
+                if technique in res.get("model_results", {}):
+                    outputs = res["model_results"][technique]["outputs"]
+                    if i < len(outputs):
+                        generated_text = outputs[i]["generated_text"]
+                        predicted = extract_predicted_label(generated_text)
+                        size_results[technique] = predicted if predicted else "(unparseable)"
+            entry["results"][size] = size_results
+        head_to_head.append(entry)
+
+    comparison = {
+        "models": available_sizes,
+        "accuracy_by_technique": accuracy_by_technique,
+        "training_time_minutes": training_time_minutes,
+        "gpu_memory_gb": gpu_memory_gb,
+        "head_to_head": head_to_head,
     }
-    resource_summary["model_avg_gen_times_ms"] = {
-        variant: results["model_results"][variant]["summary"]["avg_generation_time_ms"]
-        for variant in model_variants
-    }
 
-    with open(EXPORT_DIR / "resource_summary.json", "w") as f:
-        json.dump(resource_summary, f, indent=2)
-    with open(WEBAPP_DATA_DIR / "resource_summary.json", "w") as f:
-        json.dump(resource_summary, f, indent=2)
+    return comparison
 
-    # ── Summary ──────────────────────────────────────────────────────
-    print("\n" + "=" * 60)
-    print("  Export Complete!")
+
+# ====================================================================
+# 7. MAIN EXPORT PIPELINE
+# ====================================================================
+
+def main():
+    args = parse_args()
+
     print("=" * 60)
-    print(f"  Models evaluated:    {', '.join(model_variants)}")
-    print(f"  Test prompts:        {len(test_prompts)}")
-    print(f"  Results file:        {output_path}")
-    print(f"  Results size:        {size_mb:.2f} MB")
-    print(f"\n  Accuracy summary:")
-    for variant in model_variants:
-        s = results["model_results"][variant]["summary"]
-        print(f"    {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
-    print(f"\n  The web app can now load precomputed_results.json!")
+    print("  STEP 4: Export Artifacts for Web App")
+    print("=" * 60)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float32 if device == "cpu" else torch.bfloat16
+    print(f"\n[INFO] Using device: {device}")
+
+    # Build test set (shared across all model sizes)
+    print("\n[1/4] Building standardized test set (20 prompts)...")
+    test_prompts = build_test_set()
+    print(f"  Created {len(test_prompts)} test prompts across {len(LABELS)} categories")
+
+    WEBAPP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.all_models:
+        # ── Multi-model export ───────────────────────────────────────
+        print("\n[INFO] --all-models: will export all trained model sizes")
+
+        # Determine which model sizes have at least one adapter
+        sizes_to_export = []
+        for size in MODELS:
+            sft_adapter, dpo_adapter, grpo_adapter, _ = get_paths(size)
+            if sft_adapter.exists() or dpo_adapter.exists() or grpo_adapter.exists():
+                sizes_to_export.append(size)
+                print(f"  Found training outputs for {size}")
+            else:
+                print(f"  No training outputs found for {size}, skipping")
+
+        if not sizes_to_export:
+            print("\n  ERROR: No trained models found. Run training scripts first.")
+            sys.exit(1)
+
+        # Export each model size
+        all_results = {}
+        for size in sizes_to_export:
+            print(f"\n{'=' * 60}")
+            print(f"  Exporting {size} model...")
+            print(f"{'=' * 60}")
+            results, export_dir, model_variants = export_single_model(
+                size, test_prompts, device, dtype
+            )
+            all_results[size] = results
+
+            # Save per-model results
+            per_model_path = export_dir / "precomputed_results.json"
+            with open(per_model_path, "w") as f:
+                json.dump(results, f, indent=2)
+            print(f"  Saved {size} results to {per_model_path}")
+
+        # Build cross-model comparison
+        print(f"\n{'=' * 60}")
+        print("  Building model size comparison...")
+        print(f"{'=' * 60}")
+        comparison = build_model_comparison(all_results, test_prompts)
+
+        # Use the primary model's results as the base for the combined output
+        primary_size = args.model_size if args.model_size in all_results else sizes_to_export[0]
+        combined_results = all_results[primary_size].copy()
+        combined_results["model_size_comparison"] = comparison
+
+        # Also include all model results keyed by size
+        combined_results["all_model_results"] = {
+            size: {
+                "model_results": res["model_results"],
+                "metadata": res["metadata"],
+            }
+            for size, res in all_results.items()
+        }
+
+        # Save combined results to web app
+        output_path = WEBAPP_DATA_DIR / "precomputed_results.json"
+        with open(output_path, "w") as f:
+            json.dump(combined_results, f, indent=2)
+        size_mb = output_path.stat().st_size / 1e6
+        print(f"\n  Saved combined precomputed_results.json to {output_path}")
+        print(f"  File size: {size_mb:.2f} MB")
+
+        # Save resource summary
+        resource_summary = combined_results.get("resource_utilization", {})
+        resource_summary["model_sizes_exported"] = sizes_to_export
+        resource_summary["model_accuracies"] = {}
+        resource_summary["model_avg_gen_times_ms"] = {}
+        for size in sizes_to_export:
+            res = all_results[size]
+            for variant in res.get("model_results", {}):
+                key = f"{size}_{variant}"
+                resource_summary["model_accuracies"][key] = res["model_results"][variant]["summary"]["accuracy"]
+                resource_summary["model_avg_gen_times_ms"][key] = res["model_results"][variant]["summary"]["avg_generation_time_ms"]
+
+        with open(WEBAPP_DATA_DIR / "resource_summary.json", "w") as f:
+            json.dump(resource_summary, f, indent=2)
+
+        # Summary
+        print("\n" + "=" * 60)
+        print("  Multi-Model Export Complete!")
+        print("=" * 60)
+        print(f"  Models exported:     {', '.join(sizes_to_export)}")
+        print(f"  Test prompts:        {len(test_prompts)}")
+        print(f"  Results file:        {output_path}")
+        print(f"  Results size:        {size_mb:.2f} MB")
+        print(f"\n  Accuracy summary:")
+        for size in sizes_to_export:
+            res = all_results[size]
+            for variant in res.get("model_results", {}):
+                s = res["model_results"][variant]["summary"]
+                print(f"    {size} {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
+
+    else:
+        # ── Single model export ──────────────────────────────────────
+        model_size = args.model_size
+
+        print(f"\n[2/4] Exporting {model_size} model...")
+        results, export_dir, model_variants = export_single_model(
+            model_size, test_prompts, device, dtype
+        )
+
+        # Save precomputed_results.json
+        print(f"\n[4/4] Saving results...")
+        output_path = WEBAPP_DATA_DIR / "precomputed_results.json"
+        with open(output_path, "w") as f:
+            json.dump(results, f, indent=2)
+        print(f"\n  Saved precomputed_results.json to {output_path}")
+        size_mb = output_path.stat().st_size / 1e6
+        print(f"  File size: {size_mb:.2f} MB")
+
+        # Also save a copy in the export directory
+        export_copy = export_dir / "precomputed_results.json"
+        with open(export_copy, "w") as f:
+            json.dump(results, f, indent=2)
+
+        # Save a standalone resource summary
+        resource_summary = results["resource_utilization"]
+        resource_summary["model_accuracies"] = {
+            variant: results["model_results"][variant]["summary"]["accuracy"]
+            for variant in model_variants
+        }
+        resource_summary["model_avg_gen_times_ms"] = {
+            variant: results["model_results"][variant]["summary"]["avg_generation_time_ms"]
+            for variant in model_variants
+        }
+
+        with open(export_dir / "resource_summary.json", "w") as f:
+            json.dump(resource_summary, f, indent=2)
+        with open(WEBAPP_DATA_DIR / "resource_summary.json", "w") as f:
+            json.dump(resource_summary, f, indent=2)
+
+        # Summary
+        print("\n" + "=" * 60)
+        print("  Export Complete!")
+        print("=" * 60)
+        print(f"  Model:               {MODELS[model_size]['name']} ({model_size})")
+        print(f"  Models evaluated:    {', '.join(model_variants)}")
+        print(f"  Test prompts:        {len(test_prompts)}")
+        print(f"  Results file:        {output_path}")
+        print(f"  Results size:        {size_mb:.2f} MB")
+        print(f"\n  Accuracy summary:")
+        for variant in model_variants:
+            s = results["model_results"][variant]["summary"]
+            print(f"    {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
+        print(f"\n  The web app can now load precomputed_results.json!")
 
 
 if __name__ == "__main__":

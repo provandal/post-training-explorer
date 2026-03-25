@@ -16,6 +16,7 @@ import InfrastructureSummary from '../stops/InfrastructureSummary'
 import ContextWindowDeepDive from '../stops/ContextWindowDeepDive'
 import TransformersDeepDive from '../stops/TransformersDeepDive'
 import LoRADeepDive from '../stops/LoRADeepDive'
+import ModelSizeComparison from '../stops/ModelSizeComparison'
 
 // Nested view map: quadrant → { subStop: Component }
 // null key = default view when no sub-stop is selected
@@ -41,6 +42,7 @@ const EXPLORE_VIEWS = {
     [null]: CombinedResults,
     combined: CombinedResults,
     infrastructure: InfrastructureSummary,
+    modelsize: ModelSizeComparison,
   },
   context: { [null]: ContextWindowDeepDive },
   transformers: { [null]: TransformersDeepDive },
@@ -66,6 +68,7 @@ const SUB_STOPS = {
   alloptions: [
     { key: 'combined', label: 'Combined Results' },
     { key: 'infrastructure', label: 'Infrastructure' },
+    { key: 'modelsize', label: 'Model Sizes' },
   ],
 }
 

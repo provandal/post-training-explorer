@@ -8,6 +8,7 @@ export default function SectionTabs({ tabs, active, onSelect, color = 'orange' }
     violet: 'bg-violet-600',
     pink: 'bg-pink-600',
     emerald: 'bg-emerald-600',
+    cyan: 'bg-cyan-600',
   }
   const activeClass = colorMap[color] || colorMap.orange
 

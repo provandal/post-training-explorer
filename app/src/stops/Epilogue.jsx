@@ -83,6 +83,32 @@ export default function Epilogue() {
         </div>
       </div>
 
+      {/* AINOS Research Advisor Teaser */}
+      <div className="text-left mb-8">
+        <h3 className="text-sm font-semibold text-indigo-400 uppercase tracking-wide mb-3">
+          What Comes Next: AI-Guided Research
+        </h3>
+        <div className="p-4 rounded-lg bg-indigo-950/20 border border-indigo-800/30">
+          <p className="text-sm text-slate-300 mb-3">
+            Everything in this explorer required manual decisions — which technique to try,
+            what hyperparameters to use, when to stop training. But what if an AI system
+            could analyze your results and propose the next experiment?
+          </p>
+          <p className="text-sm text-slate-400">
+            That's the core idea behind <span className="text-indigo-400 font-medium">AINOS</span> — an AI-powered
+            research advisor that examines training artifacts, identifies opportunities for
+            improvement, and suggests specific experiments with cost estimates. It amplifies
+            engineer judgment rather than replacing it: the AI proposes, you approve, the
+            system executes. The infrastructure implications for storage and compute teams
+            are significant — automated experiment loops mean predictable, bursty GPU demand
+            and structured artifact management at scale.
+          </p>
+          <p className="text-xs text-indigo-500/70 mt-3 italic">
+            More on this soon.
+          </p>
+        </div>
+      </div>
+
       {/* Resource links */}
       <div className="text-left space-y-6">
         {RESOURCES.map((group) => (

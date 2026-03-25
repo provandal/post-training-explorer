@@ -27,6 +27,7 @@ import sys
 import json
 import time
 import random
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -42,23 +43,41 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
-# ── Paths ────────────────────────────────────────────────────────────
+# ── Model configurations ─────────────────────────────────────────────
+MODELS = {
+    "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
+             "sft_batch": 4, "dpo_batch": 2, "grpo_batch": 2, "grpo_gens": 8},
+    "1.7B": {"name": "HuggingFaceTB/SmolLM2-1.7B", "slug": "smollm2-1.7b",
+             "sft_batch": 2, "dpo_batch": 1, "grpo_batch": 1, "grpo_gens": 4},
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="DPO training")
+    parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
+                        help="Model size to train (default: 360M)")
+    return parser.parse_args()
+
+
+def get_paths(model_size):
+    """Get input/output paths based on model size."""
+    if model_size == "360M":
+        # Backward compatible: use existing flat structure
+        sft_dir = SCRIPT_DIR / "outputs" / "sft"
+        output_dir = SCRIPT_DIR / "outputs" / "dpo"
+    else:
+        slug = MODELS[model_size]["slug"]
+        sft_dir = SCRIPT_DIR / "outputs" / slug / "sft"
+        output_dir = SCRIPT_DIR / "outputs" / slug / "dpo"
+    return sft_dir, output_dir
+
+
+# ── Paths (defaults for 360M, overridden in main() based on args) ────
 SCRIPT_DIR = Path(__file__).resolve().parent
 SFT_DIR = SCRIPT_DIR / "outputs" / "sft"
 OUTPUT_DIR = SCRIPT_DIR / "outputs" / "dpo"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_NAME = "HuggingFaceTB/SmolLM2-360M"
-
-# ── Check prerequisites ─────────────────────────────────────────────
-SFT_ADAPTER = SFT_DIR / "adapter"
-if not SFT_ADAPTER.exists():
-    print("=" * 60)
-    print("  ERROR: SFT adapter not found!")
-    print(f"  Expected at: {SFT_ADAPTER}")
-    print("  Please run train_sft.py first.")
-    print("=" * 60)
-    sys.exit(1)
 
 
 # ====================================================================
@@ -319,8 +338,28 @@ class LossRecorderCallback(TrainerCallback):
 # ====================================================================
 
 def main():
+    args = parse_args()
+    cfg = MODELS[args.model_size]
+
+    # Override module-level defaults based on args
+    global MODEL_NAME, SFT_DIR, OUTPUT_DIR
+    MODEL_NAME = cfg["name"]
+    SFT_DIR, OUTPUT_DIR = get_paths(args.model_size)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Check prerequisites (must be inside main() since paths depend on args)
+    SFT_ADAPTER = SFT_DIR / "adapter"
+    if not SFT_ADAPTER.exists():
+        print("=" * 60)
+        print("  ERROR: SFT adapter not found!")
+        print(f"  Expected at: {SFT_ADAPTER}")
+        print("  Please run train_sft.py first.")
+        print("=" * 60)
+        sys.exit(1)
+
     print("=" * 60)
     print("  STEP 2: Direct Preference Optimization (DPO)")
+    print(f"  Model: {cfg['name']} ({args.model_size})")
     print("=" * 60)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -390,18 +429,21 @@ def main():
     #                               - log_ref(chosen) + log_ref(rejected))))
     # where pi = policy (our model), ref = frozen reference (SFT model)
     # beta controls how much to deviate from the reference policy.
+    # Lower beta (0.05) is lighter — less aggressive correction for small models.
     print("\n[5/6] Starting DPO training...")
     loss_callback = LossRecorderCallback()
+
+    batch_size = cfg["dpo_batch"]
 
     dpo_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
         num_train_epochs=2,
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=4,        # Effective batch = 8
+        per_device_train_batch_size=batch_size,
+        gradient_accumulation_steps=4,        # Effective batch = batch_size * 4
         learning_rate=5e-5,                   # Lower LR for DPO (it's a refinement step)
         lr_scheduler_type="cosine",
         warmup_steps=10,
-        beta=0.1,                             # DPO temperature parameter
+        beta=0.05,                            # DPO temperature — lighter for 360M to avoid over-correction
         logging_steps=5,
         save_strategy="epoch",
         seed=SEED,
@@ -562,6 +604,7 @@ def main():
     print("\n" + "=" * 60)
     print("  DPO Training Complete!")
     print("=" * 60)
+    print(f"  Model:               {cfg['name']} ({args.model_size})")
     print(f"  Adapter saved to:    {adapter_path}")
     print(f"  Training time:       {train_time:.1f}s")
     print(f"  Final loss:          {train_result.training_loss:.4f}")

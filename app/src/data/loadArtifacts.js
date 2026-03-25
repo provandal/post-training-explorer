@@ -293,3 +293,63 @@ export function formatPromptMetrics(testPrompt) {
   const m = testPrompt.metrics
   return `IOPS: ${m.iops?.toLocaleString()} | Throughput: ${m.throughput_mb?.toLocaleString()} MB/s | Latency: ${m.avg_latency_us?.toLocaleString()} us | Read/Write: ${m.read_pct}/${m.write_pct} | Random/Sequential: ${m.random_pct}/${m.sequential_pct} | Block Size: ${m.block_size_kb} KB | Queue Depth: ${m.queue_depth}`
 }
+
+// ---------------------------------------------------------------------------
+// Model Size Comparison (multi-model)
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the full model size comparison data.
+ * @returns {{ models, accuracy_by_technique, training_time_minutes, gpu_memory_gb, head_to_head } | null}
+ */
+export function getModelSizeComparison() {
+  return artifacts?.model_size_comparison ?? null
+}
+
+/**
+ * Get list of model sizes that have comparison data.
+ * @returns {string[]} e.g. ["360M", "1.7B"]
+ */
+export function getModelSizes() {
+  return artifacts?.model_size_comparison?.models ?? []
+}
+
+/**
+ * Get accuracy by technique and model size.
+ * @param {string} technique - 'base', 'sft', 'dpo', 'grpo'
+ * @param {string} size - '360M', '1.7B'
+ * @returns {number|null}
+ */
+export function getAccuracyByTechniqueAndSize(technique, size) {
+  return artifacts?.model_size_comparison?.accuracy_by_technique?.[technique]?.[size] ?? null
+}
+
+/**
+ * Get training time by technique and model size.
+ * @param {string} technique - 'sft', 'dpo', 'grpo'
+ * @param {string} size - '360M', '1.7B'
+ * @returns {number|null} minutes
+ */
+export function getTrainingTimeBySize(technique, size) {
+  return artifacts?.model_size_comparison?.training_time_minutes?.[technique]?.[size] ?? null
+}
+
+/**
+ * Get GPU memory usage by model size.
+ * @param {string} size - '360M', '1.7B'
+ * @returns {number|null} GB
+ */
+export function getGPUMemoryBySize(size) {
+  return artifacts?.model_size_comparison?.gpu_memory_gb?.[size] ?? null
+}
+
+/**
+ * Get head-to-head comparison outputs for a specific test prompt.
+ * @param {number} promptIndex
+ * @returns {{ prompt_id, prompt_snippet, true_label, results } | null}
+ */
+export function getHeadToHeadOutputs(promptIndex) {
+  const h2h = artifacts?.model_size_comparison?.head_to_head
+  if (!h2h || promptIndex < 0 || promptIndex >= h2h.length) return null
+  return h2h[promptIndex]
+}

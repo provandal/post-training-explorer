@@ -2,7 +2,7 @@
 ============================================================
 Step 1: Supervised Fine-Tuning (SFT)
 ============================================================
-Fine-tunes SmolLM2-360M to classify storage I/O workloads
+Fine-tunes SmolLM2 to classify storage I/O workloads
 into 6 categories using LoRA adapters.
 
 This is the foundation step — we teach the model *what* to
@@ -21,6 +21,7 @@ import sys
 import json
 import time
 import random
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -41,10 +42,35 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
-# ── Paths ────────────────────────────────────────────────────────────
+# ── Model configurations ─────────────────────────────────────────────
+MODELS = {
+    "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
+             "batch_size": 4, "n_per_class": 80},
+    "1.7B": {"name": "HuggingFaceTB/SmolLM2-1.7B", "slug": "smollm2-1.7b",
+             "batch_size": 2, "n_per_class": 80},
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="SFT training")
+    parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
+                        help="Model size to train (default: 360M)")
+    return parser.parse_args()
+
+
+def get_output_path(model_size):
+    """Get output path based on model size."""
+    if model_size == "360M":
+        # Backward compatible: use existing flat structure
+        return SCRIPT_DIR / "outputs" / "sft"
+    else:
+        slug = MODELS[model_size]["slug"]
+        return SCRIPT_DIR / "outputs" / slug / "sft"
+
+
+# ── Paths (defaults for 360M, overridden in main() based on args) ────
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = SCRIPT_DIR / "outputs" / "sft"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_NAME = "HuggingFaceTB/SmolLM2-360M"
 
@@ -343,8 +369,18 @@ class LossRecorderCallback(TrainerCallback):
 # ====================================================================
 
 def main():
+    args = parse_args()
+    cfg = MODELS[args.model_size]
+
+    # Override module-level defaults based on args
+    global MODEL_NAME, OUTPUT_DIR
+    MODEL_NAME = cfg["name"]
+    OUTPUT_DIR = get_output_path(args.model_size)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
     print("=" * 60)
     print("  STEP 1: Supervised Fine-Tuning (SFT)")
+    print(f"  Model: {cfg['name']} ({args.model_size})")
     print("=" * 60)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -378,8 +414,9 @@ def main():
     print("  Saved base model token probabilities and sample outputs.")
 
     # ── 6c. Build training dataset ───────────────────────────────────
-    print("\n[3/7] Building synthetic training dataset...")
-    dataset = build_dataset(n_per_class=80)
+    n_per_class = cfg["n_per_class"]
+    print(f"\n[3/7] Building synthetic training dataset ({n_per_class} per class)...")
+    dataset = build_dataset(n_per_class=n_per_class)
 
     # ── 6d. Configure LoRA ───────────────────────────────────────────
     # LoRA (Low-Rank Adaptation) adds small trainable matrices to the
@@ -406,6 +443,8 @@ def main():
     print("\n[5/7] Starting SFT training...")
     loss_callback = LossRecorderCallback()
 
+    batch_size = cfg["batch_size"]
+
     # SFTConfig/SFTTrainer API varies across TRL versions:
     #   TRL <0.16:  max_seq_length + dataset_text_field in SFTConfig
     #   TRL 0.16+:  those args removed entirely; SFTTrainer auto-detects
@@ -418,8 +457,8 @@ def main():
     sft_base_kwargs = dict(
         output_dir=str(OUTPUT_DIR / "checkpoints"),
         num_train_epochs=5,                  # More epochs for small model
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=4,       # Effective batch = 16
+        per_device_train_batch_size=batch_size,
+        gradient_accumulation_steps=4,       # Effective batch = batch_size * 4
         learning_rate=2e-4,
         lr_scheduler_type="cosine",
         warmup_steps=10,
@@ -566,6 +605,7 @@ def main():
     print("\n" + "=" * 60)
     print("  SFT Training Complete!")
     print("=" * 60)
+    print(f"  Model:               {cfg['name']} ({args.model_size})")
     print(f"  Adapter saved to:    {adapter_path}")
     print(f"  Training time:       {train_time:.1f}s")
     print(f"  Final loss:          {train_result.training_loss:.4f}")
