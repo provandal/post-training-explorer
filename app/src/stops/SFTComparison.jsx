@@ -83,7 +83,7 @@ const SFT_INFRA = {
   checkpointSizeMB: 1.7,
   peakGPUUtilization: 87,
   storageIOPattern: "Bursty checkpoint writes every ~50 steps, steady data reads",
-  note: "LoRA adapter is only 1.7 MB. The full model (720 MB) stays frozen. This is why PEFT changed everything — you can fine-tune on a single consumer GPU."
+  note: "LoRA adapter is only 1.7 MB. The full model (720 MB) stays frozen. This is why PEFT changed everything — you can fine-tune with minimal training VRAM, no dedicated cluster needed."
 }
 
 /* ──────────────────────────────────────────────

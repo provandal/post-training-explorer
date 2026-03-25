@@ -173,8 +173,8 @@ export default function InfrastructureSummary() {
         <div className="p-4 rounded-lg bg-violet-950/20 border border-violet-800/30">
           <h4 className="text-sm font-semibold text-violet-400 mb-2">The LoRA Revolution</h4>
           <p className="text-xs text-slate-400">
-            SFT and DPO with LoRA need just 4-5 GB GPU memory. That's a single consumer GPU card.
-            Full fine-tuning of the same model would need 40+ GB. PEFT made post-training accessible.
+            SFT and DPO with LoRA need just 4-5 GB training VRAM — a fraction of full fine-tuning's 40+ GB.
+            PEFT enables enterprise teams to customize models without dedicated training clusters.
           </p>
         </div>
         <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">

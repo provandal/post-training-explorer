@@ -315,9 +315,9 @@ export default function LoRADeepDive() {
           Why this matters for infrastructure teams
         </h4>
         <p className="text-sm text-slate-300 leading-relaxed mb-2">
-          LoRA's efficiency is what makes fine-tuning accessible. A single consumer GPU (8 GB)
-          can fine-tune a 360M-parameter model. A T4 on Colab (free tier, 15 GB) can handle
-          models up to ~7B parameters with LoRA. Without LoRA, you'd need 4&times; the memory
+          LoRA's efficiency is what makes fine-tuning practical at enterprise scale. A single
+          accelerator with 8 GB VRAM can fine-tune a 360M-parameter model. A T4 (15 GB) can handle
+          models up to ~7B parameters with LoRA. Without LoRA, you'd need 4&times; the training VRAM
           and the training time would increase proportionally.
         </p>
         <p className="text-sm text-slate-400 leading-relaxed">

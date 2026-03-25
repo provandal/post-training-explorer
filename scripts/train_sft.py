@@ -493,7 +493,7 @@ def main():
     # ── 6d. Configure LoRA ───────────────────────────────────────────
     # LoRA (Low-Rank Adaptation) adds small trainable matrices to the
     # attention layers while keeping the base model weights frozen.
-    # This is dramatically more efficient than full fine-tuning:
+    # This reduces training VRAM vs full fine-tuning:
     #   - rank=16: each adapter matrix is 16-dimensional
     #   - alpha=64: scaling factor (alpha/rank = 4x effective learning rate)
     #   - Only ~0.5% of parameters are actually trained!
