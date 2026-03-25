@@ -246,15 +246,14 @@ def extract_classification(text: str) -> str:
             if kw in text_lower:
                 return label
 
-    # Strategy 5: Log extraction failure for debugging
-    snippet = text[:100].replace("\n", " ")
-    print(f"  [extract_classification] FAILED to extract label from: '{snippet}...'")
+    # No match — count failures silently (printed in summary at end)
     return ""
 
 
-# Module-level counter for debug logging in reward_fn
+# Module-level counters for debug logging
 _reward_debug_counter = 0
 _REWARD_DEBUG_LIMIT = 10
+_extract_fail_count = 0
 
 
 def reward_fn(completions: list[str], true_label: str) -> list[float]:
@@ -269,10 +268,12 @@ def reward_fn(completions: list[str], true_label: str) -> list[float]:
     Debug logging: prints the first few raw completions to stdout so the
     user can see what the model is actually generating during GRPO.
     """
-    global _reward_debug_counter
+    global _reward_debug_counter, _extract_fail_count
     rewards = []
     for completion in completions:
         predicted = extract_classification(completion)
+        if not predicted:
+            _extract_fail_count += 1
         reward = 1.0 if predicted == true_label else 0.0
         rewards.append(reward)
 
@@ -806,11 +807,13 @@ def main():
             else:
                 raise
 
-        # Suppress default trainer logging and noisy TRL warnings
+        # Suppress default trainer logging, noisy TRL warnings, and deprecation warnings
         import logging as _logging
+        import warnings
         _logging.getLogger("transformers.trainer").setLevel(_logging.WARNING)
         _logging.getLogger("trl.trainer.grpo_trainer").setLevel(_logging.ERROR)
         _logging.getLogger("trl.trainer.sft_trainer").setLevel(_logging.ERROR)
+        warnings.filterwarnings("ignore", message=".*generation_config.*deprecated.*")
 
         trainer = GRPOTrainer(
             model=policy_model,
