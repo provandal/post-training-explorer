@@ -495,12 +495,12 @@ def main():
     # attention layers while keeping the base model weights frozen.
     # This is dramatically more efficient than full fine-tuning:
     #   - rank=16: each adapter matrix is 16-dimensional
-    #   - alpha=32: scaling factor (alpha/rank = 2x effective learning rate)
+    #   - alpha=64: scaling factor (alpha/rank = 4x effective learning rate)
     #   - Only ~0.5% of parameters are actually trained!
     print("\n[4/7] Configuring LoRA adapters...")
     lora_config = LoraConfig(
         r=16,                           # Low-rank dimension
-        lora_alpha=32,                  # Scaling factor
+        lora_alpha=64,                  # Scaling factor (alpha/r = 4x)
         target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
         lora_dropout=0.05,
         bias="none",
