@@ -451,7 +451,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         trust_remote_code=True,
-        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+        dtype=torch.float32 if device == "cpu" else torch.bfloat16,
     ).to(device)
 
     print(f"  Model parameters: {model.num_parameters():,}")
@@ -684,13 +684,36 @@ def main():
 
     sft_base = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME, trust_remote_code=True,
-        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+        dtype=torch.float32 if device == "cpu" else torch.bfloat16,
     ).to(device)
     model = PeftModel.from_pretrained(sft_base, str(adapter_path))
     model.eval()
 
+    # Quick smoke test — verify the reloaded model can generate
+    _test_input = tokenizer(
+        EXAMPLE_PROMPTS[0]["prompt"] + "\n\nClassification: ",
+        return_tensors="pt", truncation=True, max_length=512,
+    ).to(device)
+    with torch.no_grad():
+        _test_ids = model.generate(**_test_input, max_new_tokens=20, do_sample=False,
+                                   pad_token_id=tokenizer.eos_token_id)
+    _test_out = tokenizer.decode(_test_ids[0][_test_input["input_ids"].shape[1]:],
+                                 skip_special_tokens=True).strip()
+    if _test_out:
+        print(f"  Smoke test: \"{_test_out[:60]}\" ✓")
+    else:
+        print(f"  ⚠ Smoke test: model generated empty output!")
+        print(f"    Raw IDs: {_test_ids[0][-20:].tolist()}")
+        print(f"    Input length: {_test_input['input_ids'].shape[1]}")
+        print(f"    Output length: {_test_ids.shape[1]}")
+
     sft_probs = capture_token_probs(model, tokenizer, EXAMPLE_PROMPTS, device)
     sft_outputs = generate_outputs(model, tokenizer, EXAMPLE_PROMPTS, device)
+
+    # Print what was actually generated (debug)
+    for i, out in enumerate(sft_outputs[:3]):
+        gen = out["generated"][:80] if out["generated"] else "(empty)"
+        print(f"  Sample {i}: {gen}")
 
     with open(OUTPUT_DIR / "sft_token_probs.json", "w") as f:
         json.dump(sft_probs, f, indent=2)
