@@ -42,6 +42,13 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
+# ── ANSI colors for Colab/terminal output ─────────────────────────
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 # ── Model configurations ─────────────────────────────────────────────
 MODELS = {
     "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
@@ -355,17 +362,60 @@ def capture_lora_weights(model):
 from transformers import TrainerCallback
 
 class LossRecorderCallback(TrainerCallback):
-    """Records training loss at each logging step so we can save the curve."""
+    """Records training loss and prints color-coded progress."""
     def __init__(self):
         self.losses = []
+        self._prev = {}
 
     def on_log(self, args, state, control, logs=None, **kwargs):
-        if logs and "loss" in logs:
-            self.losses.append({
-                "step": state.global_step,
-                "loss": round(logs["loss"], 6),
-                "epoch": round(state.epoch, 4) if state.epoch else 0,
-            })
+        if not logs or "loss" not in logs:
+            return
+
+        step = state.global_step
+        epoch = round(state.epoch, 1) if state.epoch else 0
+        loss = logs["loss"]
+        self.losses.append({
+            "step": step,
+            "loss": round(loss, 6),
+            "epoch": round(state.epoch, 4) if state.epoch else 0,
+        })
+
+        # Build color-coded output
+        parts = []
+
+        # Loss (should decrease)
+        loss_color = self._color("loss", loss, "down")
+        parts.append(f"loss: {loss_color}{loss:.4f}{RESET}")
+
+        # Token accuracy (should increase)
+        tok_acc = logs.get("mean_token_accuracy")
+        if tok_acc is not None:
+            acc_color = self._color("mean_token_accuracy", tok_acc, "up")
+            parts.append(f"tok_acc: {acc_color}{tok_acc:.1%}{RESET}")
+
+        # Grad norm (informational — flag if very high)
+        grad = logs.get("grad_norm")
+        if grad is not None:
+            grad_color = RED if grad > 5.0 else (YELLOW if grad > 2.0 else "")
+            parts.append(f"grad: {grad_color}{grad:.2f}{RESET}")
+
+        # Learning rate (informational)
+        lr = logs.get("learning_rate")
+        if lr is not None:
+            parts.append(f"lr: {lr:.2e}")
+
+        print(f"  Step {step:>4d} (epoch {epoch:>4.1f}) │ {' │ '.join(parts)}")
+        self._prev.update({k: logs[k] for k in logs if isinstance(logs[k], (int, float))})
+
+    def _color(self, key, value, direction):
+        """Return ANSI color based on whether metric moved in the right direction."""
+        prev = self._prev.get(key)
+        if prev is None:
+            return BOLD
+        if direction == "down":
+            return GREEN if value < prev else (RED if value > prev * 1.1 else YELLOW)
+        else:  # up
+            return GREEN if value > prev else (RED if value < prev * 0.9 else YELLOW)
 
 
 # ====================================================================
@@ -458,6 +508,28 @@ def main():
 
     # ── 6e. Training ─────────────────────────────────────────────────
     print("\n[5/7] Starting SFT training...")
+    print(f"""
+  {BOLD}What to watch for during training:{RESET}
+  ┌─────────────────────────────────────────────────────────┐
+  │ {BOLD}loss{RESET}      Should decrease steadily. Starts ~2.5-3.0,   │
+  │           should reach <0.5. Measures how well the      │
+  │           model predicts the next token in completions.  │
+  │                                                         │
+  │ {BOLD}tok_acc{RESET}   Token-level accuracy on completions. Should   │
+  │           climb toward 90%+. Shows what fraction of     │
+  │           output tokens the model gets right.            │
+  │                                                         │
+  │ {BOLD}grad{RESET}      Gradient norm. Should stay stable (0.5-2.0). │
+  │           Spikes above 5.0 suggest training instability. │
+  │                                                         │
+  │ {BOLD}lr{RESET}        Learning rate (cosine schedule). Starts high, │
+  │           decays to near zero. Just informational.       │
+  │                                                         │
+  │ {GREEN}Green{RESET} = moving in the right direction                  │
+  │ {RED}Red{RESET}   = moving the wrong way (investigate if persistent) │
+  │ {YELLOW}Yellow{RESET} = neutral / slight concern                       │
+  └─────────────────────────────────────────────────────────┘
+""")
     loss_callback = LossRecorderCallback()
 
     batch_size = cfg["batch_size"]
@@ -519,6 +591,10 @@ def main():
 
     # Restore logger after dataset processing
     trl_logger.setLevel(logging.WARNING)
+
+    # Suppress default trainer logging (we use our colored callback instead)
+    import logging
+    logging.getLogger("transformers.trainer").setLevel(logging.WARNING)
 
     train_start = time.time()
     train_result = trainer.train()

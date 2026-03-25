@@ -50,6 +50,13 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
+# ── ANSI colors for Colab/terminal output ─────────────────────────
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 # ── Model configurations ─────────────────────────────────────────────
 MODELS = {
     "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
@@ -657,6 +664,28 @@ def main():
 
     # ── Training ─────────────────────────────────────────────────────
     print("\n[4/5] Starting GRPO training...")
+    print(f"""
+  {BOLD}What to watch for during GRPO training:{RESET}
+  ┌─────────────────────────────────────────────────────────┐
+  │ {BOLD}loss{RESET}      Policy gradient loss. Should generally       │
+  │           decrease, but can be noisy step-to-step.       │
+  │                                                         │
+  │ {BOLD}reward{RESET}    Mean reward across generated completions.    │
+  │           Should increase — means more correct answers.  │
+  │           1.0 = perfect, 0.0 = all wrong.               │
+  │                                                         │
+  │ {BOLD}accuracy{RESET}  Fraction of completions that got the right   │
+  │           label. THE key metric. Should climb upward.    │
+  │           If it plateaus, model has hit capacity limit.  │
+  │                                                         │
+  │ {BOLD}kl{RESET}        KL divergence from reference model. Should   │
+  │           stay small (<0.5). High KL = model drifting    │
+  │           too far from SFT starting point.               │
+  │                                                         │
+  │ {GREEN}Green{RESET} = moving in the right direction                  │
+  │ {RED}Red{RESET}   = moving the wrong way (investigate if persistent) │
+  └─────────────────────────────────────────────────────────┘
+""")
     train_start = time.time()
 
     # Reset debug counter for this run
@@ -677,15 +706,51 @@ def main():
         class GRPOLossCallback(TrainerCallback):
             def __init__(self):
                 self.logs = []
+                self._prev = {}
             def on_log(self, args, state, control, logs=None, **kwargs):
-                if logs:
-                    entry = {"step": state.global_step}
-                    for key in ["loss", "reward", "reward_std", "kl",
-                                "clip_ratio", "entropy"]:
-                        if key in logs:
-                            entry[key] = round(logs[key], 6)
-                    if len(entry) > 1:
-                        self.logs.append(entry)
+                if not logs:
+                    return
+                entry = {"step": state.global_step}
+                for key in ["loss", "reward", "reward_std", "kl",
+                            "clip_ratio", "entropy"]:
+                    if key in logs:
+                        entry[key] = round(logs[key], 6)
+                if len(entry) > 1:
+                    self.logs.append(entry)
+
+                # Color-coded output
+                step = state.global_step
+                epoch = round(state.epoch, 1) if state.epoch else 0
+                parts = []
+
+                if "loss" in logs:
+                    loss = logs["loss"]
+                    l_color = self._color("loss", loss, "down")
+                    parts.append(f"loss: {l_color}{loss:.4f}{RESET}")
+
+                if "reward" in logs:
+                    reward = logs["reward"]
+                    r_color = self._color("reward", reward, "up")
+                    parts.append(f"reward: {r_color}{reward:.3f}{RESET}")
+
+                if "kl" in logs:
+                    kl = logs["kl"]
+                    kl_color = RED if kl > 1.0 else (YELLOW if kl > 0.5 else "")
+                    parts.append(f"kl: {kl_color}{kl:.3f}{RESET}")
+
+                if parts:
+                    print(f"    Step {step:>4d} (epoch {epoch:>4.1f}) │ {' │ '.join(parts)}")
+
+                self._prev.update({k: logs[k] for k in logs if isinstance(logs[k], (int, float))})
+
+            def _color(self, key, value, direction):
+                prev = self._prev.get(key)
+                if prev is None:
+                    return BOLD
+                if direction == "down":
+                    return GREEN if value < prev else (RED if value > prev * 1.1 else YELLOW)
+                else:
+                    return GREEN if value > prev else (RED if value < prev * 0.9 else YELLOW)
 
         grpo_callback = GRPOLossCallback()
 
@@ -741,6 +806,10 @@ def main():
             else:
                 raise
 
+        # Suppress default trainer logging (we use our colored callback instead)
+        import logging as _logging
+        _logging.getLogger("transformers.trainer").setLevel(_logging.WARNING)
+
         trainer = GRPOTrainer(
             model=policy_model,
             args=grpo_config,
@@ -793,9 +862,26 @@ def main():
                 step += 1
 
                 if step % (5 if args.verbose else 20) == 0:
-                    print(f"    Step {step}: loss={metrics['loss']:.4f}, "
-                          f"reward={metrics['mean_reward']:.3f}, "
-                          f"accuracy={metrics['accuracy']:.3f}")
+                    # Color-code based on direction
+                    loss_val = metrics['loss']
+                    reward_val = metrics['mean_reward']
+                    acc_val = metrics['accuracy']
+
+                    if step > (5 if args.verbose else 20):
+                        prev_step = grpo.logs[-2] if len(grpo.logs) > 1 else None
+                    else:
+                        prev_step = None
+
+                    if prev_step:
+                        l_color = GREEN if loss_val < prev_step['loss'] else (RED if loss_val > prev_step['loss'] * 1.1 else YELLOW)
+                        r_color = GREEN if reward_val > prev_step.get('mean_reward', 0) else (RED if reward_val < prev_step.get('mean_reward', 0) * 0.9 else YELLOW)
+                        a_color = GREEN if acc_val > prev_step.get('accuracy', 0) else (RED if acc_val < prev_step.get('accuracy', 0) * 0.9 else YELLOW)
+                    else:
+                        l_color = r_color = a_color = BOLD
+
+                    print(f"    Step {step:>4d}: loss={l_color}{loss_val:.4f}{RESET} │ "
+                          f"reward={r_color}{reward_val:.3f}{RESET} │ "
+                          f"accuracy={a_color}{acc_val:.3f}{RESET}")
 
         train_time = time.time() - train_start
         training_logs = grpo.logs

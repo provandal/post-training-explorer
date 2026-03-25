@@ -43,6 +43,13 @@ set_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
+# ── ANSI colors for Colab/terminal output ─────────────────────────
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 # ── Model configurations ─────────────────────────────────────────────
 MODELS = {
     "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
@@ -315,21 +322,68 @@ def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
 from transformers import TrainerCallback
 
 class LossRecorderCallback(TrainerCallback):
-    """Records training metrics at each logging step."""
+    """Records DPO training metrics and prints color-coded progress."""
     def __init__(self):
         self.logs = []
+        self._prev = {}
 
     def on_log(self, args, state, control, logs=None, **kwargs):
-        if logs:
-            entry = {"step": state.global_step}
-            # DPO logs several useful metrics
-            for key in ["loss", "rewards/chosen", "rewards/rejected",
-                        "rewards/margins", "rewards/accuracies",
-                        "logps/chosen", "logps/rejected"]:
-                if key in logs:
-                    entry[key] = round(logs[key], 6)
-            if len(entry) > 1:  # More than just 'step'
-                self.logs.append(entry)
+        if not logs:
+            return
+        entry = {"step": state.global_step}
+        for key in ["loss", "rewards/chosen", "rewards/rejected",
+                    "rewards/margins", "rewards/accuracies",
+                    "logps/chosen", "logps/rejected"]:
+            if key in logs:
+                entry[key] = round(logs[key], 6)
+        if len(entry) <= 1:
+            return
+        self.logs.append(entry)
+
+        # Build color-coded output
+        step = state.global_step
+        epoch = round(state.epoch, 1) if state.epoch else 0
+        parts = []
+
+        # Loss (should decrease)
+        if "loss" in logs:
+            loss = logs["loss"]
+            loss_color = self._color("loss", loss, "down")
+            parts.append(f"loss: {loss_color}{loss:.4f}{RESET}")
+
+        # Reward margin (should increase — bigger gap = stronger preference)
+        margin = logs.get("rewards/margins")
+        if margin is not None:
+            m_color = self._color("rewards/margins", margin, "up")
+            parts.append(f"margin: {m_color}{margin:+.3f}{RESET}")
+
+        # Reward accuracy (should increase)
+        acc = logs.get("rewards/accuracies")
+        if acc is not None:
+            a_color = self._color("rewards/accuracies", acc, "up")
+            parts.append(f"acc: {a_color}{acc:.1%}{RESET}")
+
+        # Chosen/rejected rewards (chosen should go up, rejected down)
+        chosen = logs.get("rewards/chosen")
+        rejected = logs.get("rewards/rejected")
+        if chosen is not None and rejected is not None:
+            c_color = self._color("rewards/chosen", chosen, "up")
+            r_color = self._color("rewards/rejected", rejected, "down")
+            parts.append(f"chosen: {c_color}{chosen:+.2f}{RESET} rejected: {r_color}{rejected:+.2f}{RESET}")
+
+        if parts:
+            print(f"  Step {step:>4d} (epoch {epoch:>4.1f}) │ {' │ '.join(parts)}")
+
+        self._prev.update({k: logs[k] for k in logs if isinstance(logs[k], (int, float))})
+
+    def _color(self, key, value, direction):
+        prev = self._prev.get(key)
+        if prev is None:
+            return BOLD
+        if direction == "down":
+            return GREEN if value < prev else (RED if value > prev * 1.1 else YELLOW)
+        else:
+            return GREEN if value > prev else (RED if value < prev * 0.9 else YELLOW)
 
 
 # ====================================================================
@@ -430,6 +484,29 @@ def main():
     # beta controls how much to deviate from the reference policy.
     # Lower beta (0.05) is lighter — less aggressive correction for small models.
     print("\n[5/6] Starting DPO training...")
+    print(f"""
+  {BOLD}What to watch for during DPO training:{RESET}
+  ┌─────────────────────────────────────────────────────────┐
+  │ {BOLD}loss{RESET}      DPO loss — should decrease. Measures how     │
+  │           well the model separates chosen vs rejected.   │
+  │                                                         │
+  │ {BOLD}margin{RESET}    Reward margin (chosen - rejected). Should    │
+  │           increase — means the model increasingly        │
+  │           prefers concise correct answers over wrong ones.│
+  │                                                         │
+  │ {BOLD}acc{RESET}       How often the model assigns higher reward to │
+  │           the chosen response. Should climb toward 90%+. │
+  │                                                         │
+  │ {BOLD}chosen{RESET}    Reward for preferred (correct) responses.    │
+  │           Should increase (model likes these more).      │
+  │                                                         │
+  │ {BOLD}rejected{RESET}  Reward for rejected (wrong) responses.      │
+  │           Should decrease (model avoids these).          │
+  │                                                         │
+  │ {GREEN}Green{RESET} = moving in the right direction                  │
+  │ {RED}Red{RESET}   = moving the wrong way (investigate if persistent) │
+  └─────────────────────────────────────────────────────────┘
+""")
     loss_callback = LossRecorderCallback()
 
     batch_size = cfg["dpo_batch"]
@@ -456,6 +533,10 @@ def main():
         dpo_config = DPOConfig(**dpo_base_kwargs, max_prompt_length=400)
     except TypeError:
         dpo_config = DPOConfig(**dpo_base_kwargs)
+
+    # Suppress default trainer logging (we use our colored callback instead)
+    import logging
+    logging.getLogger("transformers.trainer").setLevel(logging.WARNING)
 
     trainer = DPOTrainer(
         model=model,
