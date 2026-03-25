@@ -279,7 +279,11 @@ def reward_fn(completions: list[str], true_label: str) -> list[float]:
 
 
 def build_prompt_dataset(n_per_class: int = 30) -> tuple[Dataset, dict]:
-    """Build a dataset of prompts (no completions — GRPO generates those)."""
+    """Build a dataset of prompts (no completions — GRPO generates those).
+
+    Each prompt ends with "\\n\\nClassification: " so the model starts
+    generating the label immediately (matching SFT training format).
+    """
     prompts = []
     labels = []
     for label in LABELS:
@@ -292,12 +296,14 @@ def build_prompt_dataset(n_per_class: int = 30) -> tuple[Dataset, dict]:
     random.shuffle(combined)
     prompts, labels = zip(*combined)
 
-    # Build a lookup from prompt to true label for the reward function
-    prompt_to_label = dict(zip(prompts, labels))
+    # Build a lookup from prompt (with suffix) to true label for the reward function
+    PROMPT_SUFFIX = "\n\nClassification: "
+    full_prompts = [p + PROMPT_SUFFIX for p in prompts]
+    prompt_to_label = dict(zip(full_prompts, labels))
 
     print(f"  Created {len(prompts)} prompts ({n_per_class} per class)")
 
-    dataset = Dataset.from_dict({"prompt": list(prompts)})
+    dataset = Dataset.from_dict({"prompt": list(full_prompts)})
     return dataset, prompt_to_label
 
 
@@ -371,12 +377,11 @@ class SimpleGRPO:
     def generate_completions(self, prompt_text: str) -> list[str]:
         """Generate K completions for a single prompt using sampling.
 
-        Includes "Classification:" as a prefix hint so the model starts
-        generating from the classification label, producing parseable output.
+        Expects prompt_text to already end with "\\n\\nClassification: "
+        so the model starts generating the label immediately.
         """
-        full_text = prompt_text + "\n\nClassification:"
         inputs = self.tokenizer(
-            full_text, return_tensors="pt", truncation=True, max_length=400
+            prompt_text, return_tensors="pt", truncation=True, max_length=400
         ).to(self.device)
 
         completions = []
@@ -395,8 +400,8 @@ class SimpleGRPO:
                     output_ids[0][inputs["input_ids"].shape[1]:],
                     skip_special_tokens=True,
                 )
-                # Prepend "Classification:" since it was part of the prompt hint
-                completions.append("Classification:" + generated.strip())
+                # Prepend "Classification: " since it was part of the prompt
+                completions.append("Classification: " + generated.strip())
 
         return completions
 
@@ -404,14 +409,17 @@ class SimpleGRPO:
         """
         Compute log probability of a completion given a prompt.
         Returns the sum of log probs over completion tokens.
+        prompt_text should already end with "\\n\\nClassification: ".
         """
-        full_text = prompt_text + "\n\nClassification:" + completion_text.replace("Classification:", "", 1)
+        # Strip any "Classification: " prefix from completion to avoid duplication
+        clean_completion = completion_text.replace("Classification: ", "", 1).replace("Classification:", "", 1)
+        full_text = prompt_text + clean_completion
         inputs = self.tokenizer(
             full_text, return_tensors="pt", truncation=True, max_length=512
         ).to(self.device)
 
         prompt_only = self.tokenizer(
-            prompt_text + "\n\nClassification:", return_tensors="pt", truncation=True, max_length=400
+            prompt_text, return_tensors="pt", truncation=True, max_length=400
         )
         prompt_len = prompt_only["input_ids"].shape[1]
 
@@ -852,22 +860,22 @@ def main():
             completions = []
             with torch.no_grad():
                 for _ in range(num_generations):
-                    text = prompt + "\n\nClassification:"
+                    text = prompt + "\n\nClassification: "
                     inputs = tokenizer(text, return_tensors="pt",
                                        truncation=True, max_length=400).to(device)
                     output_ids = policy_model.generate(
                         **inputs,
                         max_new_tokens=80,
                         do_sample=True,
-                        temperature=0.8,
-                        top_p=0.9,
+                        temperature=0.5,
+                        top_p=0.85,
                         pad_token_id=tokenizer.eos_token_id,
                     )
                     generated = tokenizer.decode(
                         output_ids[0][inputs["input_ids"].shape[1]:],
                         skip_special_tokens=True,
                     )
-                    completions.append("Classification:" + generated.strip())
+                    completions.append("Classification: " + generated.strip())
 
             rewards = reward_fn(completions, label)
 

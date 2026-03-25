@@ -230,7 +230,7 @@ def generate_preference_pair(label: str) -> dict:
     prompt = generate_io_prompt(label)
 
     # CHOSEN: correct, concise, confident
-    chosen = f"Classification: {label}\nReason: {random.choice(GOOD_REASONS[label])}"
+    chosen = f"{label}\nReason: {random.choice(GOOD_REASONS[label])}"
 
     # REJECTED: pick a strategy
     strategy = random.choice(["wrong_label", "verbose_correct", "wrong_and_hedging"])
@@ -239,15 +239,15 @@ def generate_preference_pair(label: str) -> dict:
         # Pick a wrong label and give a confident (but wrong) answer
         wrong_label = random.choice([l for l in LABELS if l != label])
         wrong_reason = random.choice(GOOD_REASONS[wrong_label])
-        rejected = f"Classification: {wrong_label}\nReason: {wrong_reason}"
+        rejected = f"{wrong_label}\nReason: {wrong_reason}"
     elif strategy == "verbose_correct":
         # Correct label but excessively verbose / hedging
         template = random.choice(BAD_REASON_TEMPLATES)
-        rejected = f"Classification: {label}\nReason: {template.format(label=label)}"
+        rejected = f"{label}\nReason: {template.format(label=label)}"
     else:  # wrong_and_hedging
         wrong_label = random.choice([l for l in LABELS if l != label])
         template = random.choice(BAD_REASON_TEMPLATES)
-        rejected = f"Classification: {wrong_label}\nReason: {template.format(label=wrong_label)}"
+        rejected = f"{wrong_label}\nReason: {template.format(label=wrong_label)}"
 
     return {
         "prompt": prompt,
@@ -269,7 +269,7 @@ def build_preference_dataset(n_per_class: int = 50) -> Dataset:
     print(f"  Created {len(pairs)} preference pairs ({n_per_class} per class)")
 
     return Dataset.from_dict({
-        "prompt": [p["prompt"] for p in pairs],
+        "prompt": [p["prompt"] + "\n\nClassification: " for p in pairs],
         "chosen": [p["chosen"] for p in pairs],
         "rejected": [p["rejected"] for p in pairs],
     }), pairs
@@ -291,7 +291,7 @@ def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
     results = []
 
     for sample in prompts:
-        text = sample["prompt"] + "\n\n"
+        text = sample["prompt"] + "\n\nClassification: "
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
 
         with torch.no_grad():
@@ -522,9 +522,9 @@ def main():
 
     def compute_completion_log_prob(mdl, prompt_text, completion_text):
         """Compute log probability of completion given prompt."""
-        full_text = prompt_text + "\n\n" + completion_text
+        full_text = prompt_text + "\n\nClassification: " + completion_text
         inputs = tokenizer(full_text, return_tensors="pt", truncation=True, max_length=512).to(device)
-        prompt_only = tokenizer(prompt_text + "\n\n", return_tensors="pt", truncation=True, max_length=400)
+        prompt_only = tokenizer(prompt_text + "\n\nClassification: ", return_tensors="pt", truncation=True, max_length=400)
         prompt_len = prompt_only["input_ids"].shape[1]
         with torch.no_grad():
             outputs = mdl(**inputs)

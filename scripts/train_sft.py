@@ -201,7 +201,7 @@ def generate_sample(label: str) -> dict:
         f"Video Streaming, VDI Virtual Desktop, Backup Archive.\n"
         f"Provide the classification and a brief reason."
     )
-    response = f"Classification: {label}\nReason: {reason}"
+    response = f"{label}\nReason: {reason}"
 
     return {"prompt": prompt, "completion": response, "label": label}
 
@@ -217,10 +217,10 @@ def build_dataset(n_per_class: int = 80) -> Dataset:
 
     # Use prompt + completion columns so TRL masks prompt tokens in the loss.
     # This ensures the model only learns to predict the classification output,
-    # not the prompt text itself. The \n\n separator is appended to prompts
-    # to match inference format.
+    # not the prompt text itself. The "Classification: " suffix is part of the
+    # prompt so the model only needs to learn the label + reason.
     return Dataset.from_dict({
-        "prompt": [s["prompt"] + "\n\n" for s in samples],
+        "prompt": [s["prompt"] + "\n\nClassification: " for s in samples],
         "completion": [s["completion"] for s in samples],
     })
 
@@ -253,7 +253,7 @@ def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
     results = []
 
     for sample in prompts:
-        text = sample["prompt"] + "\n\n"
+        text = sample["prompt"] + "\n\nClassification: "
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
 
         with torch.no_grad():
@@ -285,7 +285,7 @@ def generate_outputs(model, tokenizer, prompts, device, max_new_tokens=80):
     results = []
 
     for sample in prompts:
-        text = sample["prompt"] + "\n\n"
+        text = sample["prompt"] + "\n\nClassification: "
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
 
         with torch.no_grad():
