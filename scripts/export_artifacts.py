@@ -272,7 +272,7 @@ def run_inference(model, tokenizer, prompt_text: str, device: str,
       - Generation time
     """
     model.eval()
-    full_prompt = prompt_text + "\n\n"
+    full_prompt = prompt_text + "\n\nClassification:"
 
     inputs = tokenizer(full_prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
     prompt_len = inputs["input_ids"].shape[1]
@@ -293,7 +293,11 @@ def run_inference(model, tokenizer, prompt_text: str, device: str,
 
     # Decode generated text
     generated_ids = output_ids.sequences[0][prompt_len:]
-    generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+    raw_text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+    # The prompt ends with "Classification:" so the model generates what
+    # comes after. Prepend the prefix so downstream parsing and the web
+    # app see the full "Classification: <label>\nReason: ..." format.
+    generated_text = "Classification: " + raw_text
 
     # ── Capture token probabilities at key positions ─────────────────
     scores = output_ids.scores  # List of logit tensors, one per generated token
