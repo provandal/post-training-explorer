@@ -422,17 +422,22 @@ class LiveProbeCallback(TrainerCallback):
         print(f"  {BOLD}LIVE PROBE — Step {state.global_step}{RESET}  (model generates on fixed prompts)")
         print(f"  {'─' * 60}")
 
+        eos_id = self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 0
         step_results = []
         for probe in self.probes:
             prompt_text = probe["prompt"] + "\n\nClassification: "
-            inputs = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480).to(self.device)
+            input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480)["input_ids"].to(self.device)
+            input_len = input_ids.shape[1]
 
+            # Manual greedy decoding — model.generate() silently returns empty after TRL
             with torch.no_grad():
-                outputs = model.generate(
-                    **inputs, max_new_tokens=60, do_sample=False,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                )
-            generated = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+                for _ in range(30):
+                    logits = model(input_ids).logits[:, -1, :]
+                    next_token = logits.argmax(dim=-1, keepdim=True)
+                    if next_token.item() == eos_id:
+                        break
+                    input_ids = torch.cat([input_ids, next_token], dim=-1)
+            generated = self.tokenizer.decode(input_ids[0][input_len:], skip_special_tokens=True).strip()
 
             expected = probe["label"]
             correct = expected.lower() in generated.lower()
