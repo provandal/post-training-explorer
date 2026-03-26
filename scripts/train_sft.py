@@ -409,7 +409,12 @@ class LossRecorderCallback(TrainerCallback):
         if lr is not None:
             parts.append(f"lr: {lr:.2e}")
 
-        print(f"  Step {step:>4d} (epoch {epoch:>4.1f}) │ {' │ '.join(parts)}")
+        # Progress bar (Option B)
+        total_steps = state.max_steps if state.max_steps and state.max_steps > 0 else 1
+        pct = min(step / total_steps, 1.0) if total_steps > 1 else 0
+        filled = int(pct * 20)
+        bar = f"{'█' * filled}{'░' * (20 - filled)}"
+        print(f"  [{bar}] {pct:>5.0%} Step {step:>4d} │ {' │ '.join(parts)}")
         self._prev.update({k: logs[k] for k in logs if isinstance(logs[k], (int, float))})
 
     def _color(self, key, value, direction):
@@ -421,6 +426,66 @@ class LossRecorderCallback(TrainerCallback):
             return GREEN if value < prev else (RED if value > prev * 1.1 else YELLOW)
         else:  # up
             return GREEN if value > prev else (RED if value < prev * 0.9 else YELLOW)
+
+
+class LiveProbeCallback(TrainerCallback):
+    """Runs fixed probe prompts through the model periodically to show learning in real time."""
+
+    def __init__(self, tokenizer, device, probe_interval=20):
+        self.tokenizer = tokenizer
+        self.device = device
+        self.probe_interval = probe_interval
+        self.probe_history = []
+        # Fixed probe prompts: one easy (Backup), one medium (OLTP), one hard (VDI)
+        self.probes = [
+            generate_sample("Backup Archive"),
+            generate_sample("OLTP Database"),
+            generate_sample("VDI Virtual Desktop"),
+        ]
+
+    def on_log(self, args, state, control, model=None, **kwargs):
+        if state.global_step == 0 or state.global_step % self.probe_interval != 0:
+            return
+        if model is None:
+            return
+
+        model.eval()
+        print(f"\n  {'─' * 60}")
+        print(f"  {BOLD}LIVE PROBE — Step {state.global_step}{RESET}  (model generates on fixed prompts)")
+        print(f"  {'─' * 60}")
+
+        step_results = []
+        for probe in self.probes:
+            prompt_text = probe["prompt"] + "\n\nClassification: "
+            inputs = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480).to(self.device)
+
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs, max_new_tokens=60, do_sample=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                )
+            generated = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+
+            expected = probe["label"]
+            correct = expected.lower() in generated.lower()
+            color = GREEN if correct else RED
+            badge = "\u2713" if correct else "\u2717"
+
+            # Truncate for display
+            display_text = generated[:100].replace('\n', ' | ')
+            print(f"  {color}{badge}{RESET} Expected: {BOLD}{expected}{RESET}")
+            print(f"    Model: {color}{display_text}{RESET}")
+
+            step_results.append({
+                "step": state.global_step,
+                "expected": expected,
+                "generated": generated[:200],
+                "correct": correct,
+            })
+
+        self.probe_history.extend(step_results)
+        model.train()
+        print()
 
 
 # ====================================================================
@@ -536,6 +601,7 @@ def main():
   └─────────────────────────────────────────────────────────┘
 """)
     loss_callback = LossRecorderCallback()
+    probe_callback = LiveProbeCallback(tokenizer, device, probe_interval=20)
 
     batch_size = cfg["batch_size"]
 
@@ -591,7 +657,7 @@ def main():
         args=training_args,
         train_dataset=dataset,
         processing_class=tokenizer,
-        callbacks=[loss_callback],
+        callbacks=[loss_callback, probe_callback],
     )
 
     # Restore logger after dataset processing
@@ -654,6 +720,13 @@ def main():
             "training_time_seconds": round(train_time, 2),
             "total_steps": train_result.global_step,
         }, f, indent=2)
+
+    # Save live probe history for visualization (Option C data)
+    if probe_callback.probe_history:
+        probe_path = OUTPUT_DIR / "probe_history.json"
+        with open(probe_path, "w") as f:
+            json.dump({"probes": probe_callback.probe_history}, f, indent=2)
+        print(f"  Probe history → {probe_path}")
 
     # Save LoRA weight visualization data (detailed per-layer format)
     lora_weights_detailed = capture_lora_weights(trained_model)

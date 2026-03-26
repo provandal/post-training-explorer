@@ -745,7 +745,12 @@ def main():
                     parts.append(f"kl: {kl_color}{kl:.3f}{RESET}")
 
                 if parts:
-                    print(f"    Step {step:>4d} (epoch {epoch:>4.1f}) │ {' │ '.join(parts)}")
+                    # Progress bar
+                    total_steps = state.max_steps if state.max_steps and state.max_steps > 0 else 1
+                    pct = min(step / total_steps, 1.0) if total_steps > 1 else 0
+                    filled = int(pct * 20)
+                    bar_str = f"{'█' * filled}{'░' * (20 - filled)}"
+                    print(f"    [{bar_str}] {pct:>5.0%} Step {step:>4d} │ {' │ '.join(parts)}")
 
                 self._prev.update({k: logs[k] for k in logs if isinstance(logs[k], (int, float))})
 
@@ -758,7 +763,65 @@ def main():
                 else:
                     return GREEN if value > prev else (RED if value < prev * 0.9 else YELLOW)
 
+        class LiveProbeCallback(TrainerCallback):
+            """Runs fixed probe prompts through the model periodically to show learning in real time."""
+
+            def __init__(self, tokenizer, device, probe_interval=20):
+                self.tokenizer = tokenizer
+                self.device = device
+                self.probe_interval = probe_interval
+                self.probe_history = []
+                # Fixed probe prompts: one easy, one medium, one hard
+                self.probes = [
+                    {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification: ", "label": "Backup Archive"},
+                    {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification: ", "label": "OLTP Database"},
+                    {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification: ", "label": "VDI Virtual Desktop"},
+                ]
+
+            def on_log(self, args, state, control, model=None, **kwargs):
+                if state.global_step == 0 or state.global_step % self.probe_interval != 0:
+                    return
+                if model is None:
+                    return
+
+                model.eval()
+                print(f"\n  {'─' * 60}")
+                print(f"  {BOLD}LIVE PROBE — Step {state.global_step}{RESET}  (model generates on fixed prompts)")
+                print(f"  {'─' * 60}")
+
+                step_results = []
+                for probe in self.probes:
+                    inputs = self.tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480).to(self.device)
+
+                    with torch.no_grad():
+                        outputs = model.generate(
+                            **inputs, max_new_tokens=60, do_sample=False,
+                            pad_token_id=self.tokenizer.pad_token_id,
+                        )
+                    generated = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+
+                    expected = probe["label"]
+                    correct = expected.lower() in generated.lower()
+                    color = GREEN if correct else RED
+                    badge = "\u2713" if correct else "\u2717"
+
+                    display_text = generated[:100].replace('\n', ' | ')
+                    print(f"  {color}{badge}{RESET} Expected: {BOLD}{expected}{RESET}")
+                    print(f"    Model: {color}{display_text}{RESET}")
+
+                    step_results.append({
+                        "step": state.global_step,
+                        "expected": expected,
+                        "generated": generated[:200],
+                        "correct": correct,
+                    })
+
+                self.probe_history.extend(step_results)
+                model.train()
+                print()
+
         grpo_callback = GRPOLossCallback()
+        probe_callback = LiveProbeCallback(tokenizer, device, probe_interval=20)
 
         # Build reward function compatible with TRL's interface
         def trl_reward_fn(completions, **kwargs):
@@ -826,7 +889,7 @@ def main():
             train_dataset=dataset,
             processing_class=tokenizer,
             reward_funcs=trl_reward_fn,
-            callbacks=[grpo_callback],
+            callbacks=[grpo_callback, probe_callback],
         )
 
         train_result = trainer.train()
@@ -856,6 +919,8 @@ def main():
         prompts = dataset["prompt"]
         num_epochs = 2
         step = 0
+        import math
+        total_steps_manual = num_epochs * math.ceil(len(prompts) / batch_size)
 
         for epoch in range(num_epochs):
             print(f"\n  Epoch {epoch + 1}/{num_epochs}")
@@ -889,9 +954,38 @@ def main():
                     else:
                         l_color = r_color = a_color = BOLD
 
-                    print(f"    Step {step:>4d}: loss={l_color}{loss_val:.4f}{RESET} │ "
+                    # Progress bar
+                    pct_m = min(step / total_steps_manual, 1.0) if total_steps_manual > 1 else 0
+                    filled_m = int(pct_m * 20)
+                    bar_m = f"{'█' * filled_m}{'░' * (20 - filled_m)}"
+                    print(f"    [{bar_m}] {pct_m:>5.0%} Step {step:>4d}: loss={l_color}{loss_val:.4f}{RESET} │ "
                           f"reward={r_color}{reward_val:.3f}{RESET} │ "
                           f"accuracy={a_color}{acc_val:.3f}{RESET}")
+
+                    # Live probe (manual GRPO path)
+                    if step % 20 == 0:
+                        policy_model.eval()
+                        print(f"\n    {'─' * 56}")
+                        print(f"    {BOLD}LIVE PROBE — Step {step}{RESET}")
+                        print(f"    {'─' * 56}")
+                        probe_prompts_manual = [
+                            {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification: ", "label": "Backup Archive"},
+                            {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification: ", "label": "OLTP Database"},
+                            {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification: ", "label": "VDI Virtual Desktop"},
+                        ]
+                        for probe in probe_prompts_manual:
+                            inp = tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480).to(device)
+                            with torch.no_grad():
+                                out = policy_model.generate(**inp, max_new_tokens=60, do_sample=False, pad_token_id=tokenizer.pad_token_id)
+                            gen_text = tokenizer.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True).strip()
+                            expected = probe["label"]
+                            is_correct = expected.lower() in gen_text.lower()
+                            c = GREEN if is_correct else RED
+                            b = "\u2713" if is_correct else "\u2717"
+                            print(f"    {c}{b}{RESET} Expected: {BOLD}{expected}{RESET}")
+                            print(f"      Model: {c}{gen_text[:100].replace(chr(10), ' | ')}{RESET}")
+                        policy_model.train()
+                        print()
 
         train_time = time.time() - train_start
         training_logs = grpo.logs
@@ -918,6 +1012,16 @@ def main():
             "total_steps": len(training_logs),
             "used_trl_grpo": use_trl_grpo,
         }, f, indent=2)
+
+    # Save live probe history for visualization
+    probe_history = []
+    if use_trl_grpo and hasattr(probe_callback, 'probe_history'):
+        probe_history = probe_callback.probe_history
+    if probe_history:
+        probe_path = OUTPUT_DIR / "probe_history.json"
+        with open(probe_path, "w") as f:
+            json.dump({"probes": probe_history}, f, indent=2)
+        print(f"  Probe history → {probe_path}")
 
     # Save generation logs in the format the web app expects:
     # {"examples": [{"input": "...", "true_label": "...",
