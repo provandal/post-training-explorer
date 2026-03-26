@@ -462,10 +462,12 @@ class LiveProbeCallback(TrainerCallback):
             color = GREEN if correct else RED
             badge = "\u2713" if correct else "\u2717"
 
-            # Truncate for display
+            # Show prompt snippet + expected + model output
+            prompt_snippet = probe["prompt"][-80:].replace('\n', ' | ')
             display_text = generated[:100].replace('\n', ' | ')
-            print(f"  {color}{badge}{RESET} Expected: {BOLD}{expected}{RESET}")
-            print(f"    Model: {color}{display_text}{RESET}")
+            print(f"  {color}{badge}{RESET} Prompt: ...{prompt_snippet}")
+            print(f"    Expected: {BOLD}{expected}{RESET}")
+            print(f"    Model:    {color}{display_text}{RESET}")
 
             step_results.append({
                 "step": state.global_step,
