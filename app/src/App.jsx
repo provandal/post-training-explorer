@@ -2,6 +2,7 @@ import useStore from './store'
 import Landing from './components/Landing'
 import TourView from './components/TourView'
 import ExploreView from './components/ExploreView'
+import TrainView from './components/TrainView'
 
 export default function App() {
   const mode = useStore((s) => s.mode)
@@ -11,6 +12,7 @@ export default function App() {
       {mode === 'landing' && <Landing />}
       {mode === 'tour' && <TourView />}
       {mode === 'explore' && <ExploreView />}
+      {mode === 'train' && <TrainView />}
     </div>
   )
 }

@@ -1,7 +1,5 @@
 import useStore from '../store'
 import QuadrantMap from './QuadrantMap'
-import LiveInferencePanel from './LiveInferencePanel'
-
 // Reuse stop components
 import PromptBasic from '../stops/PromptBasic'
 import PromptFewShot from '../stops/PromptFewShot'
@@ -194,11 +192,6 @@ export default function ExploreView() {
             Select a quadrant from the map to explore
           </div>
         )}
-
-        {/* Live inference panel — always available at the bottom of explore mode */}
-        <div className="mt-8">
-          <LiveInferencePanel />
-        </div>
       </main>
     </div>
   )

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { loadArtifacts, isLoaded } from './data/loadArtifacts'
 
 const useStore = create((set, get) => ({
-  // Mode: 'landing' | 'tour' | 'explore'
+  // Mode: 'landing' | 'tour' | 'explore' | 'train'
   mode: 'landing',
 
   // Tour state
@@ -42,6 +42,10 @@ const useStore = create((set, get) => ({
   },
   startExplore: () => {
     set({ mode: 'explore', activeQuadrant: 'prompt', tourReturnStep: null })
+    get().loadArtifactsIfNeeded()
+  },
+  startTrain: () => {
+    set({ mode: 'train' })
     get().loadArtifactsIfNeeded()
   },
 

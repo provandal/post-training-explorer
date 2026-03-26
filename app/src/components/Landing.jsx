@@ -1,14 +1,41 @@
 import useStore from '../store'
-import QuadrantMap from './QuadrantMap'
 
 export default function Landing() {
   const startTour = useStore((s) => s.startTour)
   const startExplore = useStore((s) => s.startExplore)
+  const startTrain = useStore((s) => s.startTrain)
+
+  const cards = [
+    {
+      title: 'Guided Tour',
+      description:
+        'Follow the zig-zag path from simple prompting to advanced reinforcement learning. At each stop, try the technique and see what happens under the covers.',
+      action: startTour,
+      buttonLabel: 'Start Tour',
+      buttonClass: 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40',
+    },
+    {
+      title: 'Explore Freely',
+      description:
+        'Dive into any technique directly — prompt engineering, RAG, SFT, DPO, or GRPO. Compare results across approaches and dig into deep dives on transformers, LoRA, and context windows.',
+      action: startExplore,
+      buttonLabel: 'Explore',
+      buttonClass: 'bg-slate-600 hover:bg-slate-500 shadow-lg shadow-slate-600/20',
+    },
+    {
+      title: 'Train Your Model',
+      description:
+        'Run the notebooks yourself in Google Colab. Train SFT, DPO, and GRPO models on a free GPU, then test your model right here in the browser.',
+      action: startTrain,
+      buttonLabel: 'Get Started',
+      buttonClass: 'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40',
+    },
+  ]
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10">
       {/* Header */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-10">
         <p className="text-sm text-blue-400 font-semibold tracking-wide uppercase mb-2">
           SNIA DSN AI Stack Webinar Series
         </p>
@@ -22,32 +49,25 @@ export default function Landing() {
         </p>
       </div>
 
-      {/* Quadrant Map — large and centered */}
-      <div className="w-full max-w-2xl mx-auto mb-6">
-        <QuadrantMap />
-      </div>
-
-      {/* Subtitle */}
-      <p className="text-slate-500 text-sm mb-8 max-w-md text-center leading-relaxed">
-        Follow the zig-zag path from simple prompting to advanced
-        reinforcement learning. At each stop, try the technique and see
-        what's happening under the covers.
-      </p>
-
-      {/* Action Buttons */}
-      <div className="flex gap-4 mb-10">
-        <button
-          onClick={startTour}
-          className="px-10 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-lg transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          Start Guided Tour
-        </button>
-        <button
-          onClick={startExplore}
-          className="px-10 py-3.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 rounded-lg font-bold text-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          Explore Freely
-        </button>
+      {/* Three cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full mb-10">
+        {cards.map((card) => (
+          <div
+            key={card.title}
+            className="bg-slate-800/50 border border-slate-700/50 hover:border-blue-600/50 rounded-xl p-6 flex flex-col transition-colors"
+          >
+            <h2 className="text-xl font-bold text-white mb-3">{card.title}</h2>
+            <p className="text-sm text-slate-400 leading-relaxed flex-1 mb-5">
+              {card.description}
+            </p>
+            <button
+              onClick={card.action}
+              className={`w-full py-3 text-white rounded-lg font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${card.buttonClass}`}
+            >
+              {card.buttonLabel}
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* Bottom details */}

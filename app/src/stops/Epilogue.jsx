@@ -31,6 +31,7 @@ const RESOURCES = [
 
 export default function Epilogue() {
   const startExplore = useStore((s) => s.startExplore)
+  const startTrain = useStore((s) => s.startTrain)
   const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
   const setMode = useStore((s) => s.setMode)
   const currentStep = useStore((s) => s.currentStep)
@@ -51,13 +52,21 @@ export default function Epilogue() {
         Real models, real weights, real training artifacts. And you can do it yourself.
       </p>
 
-      {/* Explore button */}
-      <button
-        onClick={startExplore}
-        className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-blue-600/25 mb-8"
-      >
-        Explore Freely
-      </button>
+      {/* Action buttons */}
+      <div className="flex gap-4 justify-center mb-8">
+        <button
+          onClick={startExplore}
+          className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-blue-600/25"
+        >
+          Explore Freely
+        </button>
+        <button
+          onClick={startTrain}
+          className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-emerald-600/25"
+        >
+          Train Your Model
+        </button>
+      </div>
 
       {/* Deep Dives */}
       <div className="text-left mb-8">
