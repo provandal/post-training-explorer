@@ -6,7 +6,7 @@ Merges trained adapters into the base model and converts to
 ONNX format for client-side inference via @huggingface/transformers.
 
 Two models are exported:
-  1. Base model (untrained) — shows what SmolLM2-360M does without training
+  1. Base model (untrained) — shows what the base model does without training
   2. GRPO model (SFT + GRPO merged) — shows the fully trained result
 
 Both are pushed to HuggingFace Hub so the web app can download
@@ -20,6 +20,7 @@ import os
 import sys
 import shutil
 import subprocess
+import argparse
 from pathlib import Path
 
 import torch
@@ -27,18 +28,21 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 from huggingface_hub import HfApi, create_repo
 
-# ── Paths ────────────────────────────────────────────────────────────
+# ── Model configs ────────────────────────────────────────────────────
+MODELS = {
+    "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m"},
+    "1.7B": {"name": "HuggingFaceTB/SmolLM2-1.7B", "slug": "smollm2-1.7b"},
+}
+
 SCRIPT_DIR = Path(__file__).resolve().parent
-SFT_ADAPTER = SCRIPT_DIR / "outputs" / "sft" / "adapter"
-GRPO_ADAPTER = SCRIPT_DIR / "outputs" / "grpo" / "adapter"
-ONNX_OUTPUT_DIR = SCRIPT_DIR / "outputs" / "onnx"
 
-MODEL_NAME = "HuggingFaceTB/SmolLM2-360M"
-
-# ── HuggingFace Hub settings ────────────────────────────────────────
-# These will be set based on the authenticated user
-HF_BASE_REPO_SUFFIX = "smollm2-360m-storage-io-base-onnx"
-HF_GRPO_REPO_SUFFIX = "smollm2-360m-storage-io-grpo-onnx"
+# Module-level variables (set by main() based on --model-size)
+MODEL_NAME = None
+SFT_ADAPTER = None
+GRPO_ADAPTER = None
+ONNX_OUTPUT_DIR = None
+HF_BASE_REPO_SUFFIX = None
+HF_GRPO_REPO_SUFFIX = None
 
 
 def get_hf_username():
@@ -160,8 +164,32 @@ def push_to_hub(onnx_dir: Path, repo_id: str, label: str):
 
 
 def main():
+    global MODEL_NAME, SFT_ADAPTER, GRPO_ADAPTER, ONNX_OUTPUT_DIR
+    global HF_BASE_REPO_SUFFIX, HF_GRPO_REPO_SUFFIX
+
+    parser = argparse.ArgumentParser(description="Convert models to ONNX for browser inference")
+    parser.add_argument("--model-size", default="360M", choices=MODELS.keys(),
+                        help="Model size to convert (default: 360M)")
+    args = parser.parse_args()
+
+    model_size = args.model_size
+    cfg = MODELS[model_size]
+    slug = cfg["slug"]
+
+    MODEL_NAME = cfg["name"]
+    if model_size == "360M":
+        SFT_ADAPTER = SCRIPT_DIR / "outputs" / "sft" / "adapter"
+        GRPO_ADAPTER = SCRIPT_DIR / "outputs" / "grpo" / "adapter"
+        ONNX_OUTPUT_DIR = SCRIPT_DIR / "outputs" / "onnx"
+    else:
+        SFT_ADAPTER = SCRIPT_DIR / "outputs" / slug / "sft" / "adapter"
+        GRPO_ADAPTER = SCRIPT_DIR / "outputs" / slug / "grpo" / "adapter"
+        ONNX_OUTPUT_DIR = SCRIPT_DIR / "outputs" / slug / "onnx"
+    HF_BASE_REPO_SUFFIX = f"{slug}-storage-io-base-onnx"
+    HF_GRPO_REPO_SUFFIX = f"{slug}-storage-io-grpo-onnx"
+
     print("=" * 60)
-    print("  STEP 5: Convert Models to ONNX for Browser Inference")
+    print(f"  STEP 5: Convert {model_size} Models to ONNX for Browser Inference")
     print("=" * 60)
 
     # ── Verify HuggingFace authentication ────────────────────────────
