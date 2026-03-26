@@ -152,57 +152,6 @@ WORKLOAD_PROFILES = {
 LABELS = list(WORKLOAD_PROFILES.keys())
 
 
-def build_dynamic_reason(label, iops, throughput, latency, read_pct, random_pct, block_kb, queue_depth):
-    """Build a reason referencing actual metric values — prevents memorization of fixed reasons."""
-    write_pct = 100 - read_pct
-    sequential_pct = 100 - random_pct
-    templates = {
-        "OLTP Database": [
-            f"IOPS of {iops:,} with {block_kb}KB blocks and {random_pct}% random access is characteristic of transactional database operations",
-            f"{iops:,} IOPS at {latency:,}us latency with small {block_kb}KB random I/O indicates OLTP workloads",
-            f"High random I/O ({random_pct}% random) with {iops:,} IOPS and {block_kb}KB blocks suggests database transaction processing",
-            f"Queue depth of {queue_depth} with {read_pct}% reads at {iops:,} IOPS on {block_kb}KB blocks is typical of transactional databases",
-            f"Small {block_kb}KB blocks at {iops:,} IOPS with {random_pct}% random access indicates index lookups and row fetches",
-        ],
-        "OLAP Analytics": [
-            f"Low IOPS ({iops:,}) but {throughput:,} MB/s throughput with {block_kb}KB sequential reads indicates analytical queries",
-            f"Large {block_kb}KB blocks at {throughput:,} MB/s with {sequential_pct}% sequential access suggests data warehouse table scans",
-            f"High read ratio ({read_pct}%) with {throughput:,} MB/s throughput and {block_kb}KB blocks is characteristic of OLAP workloads",
-            f"{throughput:,} MB/s throughput with {block_kb}KB blocks and only {iops:,} IOPS indicates large sequential analytical reads",
-            f"Sequential access pattern ({sequential_pct}% sequential) at {throughput:,} MB/s suggests analytical query processing",
-        ],
-        "AI ML Training": [
-            f"High throughput ({throughput:,} MB/s) with {block_kb}KB blocks and {read_pct}% reads suggests training data pipeline loading",
-            f"{throughput:,} MB/s with mixed access ({random_pct}% random) and {block_kb}KB blocks indicates GPU training data ingestion",
-            f"Read-dominant ({read_pct}% reads) at {throughput:,} MB/s throughput with {block_kb}KB blocks is typical of ML data loading",
-            f"Large {block_kb}KB reads at {throughput:,} MB/s with queue depth {queue_depth} suggests deep learning training I/O",
-            f"{iops:,} IOPS at {throughput:,} MB/s with {block_kb}KB blocks indicates parallel training data batch reads",
-        ],
-        "Video Streaming": [
-            f"Sequential reads ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks indicates media streaming",
-            f"Large {block_kb}KB sequential reads at {throughput:,} MB/s with {read_pct}% reads suggests video file delivery",
-            f"Low IOPS ({iops:,}) with {throughput:,} MB/s and large {block_kb}KB blocks is characteristic of streaming workloads",
-            f"Steady {throughput:,} MB/s throughput with {block_kb}KB blocks and {sequential_pct}% sequential access indicates video streaming",
-            f"{read_pct}% reads with {block_kb}KB blocks at low queue depth ({queue_depth}) suggests media content delivery",
-        ],
-        "VDI Virtual Desktop": [
-            f"Mixed I/O ({read_pct}% read / {write_pct}% write) with {block_kb}KB blocks at {iops:,} IOPS indicates virtual desktop activity",
-            f"Small {block_kb}KB random I/O ({random_pct}% random) with balanced read/write suggests concurrent desktop sessions",
-            f"{iops:,} IOPS with {block_kb}KB blocks and {random_pct}% random access is characteristic of VDI workloads",
-            f"Balanced read-write ({read_pct}/{write_pct}) with {iops:,} IOPS on small {block_kb}KB blocks indicates desktop virtualization",
-            f"Random I/O ({random_pct}%) with mixed reads/writes at {iops:,} IOPS on {block_kb}KB blocks suggests virtual desktop operations",
-        ],
-        "Backup Archive": [
-            f"Write-dominant ({write_pct}% writes) with {throughput:,} MB/s and large {block_kb}KB blocks indicates backup operations",
-            f"Sequential writes ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks suggests archival storage",
-            f"Low IOPS ({iops:,}) but {throughput:,} MB/s with {write_pct}% writes and {block_kb}KB blocks is typical of backup workloads",
-            f"Large {block_kb}KB sequential writes at {throughput:,} MB/s with {latency:,}us latency indicates data backup ingestion",
-            f"Write-heavy ({write_pct}% writes) sequential pattern at {throughput:,} MB/s with {block_kb}KB blocks suggests archival operations",
-        ],
-    }
-    return random.choice(templates[label])
-
-
 def generate_sample(label: str) -> dict:
     """Generate one synthetic I/O metrics sample for a given workload label."""
     p = WORKLOAD_PROFILES[label]
@@ -215,8 +164,6 @@ def generate_sample(label: str) -> dict:
     sequential_pct = 100 - random_pct
     block_kb = random.choice(p["block_size_kb"])
     queue_depth = random.randint(*p["queue_depth_range"])
-    reason = build_dynamic_reason(label, iops, throughput, latency, read_pct, random_pct, block_kb, queue_depth)
-
     # Format the I/O metrics as a structured text prompt
     prompt = (
         f"Classify the following storage I/O workload based on these metrics:\n"
@@ -229,9 +176,9 @@ def generate_sample(label: str) -> dict:
         f"- Queue Depth: {queue_depth}\n\n"
         f"Choose one of: OLTP Database, OLAP Analytics, AI ML Training, "
         f"Video Streaming, VDI Virtual Desktop, Backup Archive.\n"
-        f"Provide the classification and a brief reason."
+        f"Provide the classification."
     )
-    response = f"{label}\nReason: {reason}"
+    response = label
 
     return {"prompt": prompt, "completion": response, "label": label}
 
@@ -248,7 +195,7 @@ def build_dataset(n_per_class: int = 120) -> Dataset:
     # Use prompt + completion columns so TRL masks prompt tokens in the loss.
     # This ensures the model only learns to predict the classification output,
     # not the prompt text itself. The "Classification: " suffix is part of the
-    # prompt so the model only needs to learn the label + reason.
+    # prompt so the model only needs to learn the bare label.
     return Dataset.from_dict({
         "prompt": [s["prompt"] + "\n\nClassification: " for s in samples],
         "completion": [s["completion"] for s in samples],

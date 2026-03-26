@@ -181,7 +181,7 @@ def generate_test_prompt(label: str, idx: int) -> dict:
         f"- Queue Depth: {queue_depth}\n\n"
         f"Choose one of: OLTP Database, OLAP Analytics, AI ML Training, "
         f"Video Streaming, VDI Virtual Desktop, Backup Archive.\n"
-        f"Provide the classification and a brief reason."
+        f"Provide the classification."
     )
 
     return {
