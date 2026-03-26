@@ -774,6 +774,7 @@ def main():
                 self.device = device
                 self.probe_interval = probe_interval
                 self.probe_history = []
+                self.probes_printed = False
                 # Fixed probe prompts: one easy, one medium, one hard
                 self.probes = [
                     {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification:", "label": "Backup Archive"},
@@ -792,16 +793,40 @@ def main():
                 print(f"  {BOLD}LIVE PROBE — Step {state.global_step}{RESET}  (model generates on fixed prompts)")
                 print(f"  {'─' * 60}")
 
-                step_results = []
-                for probe in self.probes:
-                    inputs = self.tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480).to(self.device)
+                # Print full probe prompts once (first invocation only)
+                if not self.probes_printed:
+                    for idx, probe in enumerate(self.probes):
+                        print(f"\n  Probe {idx+1} ({probe['label']}):")
+                        print(f"  {probe['prompt']}")
+                    print(f"\n  {'─' * 60}")
+                    self.probes_printed = True
 
+                eos_id = self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 0
+                step_results = []
+                is_first_probe_this_step = True
+                for probe in self.probes:
+                    input_ids = self.tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480)["input_ids"].to(self.device)
+                    input_len = input_ids.shape[1]
+
+                    # Manual greedy decoding — model.generate() silently returns empty after TRL
+                    generated_ids = []
                     with torch.no_grad():
-                        outputs = model.generate(
-                            **inputs, max_new_tokens=60, do_sample=False,
-                            pad_token_id=self.tokenizer.pad_token_id,
-                        )
-                    generated = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+                        for i in range(30):
+                            logits = model(input_ids).logits[:, -1, :]
+                            next_token = logits.argmax(dim=-1, keepdim=True)
+                            tok_id = next_token.item()
+                            generated_ids.append(tok_id)
+                            if tok_id == eos_id and i >= 2:
+                                break
+                            input_ids = torch.cat([input_ids, next_token], dim=-1)
+
+                    # Debug: show token-level detail for first probe each step
+                    if is_first_probe_this_step:
+                        tok_strs = [repr(self.tokenizer.decode([t])) for t in generated_ids[:6]]
+                        print(f"  [DEBUG] eos_id={eos_id} | first tokens: {', '.join(f'{tid}={s}' for tid, s in zip(generated_ids[:6], tok_strs))}")
+                        is_first_probe_this_step = False
+
+                    generated = self.tokenizer.decode(input_ids[0][input_len:], skip_special_tokens=True).strip()
 
                     expected = probe["label"]
                     correct = expected.lower() in generated.lower()
@@ -968,6 +993,7 @@ def main():
                     # Live probe (manual GRPO path)
                     if step % 20 == 0:
                         policy_model.eval()
+                        eos_id_m = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
                         print(f"\n    {'─' * 56}")
                         print(f"    {BOLD}LIVE PROBE — Step {step}{RESET}")
                         print(f"    {'─' * 56}")
@@ -976,11 +1002,25 @@ def main():
                             {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification:", "label": "OLTP Database"},
                             {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification:", "label": "VDI Virtual Desktop"},
                         ]
+                        is_first_m = True
                         for probe in probe_prompts_manual:
-                            inp = tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480).to(device)
+                            input_ids_m = tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480)["input_ids"].to(device)
+                            input_len_m = input_ids_m.shape[1]
+                            generated_ids_m = []
                             with torch.no_grad():
-                                out = policy_model.generate(**inp, max_new_tokens=60, do_sample=False, pad_token_id=tokenizer.pad_token_id)
-                            gen_text = tokenizer.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True).strip()
+                                for ii in range(30):
+                                    logits_m = policy_model(input_ids_m).logits[:, -1, :]
+                                    next_tok_m = logits_m.argmax(dim=-1, keepdim=True)
+                                    tok_id_m = next_tok_m.item()
+                                    generated_ids_m.append(tok_id_m)
+                                    if tok_id_m == eos_id_m and ii >= 2:
+                                        break
+                                    input_ids_m = torch.cat([input_ids_m, next_tok_m], dim=-1)
+                            if is_first_m:
+                                tok_strs_m = [repr(tokenizer.decode([t])) for t in generated_ids_m[:6]]
+                                print(f"    [DEBUG] eos_id={eos_id_m} | first tokens: {', '.join(f'{tid}={s}' for tid, s in zip(generated_ids_m[:6], tok_strs_m))}")
+                                is_first_m = False
+                            gen_text = tokenizer.decode(input_ids_m[0][input_len_m:], skip_special_tokens=True).strip()
                             expected = probe["label"]
                             is_correct = expected.lower() in gen_text.lower()
                             c = GREEN if is_correct else RED

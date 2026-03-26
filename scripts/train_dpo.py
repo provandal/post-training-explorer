@@ -365,8 +365,8 @@ class LiveProbeCallback(TrainerCallback):
         self.device = device
         self.probe_interval = probe_interval
         self.probe_history = []
+        self.probes_printed = False
         # Fixed probe prompts: one easy, one medium, one hard
-        # Use the same prompt generation as the training data
         self.probes = [
             {"prompt": generate_io_prompt("Backup Archive")[0], "label": "Backup Archive"},
             {"prompt": generate_io_prompt("OLTP Database")[0], "label": "OLTP Database"},
@@ -384,17 +384,42 @@ class LiveProbeCallback(TrainerCallback):
         print(f"  {BOLD}LIVE PROBE — Step {state.global_step}{RESET}  (model generates on fixed prompts)")
         print(f"  {'─' * 60}")
 
+        # Print full probe prompts once (first invocation only)
+        if not self.probes_printed:
+            for idx, probe in enumerate(self.probes):
+                print(f"\n  Probe {idx+1} ({probe['label']}):")
+                print(f"  {probe['prompt']}")
+                print(f"  \\n\\nClassification:")
+            print(f"\n  {'─' * 60}")
+            self.probes_printed = True
+
+        eos_id = self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 0
         step_results = []
+        is_first_probe_this_step = True
         for probe in self.probes:
             prompt_text = probe["prompt"] + "\n\nClassification:"
-            inputs = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480).to(self.device)
+            input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480)["input_ids"].to(self.device)
+            input_len = input_ids.shape[1]
 
+            # Manual greedy decoding — model.generate() silently returns empty after TRL
+            generated_ids = []
             with torch.no_grad():
-                outputs = model.generate(
-                    **inputs, max_new_tokens=60, do_sample=False,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                )
-            generated = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+                for i in range(30):
+                    logits = model(input_ids).logits[:, -1, :]
+                    next_token = logits.argmax(dim=-1, keepdim=True)
+                    tok_id = next_token.item()
+                    generated_ids.append(tok_id)
+                    if tok_id == eos_id and i >= 2:
+                        break
+                    input_ids = torch.cat([input_ids, next_token], dim=-1)
+
+            # Debug: show token-level detail for first probe each step
+            if is_first_probe_this_step:
+                tok_strs = [repr(self.tokenizer.decode([t])) for t in generated_ids[:6]]
+                print(f"  [DEBUG] eos_id={eos_id} | first tokens: {', '.join(f'{tid}={s}' for tid, s in zip(generated_ids[:6], tok_strs))}")
+                is_first_probe_this_step = False
+
+            generated = self.tokenizer.decode(input_ids[0][input_len:], skip_special_tokens=True).strip()
 
             expected = probe["label"]
             correct = expected.lower() in generated.lower()
