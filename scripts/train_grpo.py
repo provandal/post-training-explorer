@@ -1237,6 +1237,49 @@ def main():
         direction = "+" if delta >= 0 else ""
         print(f"  vs SFT accuracy:  {direction}{delta:.0%}")
 
+    # ── Per-class accuracy breakdown ──────────────────────────────────
+    print(f"\n  {BOLD}Per-class accuracy breakdown:{RESET}")
+    per_class_correct = {label: 0 for label in LABELS}
+    per_class_total = {label: 0 for label in LABELS}
+    per_class_predictions = {label: [] for label in LABELS}
+
+    val_prompts = []
+    for label in LABELS:
+        for _ in range(5):
+            val_prompts.append({"prompt": generate_io_prompt(label), "label": label})
+
+    for sample in val_prompts:
+        prompt_text = sample["prompt"] + "\n\nClassification: "
+        inputs = tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=512).to(device)
+        with torch.no_grad():
+            output_ids = policy_model.generate(
+                **inputs, max_new_tokens=60, do_sample=False,
+                pad_token_id=tokenizer.pad_token_id,
+            )
+        generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+        predicted = extract_classification("Classification: " + generated.strip())
+        true_label = sample["label"]
+        per_class_total[true_label] += 1
+        per_class_correct[true_label] += 1 if predicted == true_label else 0
+        per_class_predictions[true_label].append(predicted or "(unparseable)")
+
+    total_correct = sum(per_class_correct.values())
+    total_n = sum(per_class_total.values())
+    print(f"  Overall: {total_correct}/{total_n} ({100*total_correct/total_n:.0f}%)")
+    for label in LABELS:
+        n = per_class_total[label]
+        c = per_class_correct[label]
+        preds = per_class_predictions[label]
+        color = GREEN if c >= 3 else (YELLOW if c >= 1 else RED)
+        print(f"    {color}{label:25s}: {c}/{n}  predictions: {preds}{RESET}")
+
+    from collections import Counter
+    all_preds = [p for preds in per_class_predictions.values() for p in preds]
+    pred_counts = Counter(all_preds)
+    most_common = pred_counts.most_common(1)[0]
+    if most_common[1] > len(all_preds) * 0.5:
+        print(f"\n  {RED}{BOLD}⚠ MODE COLLAPSE DETECTED: '{most_common[0]}' predicted {most_common[1]}/{len(all_preds)} times{RESET}")
+
     if best_gen:
         print(f"\n  Best output:  [{best_gen['label']}] {best_gen['text']}")
     if worst_gen:

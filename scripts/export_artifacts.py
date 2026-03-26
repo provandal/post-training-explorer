@@ -1002,6 +1002,30 @@ def main():
                 s = res["model_results"][variant]["summary"]
                 print(f"    {size} {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
 
+        # Per-class accuracy breakdown
+        print(f"\n  Per-class accuracy:")
+        for size in sizes_to_export:
+            res = all_results[size]
+            for variant in res.get("model_results", {}):
+                if variant not in res["model_results"]:
+                    continue
+                outputs = res["model_results"][variant]["outputs"]
+                per_class = {label: {"correct": 0, "total": 0} for label in LABELS}
+                for test, output in zip(test_prompts, outputs):
+                    true_label = test["true_label"]
+                    predicted = extract_predicted_label(output["generated_text"])
+                    per_class[true_label]["total"] += 1
+                    if predicted == true_label:
+                        per_class[true_label]["correct"] += 1
+
+                print(f"    {size} {variant:6s}: ", end="")
+                parts = []
+                for label in LABELS:
+                    c = per_class[label]["correct"]
+                    n = per_class[label]["total"]
+                    parts.append(f"{label[:4]}={c}/{n}")
+                print("  ".join(parts))
+
         print(f"\n  Interpretation:")
         for size in sizes_to_export:
             res = all_results[size]
@@ -1066,6 +1090,28 @@ def main():
         for variant in model_variants:
             s = results["model_results"][variant]["summary"]
             print(f"    {variant:>6s}: {s['accuracy']:.1%} ({s['correct']}/{s['total']})")
+
+        # Per-class accuracy breakdown
+        print(f"\n  Per-class accuracy:")
+        for variant in model_variants:
+            if variant not in results["model_results"]:
+                continue
+            outputs = results["model_results"][variant]["outputs"]
+            per_class = {label: {"correct": 0, "total": 0} for label in LABELS}
+            for test, output in zip(test_prompts, outputs):
+                true_label = test["true_label"]
+                predicted = extract_predicted_label(output["generated_text"])
+                per_class[true_label]["total"] += 1
+                if predicted == true_label:
+                    per_class[true_label]["correct"] += 1
+
+            print(f"    {variant:6s}: ", end="")
+            parts = []
+            for label in LABELS:
+                c = per_class[label]["correct"]
+                n = per_class[label]["total"]
+                parts.append(f"{label[:4]}={c}/{n}")
+            print("  ".join(parts))
 
         # ── Plain-English interpretation ─────────────────────────────
         print(f"\n  Interpretation:")

@@ -52,9 +52,9 @@ RESET = "\033[0m"
 # ── Model configurations ─────────────────────────────────────────────
 MODELS = {
     "360M": {"name": "HuggingFaceTB/SmolLM2-360M", "slug": "smollm2-360m",
-             "batch_size": 4, "n_per_class": 80},
+             "batch_size": 4, "n_per_class": 120},
     "1.7B": {"name": "HuggingFaceTB/SmolLM2-1.7B", "slug": "smollm2-1.7b",
-             "batch_size": 2, "n_per_class": 80},
+             "batch_size": 2, "n_per_class": 120},
 }
 
 
@@ -101,11 +101,6 @@ WORKLOAD_PROFILES = {
         "random_pct_range": (85, 99),
         "block_size_kb": [4, 8],
         "queue_depth_range": (16, 128),
-        "reasons": [
-            "High random IOPS with small block sizes indicate transactional database operations",
-            "Small block random reads dominate, consistent with index lookups and row fetches",
-            "Low latency small-block random I/O is characteristic of OLTP workloads",
-        ],
     },
     "OLAP Analytics": {
         "iops_range": (100, 3000),
@@ -115,11 +110,6 @@ WORKLOAD_PROFILES = {
         "random_pct_range": (5, 30),
         "block_size_kb": [64, 128, 256, 512, 1024],
         "queue_depth_range": (1, 32),
-        "reasons": [
-            "Large sequential reads with high throughput indicate analytical table scans",
-            "Predominantly sequential read pattern with large block sizes suggests data warehouse queries",
-            "High throughput with large I/O sizes and sequential access is typical of OLAP workloads",
-        ],
     },
     "AI ML Training": {
         "iops_range": (500, 10000),
@@ -129,11 +119,6 @@ WORKLOAD_PROFILES = {
         "random_pct_range": (20, 60),
         "block_size_kb": [128, 256, 512, 1024],
         "queue_depth_range": (8, 64),
-        "reasons": [
-            "High throughput reads with mixed sequential/random access suggest training data pipeline loading",
-            "Large block reads with very high throughput indicate GPU training data ingestion",
-            "Read-dominant mixed-access pattern with high bandwidth is characteristic of ML data loading",
-        ],
     },
     "Video Streaming": {
         "iops_range": (100, 2000),
@@ -143,11 +128,6 @@ WORKLOAD_PROFILES = {
         "random_pct_range": (10, 40),
         "block_size_kb": [256, 512, 1024, 2048],
         "queue_depth_range": (1, 16),
-        "reasons": [
-            "Steady sequential reads with large block sizes indicate media streaming operations",
-            "Consistent high-throughput sequential reads suggest video file delivery",
-            "Large block sequential read pattern with steady bandwidth is typical of streaming workloads",
-        ],
     },
     "VDI Virtual Desktop": {
         "iops_range": (2000, 30000),
@@ -157,11 +137,6 @@ WORKLOAD_PROFILES = {
         "random_pct_range": (70, 95),
         "block_size_kb": [4, 8, 16],
         "queue_depth_range": (4, 64),
-        "reasons": [
-            "Mixed read/write random I/O with small blocks indicates virtual desktop user activity",
-            "Balanced read-write ratio with small random I/O suggests many concurrent desktop sessions",
-            "Small block random I/O with mixed reads and writes is characteristic of VDI workloads",
-        ],
     },
     "Backup Archive": {
         "iops_range": (50, 1000),
@@ -171,15 +146,61 @@ WORKLOAD_PROFILES = {
         "random_pct_range": (2, 15),
         "block_size_kb": [256, 512, 1024, 2048, 4096],
         "queue_depth_range": (1, 16),
-        "reasons": [
-            "Large sequential writes with high throughput indicate backup data ingestion",
-            "Write-dominant sequential pattern with very large block sizes suggests archival operations",
-            "Sustained sequential write throughput with large I/O sizes is typical of backup workloads",
-        ],
     },
 }
 
 LABELS = list(WORKLOAD_PROFILES.keys())
+
+
+def build_dynamic_reason(label, iops, throughput, latency, read_pct, random_pct, block_kb, queue_depth):
+    """Build a reason referencing actual metric values — prevents memorization of fixed reasons."""
+    write_pct = 100 - read_pct
+    sequential_pct = 100 - random_pct
+    templates = {
+        "OLTP Database": [
+            f"IOPS of {iops:,} with {block_kb}KB blocks and {random_pct}% random access is characteristic of transactional database operations",
+            f"{iops:,} IOPS at {latency:,}us latency with small {block_kb}KB random I/O indicates OLTP workloads",
+            f"High random I/O ({random_pct}% random) with {iops:,} IOPS and {block_kb}KB blocks suggests database transaction processing",
+            f"Queue depth of {queue_depth} with {read_pct}% reads at {iops:,} IOPS on {block_kb}KB blocks is typical of transactional databases",
+            f"Small {block_kb}KB blocks at {iops:,} IOPS with {random_pct}% random access indicates index lookups and row fetches",
+        ],
+        "OLAP Analytics": [
+            f"Low IOPS ({iops:,}) but {throughput:,} MB/s throughput with {block_kb}KB sequential reads indicates analytical queries",
+            f"Large {block_kb}KB blocks at {throughput:,} MB/s with {sequential_pct}% sequential access suggests data warehouse table scans",
+            f"High read ratio ({read_pct}%) with {throughput:,} MB/s throughput and {block_kb}KB blocks is characteristic of OLAP workloads",
+            f"{throughput:,} MB/s throughput with {block_kb}KB blocks and only {iops:,} IOPS indicates large sequential analytical reads",
+            f"Sequential access pattern ({sequential_pct}% sequential) at {throughput:,} MB/s suggests analytical query processing",
+        ],
+        "AI ML Training": [
+            f"High throughput ({throughput:,} MB/s) with {block_kb}KB blocks and {read_pct}% reads suggests training data pipeline loading",
+            f"{throughput:,} MB/s with mixed access ({random_pct}% random) and {block_kb}KB blocks indicates GPU training data ingestion",
+            f"Read-dominant ({read_pct}% reads) at {throughput:,} MB/s throughput with {block_kb}KB blocks is typical of ML data loading",
+            f"Large {block_kb}KB reads at {throughput:,} MB/s with queue depth {queue_depth} suggests deep learning training I/O",
+            f"{iops:,} IOPS at {throughput:,} MB/s with {block_kb}KB blocks indicates parallel training data batch reads",
+        ],
+        "Video Streaming": [
+            f"Sequential reads ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks indicates media streaming",
+            f"Large {block_kb}KB sequential reads at {throughput:,} MB/s with {read_pct}% reads suggests video file delivery",
+            f"Low IOPS ({iops:,}) with {throughput:,} MB/s and large {block_kb}KB blocks is characteristic of streaming workloads",
+            f"Steady {throughput:,} MB/s throughput with {block_kb}KB blocks and {sequential_pct}% sequential access indicates video streaming",
+            f"{read_pct}% reads with {block_kb}KB blocks at low queue depth ({queue_depth}) suggests media content delivery",
+        ],
+        "VDI Virtual Desktop": [
+            f"Mixed I/O ({read_pct}% read / {write_pct}% write) with {block_kb}KB blocks at {iops:,} IOPS indicates virtual desktop activity",
+            f"Small {block_kb}KB random I/O ({random_pct}% random) with balanced read/write suggests concurrent desktop sessions",
+            f"{iops:,} IOPS with {block_kb}KB blocks and {random_pct}% random access is characteristic of VDI workloads",
+            f"Balanced read-write ({read_pct}/{write_pct}) with {iops:,} IOPS on small {block_kb}KB blocks indicates desktop virtualization",
+            f"Random I/O ({random_pct}%) with mixed reads/writes at {iops:,} IOPS on {block_kb}KB blocks suggests virtual desktop operations",
+        ],
+        "Backup Archive": [
+            f"Write-dominant ({write_pct}% writes) with {throughput:,} MB/s and large {block_kb}KB blocks indicates backup operations",
+            f"Sequential writes ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks suggests archival storage",
+            f"Low IOPS ({iops:,}) but {throughput:,} MB/s with {write_pct}% writes and {block_kb}KB blocks is typical of backup workloads",
+            f"Large {block_kb}KB sequential writes at {throughput:,} MB/s with {latency:,}us latency indicates data backup ingestion",
+            f"Write-heavy ({write_pct}% writes) sequential pattern at {throughput:,} MB/s with {block_kb}KB blocks suggests archival operations",
+        ],
+    }
+    return random.choice(templates[label])
 
 
 def generate_sample(label: str) -> dict:
@@ -194,7 +215,7 @@ def generate_sample(label: str) -> dict:
     sequential_pct = 100 - random_pct
     block_kb = random.choice(p["block_size_kb"])
     queue_depth = random.randint(*p["queue_depth_range"])
-    reason = random.choice(p["reasons"])
+    reason = build_dynamic_reason(label, iops, throughput, latency, read_pct, random_pct, block_kb, queue_depth)
 
     # Format the I/O metrics as a structured text prompt
     prompt = (
@@ -215,7 +236,7 @@ def generate_sample(label: str) -> dict:
     return {"prompt": prompt, "completion": response, "label": label}
 
 
-def build_dataset(n_per_class: int = 80) -> Dataset:
+def build_dataset(n_per_class: int = 120) -> Dataset:
     """Build a balanced training dataset with n_per_class examples per label."""
     samples = []
     for label in LABELS:
@@ -927,6 +948,51 @@ def main():
     }
     with open(OUTPUT_DIR / "sft_sanity_check.json", "w") as f:
         json.dump(sanity_data, f, indent=2)
+
+    # ── Per-class accuracy breakdown ──────────────────────────────────
+    print(f"\n  {BOLD}Per-class accuracy breakdown:{RESET}")
+    per_class_correct = {label: 0 for label in LABELS}
+    per_class_total = {label: 0 for label in LABELS}
+    per_class_predictions = {label: [] for label in LABELS}
+
+    # Generate 5 test prompts per class
+    val_prompts = []
+    for label in LABELS:
+        for _ in range(5):
+            val_prompts.append(generate_sample(label))
+
+    val_outputs = generate_outputs(model, tokenizer, val_prompts, device, max_new_tokens=60)
+
+    for sample, output in zip(val_prompts, val_outputs):
+        true_label = sample["label"]
+        per_class_total[true_label] += 1
+        # Extract predicted label from output
+        output_lower = output["generated"].lower()
+        predicted = ""
+        for lbl in sorted(LABELS, key=len, reverse=True):
+            if lbl.lower() in output_lower:
+                predicted = lbl
+                break
+        per_class_correct[true_label] += 1 if predicted == true_label else 0
+        per_class_predictions[true_label].append(predicted or "(unparseable)")
+
+    total_correct = sum(per_class_correct.values())
+    total_n = sum(per_class_total.values())
+    print(f"  Overall: {total_correct}/{total_n} ({100*total_correct/total_n:.0f}%)")
+    for label in LABELS:
+        n = per_class_total[label]
+        c = per_class_correct[label]
+        preds = per_class_predictions[label]
+        color = GREEN if c >= 3 else (YELLOW if c >= 1 else RED)
+        print(f"    {color}{label:25s}: {c}/{n}  predictions: {preds}{RESET}")
+
+    # Mode collapse check
+    all_preds = [p for preds in per_class_predictions.values() for p in preds]
+    from collections import Counter
+    pred_counts = Counter(all_preds)
+    most_common = pred_counts.most_common(1)[0]
+    if most_common[1] > len(all_preds) * 0.5:
+        print(f"\n  {RED}{BOLD}⚠ MODE COLLAPSE DETECTED: '{most_common[0]}' predicted {most_common[1]}/{len(all_preds)} times{RESET}")
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)

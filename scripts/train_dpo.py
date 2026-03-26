@@ -198,8 +198,64 @@ BAD_REASON_TEMPLATES = [
 ]
 
 
-def generate_io_prompt(label: str) -> str:
-    """Generate a formatted I/O metrics prompt for a given workload type."""
+def build_dynamic_reason(label, iops, throughput, latency, read_pct, random_pct, block_kb, queue_depth):
+    """Build a reason referencing actual metric values — prevents memorization of fixed reasons."""
+    write_pct = 100 - read_pct
+    sequential_pct = 100 - random_pct
+    templates = {
+        "OLTP Database": [
+            f"IOPS of {iops:,} with {block_kb}KB blocks and {random_pct}% random access is characteristic of transactional database operations",
+            f"{iops:,} IOPS at {latency:,}us latency with small {block_kb}KB random I/O indicates OLTP workloads",
+            f"High random I/O ({random_pct}% random) with {iops:,} IOPS and {block_kb}KB blocks suggests database transaction processing",
+            f"Queue depth of {queue_depth} with {read_pct}% reads at {iops:,} IOPS on {block_kb}KB blocks is typical of transactional databases",
+            f"Small {block_kb}KB blocks at {iops:,} IOPS with {random_pct}% random access indicates index lookups and row fetches",
+        ],
+        "OLAP Analytics": [
+            f"Low IOPS ({iops:,}) but {throughput:,} MB/s throughput with {block_kb}KB sequential reads indicates analytical queries",
+            f"Large {block_kb}KB blocks at {throughput:,} MB/s with {sequential_pct}% sequential access suggests data warehouse table scans",
+            f"High read ratio ({read_pct}%) with {throughput:,} MB/s throughput and {block_kb}KB blocks is characteristic of OLAP workloads",
+            f"{throughput:,} MB/s throughput with {block_kb}KB blocks and only {iops:,} IOPS indicates large sequential analytical reads",
+            f"Sequential access pattern ({sequential_pct}% sequential) at {throughput:,} MB/s suggests analytical query processing",
+        ],
+        "AI ML Training": [
+            f"High throughput ({throughput:,} MB/s) with {block_kb}KB blocks and {read_pct}% reads suggests training data pipeline loading",
+            f"{throughput:,} MB/s with mixed access ({random_pct}% random) and {block_kb}KB blocks indicates GPU training data ingestion",
+            f"Read-dominant ({read_pct}% reads) at {throughput:,} MB/s throughput with {block_kb}KB blocks is typical of ML data loading",
+            f"Large {block_kb}KB reads at {throughput:,} MB/s with queue depth {queue_depth} suggests deep learning training I/O",
+            f"{iops:,} IOPS at {throughput:,} MB/s with {block_kb}KB blocks indicates parallel training data batch reads",
+        ],
+        "Video Streaming": [
+            f"Sequential reads ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks indicates media streaming",
+            f"Large {block_kb}KB sequential reads at {throughput:,} MB/s with {read_pct}% reads suggests video file delivery",
+            f"Low IOPS ({iops:,}) with {throughput:,} MB/s and large {block_kb}KB blocks is characteristic of streaming workloads",
+            f"Steady {throughput:,} MB/s throughput with {block_kb}KB blocks and {sequential_pct}% sequential access indicates video streaming",
+            f"{read_pct}% reads with {block_kb}KB blocks at low queue depth ({queue_depth}) suggests media content delivery",
+        ],
+        "VDI Virtual Desktop": [
+            f"Mixed I/O ({read_pct}% read / {write_pct}% write) with {block_kb}KB blocks at {iops:,} IOPS indicates virtual desktop activity",
+            f"Small {block_kb}KB random I/O ({random_pct}% random) with balanced read/write suggests concurrent desktop sessions",
+            f"{iops:,} IOPS with {block_kb}KB blocks and {random_pct}% random access is characteristic of VDI workloads",
+            f"Balanced read-write ({read_pct}/{write_pct}) with {iops:,} IOPS on small {block_kb}KB blocks indicates desktop virtualization",
+            f"Random I/O ({random_pct}%) with mixed reads/writes at {iops:,} IOPS on {block_kb}KB blocks suggests virtual desktop operations",
+        ],
+        "Backup Archive": [
+            f"Write-dominant ({write_pct}% writes) with {throughput:,} MB/s and large {block_kb}KB blocks indicates backup operations",
+            f"Sequential writes ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks suggests archival storage",
+            f"Low IOPS ({iops:,}) but {throughput:,} MB/s with {write_pct}% writes and {block_kb}KB blocks is typical of backup workloads",
+            f"Large {block_kb}KB sequential writes at {throughput:,} MB/s with {latency:,}us latency indicates data backup ingestion",
+            f"Write-heavy ({write_pct}% writes) sequential pattern at {throughput:,} MB/s with {block_kb}KB blocks suggests archival operations",
+        ],
+    }
+    return random.choice(templates[label])
+
+
+def generate_io_prompt(label: str) -> tuple:
+    """Generate a formatted I/O metrics prompt for a given workload type.
+
+    Returns:
+        (prompt_text, metrics_dict) where metrics_dict contains the raw
+        metric values used to build the prompt.
+    """
     p = WORKLOAD_PROFILES[label]
     iops = random.randint(*p["iops_range"])
     throughput = random.randint(*p["throughput_mb_range"])
@@ -211,7 +267,7 @@ def generate_io_prompt(label: str) -> str:
     block_kb = random.choice(p["block_size_kb"])
     queue_depth = random.randint(*p["queue_depth_range"])
 
-    return (
+    prompt_text = (
         f"Classify the following storage I/O workload based on these metrics:\n"
         f"- IOPS: {iops:,}\n"
         f"- Throughput: {throughput:,} MB/s\n"
@@ -224,6 +280,12 @@ def generate_io_prompt(label: str) -> str:
         f"Video Streaming, VDI Virtual Desktop, Backup Archive.\n"
         f"Provide the classification and a brief reason."
     )
+    metrics = {
+        "iops": iops, "throughput": throughput, "latency": latency,
+        "read_pct": read_pct, "random_pct": random_pct,
+        "block_kb": block_kb, "queue_depth": queue_depth,
+    }
+    return prompt_text, metrics
 
 
 def generate_preference_pair(label: str) -> dict:
@@ -235,10 +297,11 @@ def generate_preference_pair(label: str) -> dict:
     1. Wrong label with confident (but wrong) reasoning
     2. Wrong label with hedging/verbose reasoning
     """
-    prompt = generate_io_prompt(label)
+    prompt, metrics = generate_io_prompt(label)
 
-    # CHOSEN: correct, concise, confident
-    chosen = f"{label}\nReason: {random.choice(GOOD_REASONS[label])}"
+    # CHOSEN: correct, concise, confident — dynamic reason referencing actual metric values
+    chosen_reason = build_dynamic_reason(label, **metrics)
+    chosen = f"{label}\nReason: {chosen_reason}"
 
     # REJECTED: pick a strategy — ALL rejected responses must have wrong label
     strategy = random.choice(["wrong_label_concise", "wrong_label_verbose"])
@@ -262,7 +325,7 @@ def generate_preference_pair(label: str) -> dict:
     }
 
 
-def build_preference_dataset(n_per_class: int = 50) -> Dataset:
+def build_preference_dataset(n_per_class: int = 60) -> Dataset:
     """Build a balanced preference dataset."""
     pairs = []
     for label in LABELS:
@@ -284,7 +347,7 @@ def build_preference_dataset(n_per_class: int = 50) -> Dataset:
 # ====================================================================
 
 EXAMPLE_PROMPTS_FOR_PROBS = [
-    {"prompt": generate_io_prompt(label), "label": label}
+    {"prompt": generate_io_prompt(label)[0], "label": label}
     for label in LABELS[:5]
 ]
 
@@ -402,9 +465,9 @@ class LiveProbeCallback(TrainerCallback):
         # Fixed probe prompts: one easy, one medium, one hard
         # Use the same prompt generation as the training data
         self.probes = [
-            {"prompt": generate_io_prompt("Backup Archive"), "label": "Backup Archive"},
-            {"prompt": generate_io_prompt("OLTP Database"), "label": "OLTP Database"},
-            {"prompt": generate_io_prompt("VDI Virtual Desktop"), "label": "VDI Virtual Desktop"},
+            {"prompt": generate_io_prompt("Backup Archive")[0], "label": "Backup Archive"},
+            {"prompt": generate_io_prompt("OLTP Database")[0], "label": "OLTP Database"},
+            {"prompt": generate_io_prompt("VDI Virtual Desktop")[0], "label": "VDI Virtual Desktop"},
         ]
 
     def on_log(self, args, state, control, model=None, **kwargs):
@@ -517,7 +580,7 @@ def main():
 
     # ── 4c. Build preference dataset ─────────────────────────────────
     print("\n[3/6] Building preference pair dataset...")
-    dataset, raw_pairs = build_preference_dataset(n_per_class=50)
+    dataset, raw_pairs = build_preference_dataset(n_per_class=60)
 
     # Save some example pairs for the web app to display
     example_pairs = raw_pairs[:15]  # Save 15 illustrative examples
@@ -781,7 +844,7 @@ def main():
             sft_accuracy = sft_sanity.get("sample_accuracy", None)
 
     for label in sanity_labels:
-        prompt = generate_io_prompt(label) + "\n\nClassification: "
+        prompt = generate_io_prompt(label)[0] + "\n\nClassification: "
         input_ids = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
         input_len = input_ids.shape[1]
         # Manual greedy decoding — more reliable than model.generate() post-TRL
@@ -880,6 +943,69 @@ def main():
     }
     with open(OUTPUT_DIR / "dpo_sanity_check.json", "w") as f:
         json.dump(sanity_data, f, indent=2)
+
+    # ── Per-class validation ─────────────────────────────────────────
+    print("\n  Per-class accuracy breakdown (5 prompts each):")
+    per_class_correct = {}
+    per_class_total = {}
+    predicted_labels_all = []
+    n_val_per_class = 5
+
+    for label in LABELS:
+        per_class_correct[label] = 0
+        per_class_total[label] = n_val_per_class
+        for _ in range(n_val_per_class):
+            val_prompt = generate_io_prompt(label)[0] + "\n\nClassification: "
+            val_input_ids = tokenizer(val_prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
+            val_input_len = val_input_ids.shape[1]
+            with torch.no_grad():
+                for _ in range(80):
+                    val_logits = trained_model(val_input_ids).logits[:, -1, :]
+                    val_next_token = val_logits.argmax(dim=-1, keepdim=True)
+                    if val_next_token.item() == eos_id:
+                        break
+                    val_input_ids = torch.cat([val_input_ids, val_next_token], dim=-1)
+            val_generated = tokenizer.decode(val_input_ids[0][val_input_len:], skip_special_tokens=True).strip()
+
+            val_predicted = ""
+            val_gen_lower = val_generated.lower()
+            for l in sorted(LABELS, key=len, reverse=True):
+                if l.lower() in val_gen_lower:
+                    val_predicted = l
+                    break
+
+            predicted_labels_all.append(val_predicted)
+            if val_predicted == label:
+                per_class_correct[label] += 1
+
+    total_val_correct = sum(per_class_correct.values())
+    total_val_total = sum(per_class_total.values())
+    overall_val_acc = total_val_correct / total_val_total if total_val_total > 0 else 0
+
+    for label in LABELS:
+        acc = per_class_correct[label] / per_class_total[label]
+        if acc >= 0.6:
+            color = GREEN
+        elif acc >= 0.4:
+            color = YELLOW
+        else:
+            color = RED
+        bar_filled = int(acc * 10)
+        bar_str = f"{'█' * bar_filled}{'░' * (10 - bar_filled)}"
+        print(f"    {label:<22s} {color}{bar_str} {per_class_correct[label]}/{per_class_total[label]} ({acc:.0%}){RESET}")
+
+    print(f"    {'─' * 50}")
+    print(f"    {BOLD}Overall: {total_val_correct}/{total_val_total} ({overall_val_acc:.0%}){RESET}")
+
+    # Mode collapse check: see how many distinct labels the model actually predicted
+    unique_predicted = set(predicted_labels_all)
+    if len(unique_predicted) <= 2:
+        print(f"\n    {RED}{BOLD}WARNING: Mode collapse detected!{RESET}")
+        print(f"    {RED}Model only predicted {len(unique_predicted)} distinct label(s): {', '.join(sorted(unique_predicted)) if unique_predicted else '(none)'}{RESET}")
+    elif len(unique_predicted) <= 4:
+        print(f"\n    {YELLOW}Note: Model predicted only {len(unique_predicted)}/6 distinct labels: {', '.join(sorted(unique_predicted))}{RESET}")
+    else:
+        print(f"\n    {GREEN}No mode collapse — {len(unique_predicted)}/6 distinct labels predicted.{RESET}")
 
     # ── Summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
