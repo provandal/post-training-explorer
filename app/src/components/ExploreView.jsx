@@ -82,6 +82,7 @@ export default function ExploreView() {
   const activeQuadrant = useStore((s) => s.activeQuadrant)
   const activeSubStop = useStore((s) => s.activeSubStop)
   const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
+  const tourReturnStep = useStore((s) => s.tourReturnStep)
 
   const quadrantViews = EXPLORE_VIEWS[activeQuadrant]
   const ViewComponent = quadrantViews?.[activeSubStop] || quadrantViews?.[null]
@@ -93,12 +94,22 @@ export default function ExploreView() {
       <aside className="w-[500px] flex-shrink-0 bg-slate-800/30 border-r border-slate-700/50 p-4 flex flex-col">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-300">Navigate</h2>
-          <button
-            onClick={() => useStore.getState().setMode('landing')}
-            className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
-          >
-            Home
-          </button>
+          <div className="flex items-center gap-2">
+            {tourReturnStep !== null && (
+              <button
+                onClick={() => useStore.setState({ mode: 'tour', currentStep: tourReturnStep, tourReturnStep: null })}
+                className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded border border-blue-700/50 hover:border-blue-500 transition-colors"
+              >
+                &larr; Return to Tour
+              </button>
+            )}
+            <button
+              onClick={() => useStore.getState().setMode('landing')}
+              className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
+            >
+              Home
+            </button>
+          </div>
         </div>
 
         <QuadrantMap interactive />

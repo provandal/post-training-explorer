@@ -556,7 +556,7 @@ def main():
         learning_rate=2e-4,
         lr_scheduler_type="cosine",
         warmup_steps=10,
-        logging_steps=5 if args.verbose else 25,
+        logging_steps=5 if args.verbose else 10,
         save_strategy="epoch",
         seed=SEED,
         bf16=(device == "cuda"),

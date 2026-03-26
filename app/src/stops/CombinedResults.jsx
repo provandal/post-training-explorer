@@ -4,7 +4,7 @@ import PatternPicker from '../components/PatternPicker'
 import useStore from '../store'
 import {
   isLoaded, getTestPrompts, getModelOutput, formatPromptMetrics,
-  getAccuracySummary, getCategories,
+  getAccuracySummary, getCategories, getResourceUtilization,
 } from '../data/loadArtifacts'
 
 const FALLBACK_INPUT = "IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64"
@@ -192,6 +192,7 @@ export default function CombinedResults({ explore = false }) {
 
   // Get accuracy summary for the footer
   const summary = hasRealData ? getAccuracySummary() : null
+  const resourceUtil = hasRealData ? getResourceUtilization() : null
 
   const revealNext = () => {
     if (visibleStages < stages.length) {
@@ -201,6 +202,15 @@ export default function CombinedResults({ explore = false }) {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {/* HW environment badge */}
+      {resourceUtil && (
+        <div className="mb-4 flex items-center gap-2 text-xs text-slate-500">
+          <span className="px-2 py-1 rounded bg-slate-800 border border-slate-700/50 text-slate-400">
+            Trained on: {resourceUtil.gpu_name || 'GPU'} · {resourceUtil.gpu_memory_total_gb ? `${resourceUtil.gpu_memory_total_gb} GB` : ''} · SmolLM2-360M
+          </span>
+        </div>
+      )}
+
       {/* Pattern picker (only when real data is available) */}
       {hasRealData && <PatternPicker onChange={() => setVisibleStages(1)} />}
 

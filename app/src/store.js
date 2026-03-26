@@ -8,6 +8,7 @@ const useStore = create((set, get) => ({
   // Tour state
   currentStep: 0,
   tourCompleted: false,
+  tourReturnStep: null, // Step to return to when coming back from explore deep dives
 
   // Active quadrant for explore mode
   activeQuadrant: null, // 'prompt' | 'rag' | 'posttraining' | 'alloptions'
@@ -40,7 +41,7 @@ const useStore = create((set, get) => ({
     get().loadArtifactsIfNeeded()
   },
   startExplore: () => {
-    set({ mode: 'explore', activeQuadrant: 'prompt' })
+    set({ mode: 'explore', activeQuadrant: 'prompt', tourReturnStep: null })
     get().loadArtifactsIfNeeded()
   },
 
@@ -50,7 +51,7 @@ const useStore = create((set, get) => ({
     if (currentStep < maxStep) {
       set({ currentStep: currentStep + 1 })
     } else {
-      set({ tourCompleted: true, mode: 'explore' })
+      set({ tourCompleted: true, mode: 'explore', activeQuadrant: 'prompt', tourReturnStep: currentStep })
     }
   },
 

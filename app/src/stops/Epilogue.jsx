@@ -6,9 +6,9 @@ const RESOURCES = [
   {
     category: 'Try It Yourself',
     items: [
-      { label: 'Training Notebooks (Colab)', url: 'YOUR_COLAB_NOTEBOOK_URL', description: 'Run SFT, DPO, and GRPO training yourself — free GPU included', placeholder: true },
-      { label: 'Storage I/O Dataset', url: 'YOUR_HF_DATASET_URL', description: 'The full labeled dataset used in this demo on HuggingFace', placeholder: true },
-      { label: 'Pre-trained Models', url: 'YOUR_HF_MODELS_URL', description: 'All model variants (base, SFT, DPO, GRPO) on HuggingFace', placeholder: true },
+      { label: 'Training Notebooks (Colab)', url: 'https://colab.research.google.com/drive/YOUR_COLAB_NOTEBOOK_ID', description: 'Run SFT, DPO, and GRPO training yourself — free GPU included' },
+      { label: 'Storage I/O Dataset', url: 'https://huggingface.co/datasets/YOUR_HF_DATASET', description: 'The full labeled dataset used in this demo on HuggingFace' },
+      { label: 'Pre-trained Models', url: 'https://huggingface.co/YOUR_HF_MODELS', description: 'All model variants (base, SFT, DPO, GRPO) on HuggingFace' },
     ],
   },
   {
@@ -33,8 +33,10 @@ export default function Epilogue() {
   const startExplore = useStore((s) => s.startExplore)
   const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
   const setMode = useStore((s) => s.setMode)
+  const currentStep = useStore((s) => s.currentStep)
 
   const goToDeepDive = (key) => {
+    useStore.setState({ tourReturnStep: currentStep })
     setActiveQuadrant(key)
     setMode('explore')
   }

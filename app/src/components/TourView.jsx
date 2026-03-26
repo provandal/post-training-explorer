@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import useStore from '../store'
 import tourSteps from '../data/tourSteps'
 import QuadrantMap from './QuadrantMap'
-import NarrationPanel from './NarrationPanel'
 
 // Stop components
 import Welcome from '../stops/Welcome'
@@ -35,7 +34,13 @@ const STOP_COMPONENTS = {
 
 export default function TourView() {
   const currentStep = useStore((s) => s.currentStep)
+  const nextStep = useStore((s) => s.nextStep)
+  const prevStep = useStore((s) => s.prevStep)
   const step = tourSteps[currentStep]
+
+  const isFirst = currentStep === 0
+  const isLast = currentStep === tourSteps.length - 1
+  const total = tourSteps.length
 
   // Keyboard navigation: Left/Right arrows move between tour steps
   useEffect(() => {
@@ -59,37 +64,71 @@ export default function TourView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top bar with mini map */}
-      <header className="flex items-center gap-4 px-4 py-2 bg-slate-800/50 border-b border-slate-700/50">
-        <QuadrantMap mini />
-        <div className="flex-1">
-          <h2 className="text-sm font-semibold text-white">{step.title}</h2>
-          <p className="text-xs text-slate-400">
-            {step.quadrant
-              ? `${step.quadrant === 'posttraining' ? 'Post Training' : step.quadrant === 'alloptions' ? 'All Options' : step.quadrant.toUpperCase()}${step.subStop ? ` > ${step.subStop.toUpperCase()}` : ''}`
-              : 'Overview'
-            }
-          </p>
-        </div>
+      {/* Combined top bar: Home | map | title | progress | nav */}
+      <header className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 border-b border-slate-700/50">
         <button
           onClick={() => useStore.getState().setMode('landing')}
-          className="text-xs text-slate-500 hover:text-slate-300 px-3 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
+          className="text-xs text-slate-400 hover:text-white px-2.5 py-1.5 rounded border border-slate-700 hover:border-slate-500 transition-colors flex-shrink-0"
         >
-          Exit Tour
+          Home
+        </button>
+
+        <QuadrantMap mini />
+
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-white truncate">{step.title}</h2>
+        </div>
+
+        {/* Progress dots */}
+        <div className="hidden sm:flex items-center gap-0.5 flex-shrink-0">
+          {tourSteps.map((_, i) => (
+            <div
+              key={i}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                i === currentStep
+                  ? 'bg-blue-500'
+                  : i < currentStep
+                  ? 'bg-slate-500'
+                  : 'bg-slate-700'
+              }`}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-slate-500 whitespace-nowrap flex-shrink-0">
+          {currentStep + 1}/{total}
+        </span>
+
+        {/* Nav buttons */}
+        <button
+          onClick={prevStep}
+          disabled={isFirst}
+          className="text-xs px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+        >
+          &larr; Prev Chapter
+        </button>
+        <button
+          onClick={nextStep}
+          className="text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 font-medium transition-colors flex-shrink-0"
+        >
+          {isLast ? 'Explore Freely' : 'Next Chapter \u2192'}
         </button>
       </header>
 
       {/* Main content area */}
       <main className="flex-1 overflow-y-auto p-6">
+        {/* Narration callout */}
+        {step.narration && (
+          <div className="mb-4 p-3 rounded-lg bg-slate-800/50 border border-slate-700/30 text-sm text-slate-300">
+            {step.narration}
+          </div>
+        )}
+
         {StopComponent ? <StopComponent /> : (
           <div className="text-center text-slate-500 py-20">
             Component "{step.component}" not yet implemented
           </div>
         )}
       </main>
-
-      {/* Narration panel at bottom */}
-      <NarrationPanel />
     </div>
   )
 }

@@ -96,7 +96,7 @@ export default function AnimatedPipeline({ steps, autoPlay = false, speed = 800 
       )}
       {activeStep >= steps.length - 1 && (
         <button
-          onClick={() => { setActiveStep(-1); setAnimationDone(false) }}
+          onClick={() => { setActiveStep(0); setAnimationDone(false) }}
           className="mt-3 px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-slate-400 transition-colors"
         >
           Replay

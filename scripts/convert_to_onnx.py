@@ -58,7 +58,7 @@ def save_base_model(output_dir: Path):
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=torch.float32,
+        MODEL_NAME, trust_remote_code=True, dtype=torch.float32,
     )
 
     model.save_pretrained(output_dir)
@@ -90,7 +90,7 @@ def merge_grpo_model(output_dir: Path):
 
     # Load base → merge SFT → merge GRPO
     base = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=torch.float32,
+        MODEL_NAME, trust_remote_code=True, dtype=torch.float32,
     )
 
     print("  Merging SFT adapter...")

@@ -237,7 +237,7 @@ export default function VectorSearchViz({ autoPlay = false }) {
           </button>
         )}
         {phase >= 4 && (
-          <button onClick={() => setPhase(0)} className="px-4 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-md transition-colors text-slate-300">
+          <button onClick={() => setPhase(1)} className="px-4 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-md transition-colors text-slate-300">
             Replay animation
           </button>
         )}

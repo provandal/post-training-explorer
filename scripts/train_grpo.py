@@ -616,7 +616,7 @@ def main():
 
     # Policy model (will be trained)
     base_model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
+        MODEL_NAME, trust_remote_code=True, dtype=dtype,
     ).to(device)
     policy_model = PeftModel.from_pretrained(base_model, str(SFT_ADAPTER))
     policy_model = policy_model.merge_and_unload()
@@ -625,7 +625,7 @@ def main():
     if not use_single_model:
         # Two-model path (360M): load a separate frozen reference copy
         ref_base = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME, trust_remote_code=True, torch_dtype=dtype,
+            MODEL_NAME, trust_remote_code=True, dtype=dtype,
         ).to(device)
         ref_model = PeftModel.from_pretrained(ref_base, str(SFT_ADAPTER))
         ref_model = ref_model.merge_and_unload()
@@ -713,9 +713,14 @@ def main():
                     return
                 entry = {"step": state.global_step}
                 for key in ["loss", "reward", "reward_std", "kl",
-                            "clip_ratio", "entropy"]:
+                            "clip_ratio", "entropy",
+                            "frac_reward_zero_std"]:
                     if key in logs:
                         entry[key] = round(logs[key], 6)
+                # For binary reward (1=correct, 0=wrong), reward mean = accuracy
+                if "reward" in entry:
+                    entry["mean_reward"] = entry["reward"]
+                    entry["accuracy"] = entry["reward"]
                 if len(entry) > 1:
                     self.logs.append(entry)
 
@@ -787,7 +792,7 @@ def main():
             warmup_steps=10,
             num_generations=trl_num_gens,
             temperature=0.5,       # Lower temp = stay closer to SFT policy
-            logging_steps=5 if args.verbose else 25,
+            logging_steps=5 if args.verbose else 10,
             save_strategy="epoch",
             seed=SEED,
             bf16=(device == "cuda"),
@@ -866,7 +871,7 @@ def main():
                 metrics = grpo.train_step(batch_prompts, batch_labels, step)
                 step += 1
 
-                if step % (5 if args.verbose else 20) == 0:
+                if step % (5 if args.verbose else 8) == 0:
                     # Color-code based on direction
                     loss_val = metrics['loss']
                     reward_val = metrics['mean_reward']

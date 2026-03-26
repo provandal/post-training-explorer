@@ -284,6 +284,15 @@ export function getResourceUtilization() {
   return artifacts?.resource_utilization ?? null
 }
 
+/**
+ * Get storage I/O profile for infrastructure visualization.
+ * Includes per-technique I/O events, scaling projections, and local-vs-network comparison.
+ * @returns {{ base_model_size_mb, techniques, scaling_projections, storage_architecture } | null}
+ */
+export function getStorageIOProfile() {
+  return artifacts?.resource_utilization?.storage_io_profile ?? null
+}
+
 // ---------------------------------------------------------------------------
 // Convenience: Format a test prompt's metrics into the compact display string
 // ---------------------------------------------------------------------------

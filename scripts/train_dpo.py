@@ -432,7 +432,7 @@ def main():
     base_model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         trust_remote_code=True,
-        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+        dtype=torch.float32 if device == "cpu" else torch.bfloat16,
     ).to(device)
 
     # Load the SFT LoRA adapter on top of the base model
@@ -520,7 +520,7 @@ def main():
         lr_scheduler_type="cosine",
         warmup_steps=10,
         beta=0.05,                            # DPO temperature — lighter for 360M to avoid over-correction
-        logging_steps=5 if args.verbose else 25,
+        logging_steps=5 if args.verbose else 10,
         save_strategy="epoch",
         seed=SEED,
         bf16=(device == "cuda"),
@@ -605,7 +605,7 @@ def main():
     # Re-load the SFT model as reference since the current model has been DPO-trained.
     ref_base = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME, trust_remote_code=True,
-        torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16,
+        dtype=torch.float32 if device == "cpu" else torch.bfloat16,
     ).to(device)
     ref_model_for_probs = PeftModel.from_pretrained(ref_base, str(SFT_ADAPTER))
     ref_model_for_probs = ref_model_for_probs.merge_and_unload()
