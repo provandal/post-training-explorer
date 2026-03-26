@@ -274,7 +274,7 @@ def run_inference(model, tokenizer, prompt_text: str, device: str,
       - Generation time
     """
     model.eval()
-    full_prompt = prompt_text + "\n\nClassification: "
+    full_prompt = prompt_text + "\n\nClassification:"
 
     inputs = tokenizer(full_prompt, return_tensors="pt", truncation=True, max_length=512).to(device)
     prompt_len = inputs["input_ids"].shape[1]

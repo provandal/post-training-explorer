@@ -291,7 +291,7 @@ def reward_fn(completions: list[str], true_label: str) -> list[float]:
 def build_prompt_dataset(n_per_class: int = 30) -> tuple[Dataset, dict]:
     """Build a dataset of prompts (no completions — GRPO generates those).
 
-    Each prompt ends with "\\n\\nClassification: " so the model starts
+    Each prompt ends with "\\n\\nClassification:" so the model starts
     generating the label immediately (matching SFT training format).
     """
     prompts = []
@@ -307,7 +307,7 @@ def build_prompt_dataset(n_per_class: int = 30) -> tuple[Dataset, dict]:
     prompts, labels = zip(*combined)
 
     # Build a lookup from prompt (with suffix) to true label for the reward function
-    PROMPT_SUFFIX = "\n\nClassification: "
+    PROMPT_SUFFIX = "\n\nClassification:"
     full_prompts = [p + PROMPT_SUFFIX for p in prompts]
     prompt_to_label = dict(zip(full_prompts, labels))
 
@@ -387,7 +387,7 @@ class SimpleGRPO:
     def generate_completions(self, prompt_text: str) -> list[str]:
         """Generate K completions for a single prompt using sampling.
 
-        Expects prompt_text to already end with "\\n\\nClassification: "
+        Expects prompt_text to already end with "\\n\\nClassification:"
         so the model starts generating the label immediately.
         """
         inputs = self.tokenizer(
@@ -419,10 +419,13 @@ class SimpleGRPO:
         """
         Compute log probability of a completion given a prompt.
         Returns the sum of log probs over completion tokens.
-        prompt_text should already end with "\\n\\nClassification: ".
+        prompt_text should already end with "\\n\\nClassification:".
         """
         # Strip any "Classification: " prefix from completion to avoid duplication
         clean_completion = completion_text.replace("Classification: ", "", 1).replace("Classification:", "", 1)
+        # Ensure leading space for clean BPE boundary with "Classification:" suffix
+        if clean_completion and not clean_completion.startswith(" "):
+            clean_completion = " " + clean_completion
         full_text = prompt_text + clean_completion
         inputs = self.tokenizer(
             full_text, return_tensors="pt", truncation=True, max_length=512
@@ -773,9 +776,9 @@ def main():
                 self.probe_history = []
                 # Fixed probe prompts: one easy, one medium, one hard
                 self.probes = [
-                    {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification: ", "label": "Backup Archive"},
-                    {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification: ", "label": "OLTP Database"},
-                    {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification: ", "label": "VDI Virtual Desktop"},
+                    {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification:", "label": "Backup Archive"},
+                    {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification:", "label": "OLTP Database"},
+                    {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification:", "label": "VDI Virtual Desktop"},
                 ]
 
             def on_log(self, args, state, control, model=None, **kwargs):
@@ -969,9 +972,9 @@ def main():
                         print(f"    {BOLD}LIVE PROBE — Step {step}{RESET}")
                         print(f"    {'─' * 56}")
                         probe_prompts_manual = [
-                            {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification: ", "label": "Backup Archive"},
-                            {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification: ", "label": "OLTP Database"},
-                            {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification: ", "label": "VDI Virtual Desktop"},
+                            {"prompt": generate_io_prompt("Backup Archive") + "\n\nClassification:", "label": "Backup Archive"},
+                            {"prompt": generate_io_prompt("OLTP Database") + "\n\nClassification:", "label": "OLTP Database"},
+                            {"prompt": generate_io_prompt("VDI Virtual Desktop") + "\n\nClassification:", "label": "VDI Virtual Desktop"},
                         ]
                         for probe in probe_prompts_manual:
                             inp = tokenizer(probe["prompt"], return_tensors="pt", truncation=True, max_length=480).to(device)
@@ -1065,7 +1068,7 @@ def main():
             completions = []
             with torch.no_grad():
                 for _ in range(num_generations):
-                    text = prompt + "\n\nClassification: "
+                    text = prompt + "\n\nClassification:"
                     inputs = tokenizer(text, return_tensors="pt",
                                        truncation=True, max_length=400).to(device)
                     output_ids = policy_model.generate(
@@ -1148,7 +1151,7 @@ def main():
 
     eos_id = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
     for label in sanity_labels:
-        prompt = generate_io_prompt(label) + "\n\nClassification: "
+        prompt = generate_io_prompt(label) + "\n\nClassification:"
         input_ids = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
         input_len = input_ids.shape[1]
         # Manual greedy decoding — more reliable than model.generate() post-TRL
@@ -1249,7 +1252,7 @@ def main():
             val_prompts.append({"prompt": generate_io_prompt(label), "label": label})
 
     for sample in val_prompts:
-        prompt_text = sample["prompt"] + "\n\nClassification: "
+        prompt_text = sample["prompt"] + "\n\nClassification:"
         inputs = tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=512).to(device)
         with torch.no_grad():
             output_ids = policy_model.generate(

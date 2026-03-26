@@ -301,7 +301,7 @@ def generate_preference_pair(label: str) -> dict:
 
     # CHOSEN: correct, concise, confident — dynamic reason referencing actual metric values
     chosen_reason = build_dynamic_reason(label, **metrics)
-    chosen = f"{label}\nReason: {chosen_reason}"
+    chosen = f" {label}\nReason: {chosen_reason}"
 
     # REJECTED: pick a strategy — ALL rejected responses must have wrong label
     strategy = random.choice(["wrong_label_concise", "wrong_label_verbose"])
@@ -310,11 +310,11 @@ def generate_preference_pair(label: str) -> dict:
     if strategy == "wrong_label_concise":
         # Wrong label with confident (but wrong) reasoning
         wrong_reason = random.choice(GOOD_REASONS[wrong_label])
-        rejected = f"{wrong_label}\nReason: {wrong_reason}"
+        rejected = f" {wrong_label}\nReason: {wrong_reason}"
     else:  # wrong_label_verbose
         # Wrong label with hedging/verbose reasoning
         template = random.choice(BAD_REASON_TEMPLATES)
-        rejected = f"{wrong_label}\nReason: {template.format(label=wrong_label)}"
+        rejected = f" {wrong_label}\nReason: {template.format(label=wrong_label)}"
 
     return {
         "prompt": prompt,
@@ -336,7 +336,7 @@ def build_preference_dataset(n_per_class: int = 60) -> Dataset:
     print(f"  Created {len(pairs)} preference pairs ({n_per_class} per class)")
 
     return Dataset.from_dict({
-        "prompt": [p["prompt"] + "\n\nClassification: " for p in pairs],
+        "prompt": [p["prompt"] + "\n\nClassification:" for p in pairs],
         "chosen": [p["chosen"] for p in pairs],
         "rejected": [p["rejected"] for p in pairs],
     }), pairs
@@ -358,7 +358,7 @@ def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
     results = []
 
     for sample in prompts:
-        text = sample["prompt"] + "\n\nClassification: "
+        text = sample["prompt"] + "\n\nClassification:"
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
 
         with torch.no_grad():
@@ -483,7 +483,7 @@ class LiveProbeCallback(TrainerCallback):
 
         step_results = []
         for probe in self.probes:
-            prompt_text = probe["prompt"] + "\n\nClassification: "
+            prompt_text = probe["prompt"] + "\n\nClassification:"
             inputs = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480).to(self.device)
 
             with torch.no_grad():
@@ -749,9 +749,9 @@ def main():
 
     def compute_completion_log_prob(mdl, prompt_text, completion_text):
         """Compute log probability of completion given prompt."""
-        full_text = prompt_text + "\n\nClassification: " + completion_text
+        full_text = prompt_text + "\n\nClassification:" + completion_text
         inputs = tokenizer(full_text, return_tensors="pt", truncation=True, max_length=512).to(device)
-        prompt_only = tokenizer(prompt_text + "\n\nClassification: ", return_tensors="pt", truncation=True, max_length=400)
+        prompt_only = tokenizer(prompt_text + "\n\nClassification:", return_tensors="pt", truncation=True, max_length=400)
         prompt_len = prompt_only["input_ids"].shape[1]
         with torch.no_grad():
             outputs = mdl(**inputs)
@@ -844,7 +844,7 @@ def main():
             sft_accuracy = sft_sanity.get("sample_accuracy", None)
 
     for label in sanity_labels:
-        prompt = generate_io_prompt(label)[0] + "\n\nClassification: "
+        prompt = generate_io_prompt(label)[0] + "\n\nClassification:"
         input_ids = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
         input_len = input_ids.shape[1]
         # Manual greedy decoding — more reliable than model.generate() post-TRL
@@ -955,7 +955,7 @@ def main():
         per_class_correct[label] = 0
         per_class_total[label] = n_val_per_class
         for _ in range(n_val_per_class):
-            val_prompt = generate_io_prompt(label)[0] + "\n\nClassification: "
+            val_prompt = generate_io_prompt(label)[0] + "\n\nClassification:"
             val_input_ids = tokenizer(val_prompt, return_tensors="pt", truncation=True, max_length=512)["input_ids"].to(device)
             val_input_len = val_input_ids.shape[1]
             with torch.no_grad():

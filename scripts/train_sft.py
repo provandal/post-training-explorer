@@ -194,11 +194,17 @@ def build_dataset(n_per_class: int = 120) -> Dataset:
 
     # Use prompt + completion columns so TRL masks prompt tokens in the loss.
     # This ensures the model only learns to predict the classification output,
-    # not the prompt text itself. The "Classification: " suffix is part of the
-    # prompt so the model only needs to learn the bare label.
+    # not the prompt text itself.
+    #
+    # IMPORTANT: The prompt ends with "Classification:" (NO trailing space) and
+    # the completion starts with " " (leading space). This ensures BPE tokenizes
+    # the boundary identically during training and generation. If the prompt ended
+    # with "Classification: " (trailing space), TRL's separate tokenization would
+    # produce different token IDs at the boundary than generation's single-string
+    # tokenization — causing the model to predict EOS at inference time.
     return Dataset.from_dict({
-        "prompt": [s["prompt"] + "\n\nClassification: " for s in samples],
-        "completion": [s["completion"] for s in samples],
+        "prompt": [s["prompt"] + "\n\nClassification:" for s in samples],
+        "completion": [" " + s["completion"] for s in samples],
     })
 
 
@@ -230,7 +236,7 @@ def capture_token_probs(model, tokenizer, prompts, device, top_k=20):
     results = []
 
     for sample in prompts:
-        text = sample["prompt"] + "\n\nClassification: "
+        text = sample["prompt"] + "\n\nClassification:"
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(device)
 
         with torch.no_grad():
@@ -268,7 +274,7 @@ def generate_outputs(model, tokenizer, prompts, device, max_new_tokens=80):
     results = []
 
     for sample in prompts:
-        text = sample["prompt"] + "\n\nClassification: "
+        text = sample["prompt"] + "\n\nClassification:"
         input_ids = tokenizer(text, return_tensors="pt", truncation=True,
                               max_length=512)["input_ids"].to(device)
         input_len = input_ids.shape[1]
@@ -426,7 +432,7 @@ class LiveProbeCallback(TrainerCallback):
         step_results = []
         is_first_probe_this_step = True
         for probe in self.probes:
-            prompt_text = probe["prompt"] + "\n\nClassification: "
+            prompt_text = probe["prompt"] + "\n\nClassification:"
             input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480)["input_ids"].to(self.device)
             input_len = input_ids.shape[1]
 
