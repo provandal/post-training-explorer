@@ -424,19 +424,31 @@ class LiveProbeCallback(TrainerCallback):
 
         eos_id = self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 0
         step_results = []
+        is_first_probe_this_step = True
         for probe in self.probes:
             prompt_text = probe["prompt"] + "\n\nClassification: "
             input_ids = self.tokenizer(prompt_text, return_tensors="pt", truncation=True, max_length=480)["input_ids"].to(self.device)
             input_len = input_ids.shape[1]
 
             # Manual greedy decoding — model.generate() silently returns empty after TRL
+            # Labels are 2-4 tokens, so require min 2 tokens before accepting EOS
+            generated_ids = []
             with torch.no_grad():
-                for _ in range(30):
+                for i in range(30):
                     logits = model(input_ids).logits[:, -1, :]
                     next_token = logits.argmax(dim=-1, keepdim=True)
-                    if next_token.item() == eos_id:
+                    tok_id = next_token.item()
+                    generated_ids.append(tok_id)
+                    if tok_id == eos_id and i >= 2:  # min 2 tokens before EOS
                         break
                     input_ids = torch.cat([input_ids, next_token], dim=-1)
+
+            # Debug: show token-level detail for first probe each step
+            if is_first_probe_this_step:
+                tok_strs = [repr(self.tokenizer.decode([t])) for t in generated_ids[:6]]
+                print(f"  [DEBUG] eos_id={eos_id} | first tokens: {', '.join(f'{tid}={s}' for tid, s in zip(generated_ids[:6], tok_strs))}")
+                is_first_probe_this_step = False
+
             generated = self.tokenizer.decode(input_ids[0][input_len:], skip_special_tokens=True).strip()
 
             expected = probe["label"]
