@@ -9,8 +9,8 @@ outputs (correct, concise, confident) over "rejected" ones
 separate reward model.
 
 Key idea: for each input we create TWO outputs:
-  chosen  → correct classification, concise reasoning
-  rejected → wrong class (concise or verbose style)
+  chosen  → correct label
+  rejected → wrong label
 
 DPO directly optimizes the policy to increase the likelihood
 gap between chosen and rejected responses.
@@ -162,92 +162,6 @@ WORKLOAD_PROFILES = {
     },
 }
 
-# Good (concise, correct) reasons for each workload
-GOOD_REASONS = {
-    "OLTP Database": [
-        "High random IOPS with small block sizes indicate transactional database operations.",
-        "Small block random reads dominate, consistent with index lookups and row fetches.",
-    ],
-    "OLAP Analytics": [
-        "Large sequential reads with high throughput indicate analytical table scans.",
-        "Predominantly sequential read pattern with large blocks suggests data warehouse queries.",
-    ],
-    "AI ML Training": [
-        "High throughput reads with mixed access patterns suggest training data pipeline loading.",
-        "Large block reads with very high throughput indicate GPU training data ingestion.",
-    ],
-    "Video Streaming": [
-        "Steady sequential reads with large block sizes indicate media streaming operations.",
-        "Consistent high-throughput sequential reads suggest video file delivery.",
-    ],
-    "VDI Virtual Desktop": [
-        "Mixed read/write random I/O with small blocks indicates virtual desktop user activity.",
-        "Balanced read-write ratio with small random I/O suggests concurrent desktop sessions.",
-    ],
-    "Backup Archive": [
-        "Large sequential writes with high throughput indicate backup data ingestion.",
-        "Write-dominant sequential pattern with large block sizes suggests archival operations.",
-    ],
-}
-
-# Bad reasons — hedging, verbose, or vague
-BAD_REASON_TEMPLATES = [
-    "It could possibly be {label}, but I'm not entirely sure. The metrics seem to maybe suggest something along those lines, though there are other possibilities to consider. The IOPS and throughput values are somewhat consistent with what you might expect, but further analysis would be needed to confirm this assessment definitively.",
-    "Well, looking at these numbers, I think it might be {label}? The data is a bit ambiguous and could point to several different workload types. Without more context about the specific environment and additional metrics, it's hard to say with complete confidence.",
-    "Based on my analysis of the provided metrics, taking into account the various factors including but not limited to the IOPS values, throughput measurements, latency characteristics, read/write distribution, and access patterns, I would tentatively suggest that this could potentially be classified as {label}, although other interpretations are certainly possible.",
-]
-
-
-def build_dynamic_reason(label, iops, throughput, latency, read_pct, random_pct, block_kb, queue_depth):
-    """Build a reason referencing actual metric values — prevents memorization of fixed reasons."""
-    write_pct = 100 - read_pct
-    sequential_pct = 100 - random_pct
-    templates = {
-        "OLTP Database": [
-            f"IOPS of {iops:,} with {block_kb}KB blocks and {random_pct}% random access is characteristic of transactional database operations",
-            f"{iops:,} IOPS at {latency:,}us latency with small {block_kb}KB random I/O indicates OLTP workloads",
-            f"High random I/O ({random_pct}% random) with {iops:,} IOPS and {block_kb}KB blocks suggests database transaction processing",
-            f"Queue depth of {queue_depth} with {read_pct}% reads at {iops:,} IOPS on {block_kb}KB blocks is typical of transactional databases",
-            f"Small {block_kb}KB blocks at {iops:,} IOPS with {random_pct}% random access indicates index lookups and row fetches",
-        ],
-        "OLAP Analytics": [
-            f"Low IOPS ({iops:,}) but {throughput:,} MB/s throughput with {block_kb}KB sequential reads indicates analytical queries",
-            f"Large {block_kb}KB blocks at {throughput:,} MB/s with {sequential_pct}% sequential access suggests data warehouse table scans",
-            f"High read ratio ({read_pct}%) with {throughput:,} MB/s throughput and {block_kb}KB blocks is characteristic of OLAP workloads",
-            f"{throughput:,} MB/s throughput with {block_kb}KB blocks and only {iops:,} IOPS indicates large sequential analytical reads",
-            f"Sequential access pattern ({sequential_pct}% sequential) at {throughput:,} MB/s suggests analytical query processing",
-        ],
-        "AI ML Training": [
-            f"High throughput ({throughput:,} MB/s) with {block_kb}KB blocks and {read_pct}% reads suggests training data pipeline loading",
-            f"{throughput:,} MB/s with mixed access ({random_pct}% random) and {block_kb}KB blocks indicates GPU training data ingestion",
-            f"Read-dominant ({read_pct}% reads) at {throughput:,} MB/s throughput with {block_kb}KB blocks is typical of ML data loading",
-            f"Large {block_kb}KB reads at {throughput:,} MB/s with queue depth {queue_depth} suggests deep learning training I/O",
-            f"{iops:,} IOPS at {throughput:,} MB/s with {block_kb}KB blocks indicates parallel training data batch reads",
-        ],
-        "Video Streaming": [
-            f"Sequential reads ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks indicates media streaming",
-            f"Large {block_kb}KB sequential reads at {throughput:,} MB/s with {read_pct}% reads suggests video file delivery",
-            f"Low IOPS ({iops:,}) with {throughput:,} MB/s and large {block_kb}KB blocks is characteristic of streaming workloads",
-            f"Steady {throughput:,} MB/s throughput with {block_kb}KB blocks and {sequential_pct}% sequential access indicates video streaming",
-            f"{read_pct}% reads with {block_kb}KB blocks at low queue depth ({queue_depth}) suggests media content delivery",
-        ],
-        "VDI Virtual Desktop": [
-            f"Mixed I/O ({read_pct}% read / {write_pct}% write) with {block_kb}KB blocks at {iops:,} IOPS indicates virtual desktop activity",
-            f"Small {block_kb}KB random I/O ({random_pct}% random) with balanced read/write suggests concurrent desktop sessions",
-            f"{iops:,} IOPS with {block_kb}KB blocks and {random_pct}% random access is characteristic of VDI workloads",
-            f"Balanced read-write ({read_pct}/{write_pct}) with {iops:,} IOPS on small {block_kb}KB blocks indicates desktop virtualization",
-            f"Random I/O ({random_pct}%) with mixed reads/writes at {iops:,} IOPS on {block_kb}KB blocks suggests virtual desktop operations",
-        ],
-        "Backup Archive": [
-            f"Write-dominant ({write_pct}% writes) with {throughput:,} MB/s and large {block_kb}KB blocks indicates backup operations",
-            f"Sequential writes ({sequential_pct}% sequential) at {throughput:,} MB/s with {block_kb}KB blocks suggests archival storage",
-            f"Low IOPS ({iops:,}) but {throughput:,} MB/s with {write_pct}% writes and {block_kb}KB blocks is typical of backup workloads",
-            f"Large {block_kb}KB sequential writes at {throughput:,} MB/s with {latency:,}us latency indicates data backup ingestion",
-            f"Write-heavy ({write_pct}% writes) sequential pattern at {throughput:,} MB/s with {block_kb}KB blocks suggests archival operations",
-        ],
-    }
-    return random.choice(templates[label])
-
 
 def generate_io_prompt(label: str) -> tuple:
     """Generate a formatted I/O metrics prompt for a given workload type.
@@ -293,35 +207,24 @@ def generate_preference_pair(label: str) -> dict:
     Create one preference pair: a prompt with a chosen (good) and
     rejected (bad) completion.
 
-    Rejection strategies (randomly selected):
-    1. Wrong label with confident (but wrong) reasoning
-    2. Wrong label with hedging/verbose reasoning
+    Label-only format — matches SFT training. DPO teaches the model to
+    increase the likelihood gap between correct and incorrect labels.
     """
     prompt, metrics = generate_io_prompt(label)
 
-    # CHOSEN: correct, concise, confident — dynamic reason referencing actual metric values
-    chosen_reason = build_dynamic_reason(label, **metrics)
-    chosen = f" {label}\nReason: {chosen_reason}"
+    # CHOSEN: correct label (matches SFT completion format)
+    chosen = f" {label}"
 
-    # REJECTED: pick a strategy — ALL rejected responses must have wrong label
-    strategy = random.choice(["wrong_label_concise", "wrong_label_verbose"])
-
+    # REJECTED: wrong label
     wrong_label = random.choice([l for l in LABELS if l != label])
-    if strategy == "wrong_label_concise":
-        # Wrong label with confident (but wrong) reasoning
-        wrong_reason = random.choice(GOOD_REASONS[wrong_label])
-        rejected = f" {wrong_label}\nReason: {wrong_reason}"
-    else:  # wrong_label_verbose
-        # Wrong label with hedging/verbose reasoning
-        template = random.choice(BAD_REASON_TEMPLATES)
-        rejected = f" {wrong_label}\nReason: {template.format(label=wrong_label)}"
+    rejected = f" {wrong_label}"
 
     return {
         "prompt": prompt,
         "chosen": chosen,
         "rejected": rejected,
         "true_label": label,
-        "rejection_strategy": strategy,
+        "wrong_label": wrong_label,
     }
 
 
@@ -771,15 +674,6 @@ def main():
         prompt = pair["prompt"]
         chosen = pair["chosen"]
         rejected = pair["rejected"]
-        strategy = pair["rejection_strategy"]
-
-        # Determine style labels
-        chosen_style = "concise"
-        if strategy == "wrong_label_concise":
-            rejected_style = "wrong_label"
-        else:
-            rejected_style = "wrong_and_verbose"
-
         # Before (reference/SFT model) log probs
         before_chosen_lp = compute_completion_log_prob(ref_model_for_probs, prompt, chosen)
         before_rejected_lp = compute_completion_log_prob(ref_model_for_probs, prompt, rejected)
@@ -790,8 +684,8 @@ def main():
 
         prob_shift_examples.append({
             "input": prompt[:200] + "..." if len(prompt) > 200 else prompt,
-            "chosen_style": chosen_style,
-            "rejected_style": rejected_style,
+            "chosen_label": pair.get("true_label", ""),
+            "rejected_label": pair.get("wrong_label", ""),
             "before": {
                 "chosen_log_prob": round(before_chosen_lp, 4),
                 "rejected_log_prob": round(before_rejected_lp, 4),
@@ -899,7 +793,7 @@ def main():
 
     has_format = all(any(l.lower() in r["generated_snippet"].lower() for l in LABELS) for r in sanity_results if r["correct"])
     if has_format or num_correct > 0:
-        checks.append(("pass", "Model outputs correct format (label + reason)"))
+        checks.append(("pass", "Model outputs correct format (label)"))
     else:
         checks.append(("fail", "Model outputs are not in expected format"))
 
