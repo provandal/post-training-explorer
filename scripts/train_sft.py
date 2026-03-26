@@ -416,6 +416,7 @@ class LiveProbeCallback(TrainerCallback):
             generate_sample("OLTP Database"),
             generate_sample("VDI Virtual Desktop"),
         ]
+        self.probes_printed = False
 
     def on_log(self, args, state, control, model=None, **kwargs):
         if state.global_step == 0 or state.global_step % self.probe_interval != 0:
@@ -427,6 +428,15 @@ class LiveProbeCallback(TrainerCallback):
         print(f"\n  {'─' * 60}")
         print(f"  {BOLD}LIVE PROBE — Step {state.global_step}{RESET}  (model generates on fixed prompts)")
         print(f"  {'─' * 60}")
+
+        # Print full probe prompts once (first invocation only)
+        if not self.probes_printed:
+            for idx, probe in enumerate(self.probes):
+                print(f"\n  Probe {idx+1} ({probe['label']}):")
+                print(f"  {probe['prompt']}")
+                print(f"  \\n\\nClassification:")
+            print(f"\n  {'─' * 60}")
+            self.probes_printed = True
 
         eos_id = self.tokenizer.eos_token_id if self.tokenizer.eos_token_id is not None else 0
         step_results = []
@@ -462,12 +472,9 @@ class LiveProbeCallback(TrainerCallback):
             color = GREEN if correct else RED
             badge = "\u2713" if correct else "\u2717"
 
-            # Show prompt snippet + expected + model output
-            prompt_snippet = probe["prompt"][-80:].replace('\n', ' | ')
             display_text = generated[:100].replace('\n', ' | ')
-            print(f"  {color}{badge}{RESET} Prompt: ...{prompt_snippet}")
-            print(f"    Expected: {BOLD}{expected}{RESET}")
-            print(f"    Model:    {color}{display_text}{RESET}")
+            print(f"  {color}{badge}{RESET} Expected: {BOLD}{expected}{RESET}")
+            print(f"    Model: {color}{display_text}{RESET}")
 
             step_results.append({
                 "step": state.global_step,
