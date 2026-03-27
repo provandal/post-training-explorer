@@ -33,6 +33,14 @@ export async function loadModel(variant, onProgress = () => {}) {
     const config = MODEL_CONFIGS[variant]
     if (!config) throw new Error(`Unknown model variant: ${variant}`)
 
+    // Detect placeholder config that hasn't been updated yet
+    if (config.id.includes('YOUR_HF_USERNAME')) {
+      throw new Error(
+        'SETUP_NEEDED: Model not yet published to HuggingFace Hub. ' +
+        'Run the training pipeline in Colab, then update the model IDs in app/src/services/inference.js.'
+      )
+    }
+
     onProgress({ status: 'loading', variant, progress: 0 })
 
     const generator = await pipeline('text-generation', config.id, {

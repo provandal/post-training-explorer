@@ -133,7 +133,11 @@ export default function LiveInferencePanel() {
         {selectedConfig && (
           <p className="text-xs text-slate-500 mt-1.5">
             {selectedConfig.label}{' '}
-            <span className="text-slate-600">({selectedConfig.id})</span>
+            {selectedConfig.id.includes('YOUR_HF_USERNAME') ? (
+              <span className="text-amber-500">(not configured — see setup steps)</span>
+            ) : (
+              <span className="text-slate-600">({selectedConfig.id})</span>
+            )}
           </p>
         )}
       </div>
@@ -237,16 +241,33 @@ export default function LiveInferencePanel() {
       {/* ---- Error display ---- */}
       {error && (
         <div className="mt-3 p-3 rounded-lg bg-red-950/20 border border-red-800/30">
-          <p className="text-xs text-red-400">
-            <strong>Error:</strong> {error}
-          </p>
-          {error.includes('@huggingface/transformers') && (
-            <p className="text-xs text-slate-500 mt-1">
-              Install with:{' '}
-              <code className="text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
-                npm install @huggingface/transformers
-              </code>
-            </p>
+          {error.includes('SETUP_NEEDED') ? (
+            <>
+              <p className="text-sm font-semibold text-amber-400 mb-2">Model Not Yet Published</p>
+              <p className="text-xs text-slate-300 mb-2">
+                The ONNX models haven't been uploaded to HuggingFace Hub yet. To enable live inference:
+              </p>
+              <ol className="text-xs text-slate-400 list-decimal list-inside space-y-1">
+                <li>Run the training pipeline in Colab (or <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">scripts/</code>)</li>
+                <li>Export to ONNX with <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">convert_to_onnx.py</code></li>
+                <li>Push the ONNX model to a HuggingFace Hub repo</li>
+                <li>Update the model IDs in <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">app/src/services/inference.js</code></li>
+              </ol>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-red-400">
+                <strong>Error:</strong> {error}
+              </p>
+              {error.includes('@huggingface/transformers') && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Install with:{' '}
+                  <code className="text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
+                    npm install @huggingface/transformers
+                  </code>
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
