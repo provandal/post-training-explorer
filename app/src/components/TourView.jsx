@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useStore from '../store'
 import tourSteps from '../data/tourSteps'
 import QuadrantMap from './QuadrantMap'
@@ -42,6 +42,13 @@ export default function TourView() {
   const isLast = currentStep === tourSteps.length - 1
   const total = tourSteps.length
 
+  const mainRef = useRef(null)
+
+  // Scroll to top on step change
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [currentStep])
+
   // Keyboard navigation: Left/Right arrows move between tour steps
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -62,9 +69,12 @@ export default function TourView() {
 
   const StopComponent = STOP_COMPONENTS[step.component]
 
+  const prevTitle = isFirst ? null : tourSteps[currentStep - 1].shortTitle
+  const nextTitle = isLast ? null : tourSteps[currentStep + 1].shortTitle
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Combined top bar: Home | map | title | progress | nav */}
+      {/* Combined top bar: Home | title | progress | nav */}
       <header className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 border-b border-slate-700/50">
         <button
           onClick={() => useStore.getState().setMode('landing')}
@@ -72,8 +82,6 @@ export default function TourView() {
         >
           Home
         </button>
-
-        <QuadrantMap mini />
 
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-white truncate">{step.title}</h2>
@@ -98,24 +106,29 @@ export default function TourView() {
           {currentStep + 1}/{total}
         </span>
 
-        {/* Nav buttons */}
+        {/* Nav buttons with chapter names */}
         <button
           onClick={prevStep}
           disabled={isFirst}
           className="text-xs px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
         >
-          &larr; Prev Chapter
+          {prevTitle ? `\u2190 ${prevTitle}` : '\u2190 Prev'}
         </button>
         <button
           onClick={nextStep}
           className="text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 font-medium transition-colors flex-shrink-0"
         >
-          {isLast ? 'Explore Freely' : 'Next Chapter \u2192'}
+          {isLast ? 'Explore Freely' : `${nextTitle} \u2192`}
         </button>
       </header>
 
       {/* Main content area */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main ref={mainRef} className="flex-1 overflow-y-auto p-6">
+        {/* QuadrantMap above narration */}
+        <div className="flex justify-center mb-4">
+          <QuadrantMap size="medium" />
+        </div>
+
         {/* Narration callout */}
         {step.narration && (
           <div className="mb-4 p-3 rounded-lg bg-slate-800/50 border border-slate-700/30 text-sm text-slate-300">
@@ -128,6 +141,11 @@ export default function TourView() {
             Component "{step.component}" not yet implemented
           </div>
         )}
+
+        {/* QuadrantMap below stop content */}
+        <div className="flex justify-center mt-6">
+          <QuadrantMap size="medium" />
+        </div>
       </main>
     </div>
   )

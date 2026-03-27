@@ -1,11 +1,6 @@
-import QuadrantMap from '../components/QuadrantMap'
-
 export default function Welcome() {
   return (
     <div className="max-w-3xl mx-auto text-center">
-      <div className="flex justify-center mb-6">
-        <QuadrantMap />
-      </div>
       <div className="grid grid-cols-2 gap-4 text-left max-w-xl mx-auto">
         <div className="p-3 rounded-lg bg-orange-950/20 border border-orange-800/30">
           <h4 className="text-sm font-semibold text-orange-400 mb-1">Prompt Engineering</h4>

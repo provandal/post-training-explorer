@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import useStore from '../store'
 import LiveInferencePanel from './LiveInferencePanel'
 
@@ -14,6 +15,7 @@ const PIPELINE_STEPS = [
     color: 'text-blue-400',
     bg: 'bg-blue-950/30',
     border: 'border-blue-800/40',
+    detail: 'Training data is generated synthetically from workload profiles — statistical distributions of I/O metrics (IOPS, throughput, latency, block size, read/write ratio, queue depth, sequential %) for each of 6 storage workload types. Each sample is a randomized draw from these distributions, formatted as a natural-language classification prompt. No external dataset is needed — the notebook generates fresh training data every run.',
   },
   {
     step: 2,
@@ -24,6 +26,7 @@ const PIPELINE_STEPS = [
     color: 'text-cyan-400',
     bg: 'bg-cyan-950/30',
     border: 'border-cyan-800/40',
+    detail: 'Supervised Fine-Tuning teaches the model WHAT to output. We show it ~1,400 prompt/completion pairs where the prompt describes I/O metrics and the completion is the correct workload label. SFT uses LoRA (Low-Rank Adaptation) — instead of updating all 360M parameters, we train small adapter matrices (~0.5% of total weights) that modify the model\'s behavior. Training takes ~12 minutes on a T4 GPU.',
   },
   {
     step: 3,
@@ -34,6 +37,7 @@ const PIPELINE_STEPS = [
     color: 'text-yellow-400',
     bg: 'bg-yellow-950/30',
     border: 'border-yellow-800/40',
+    detail: 'Direct Preference Optimization teaches the model HOW to respond. Given two possible outputs for the same prompt — one preferred ("chosen") and one not ("rejected") — DPO adjusts the model to favor the preferred style. This refines confidence and formatting without needing a separate reward model. It\'s the technique that made RLHF practical for most teams. Training takes ~8 minutes on T4.',
   },
   {
     step: 4,
@@ -44,6 +48,7 @@ const PIPELINE_STEPS = [
     color: 'text-emerald-400',
     bg: 'bg-emerald-950/30',
     border: 'border-emerald-800/40',
+    detail: 'Group Relative Policy Optimization is the technique behind DeepSeek R1. For each prompt, the model generates K=8 candidate responses. A reward function scores each one (1.0 for correct, 0.0 for wrong). The model learns from the group statistics — no human feedback needed. The answer itself is the teacher. This is where accuracy improves most dramatically. Training takes ~35 minutes on T4.',
   },
   {
     step: 5,
@@ -54,6 +59,7 @@ const PIPELINE_STEPS = [
     color: 'text-purple-400',
     bg: 'bg-purple-950/30',
     border: 'border-purple-800/40',
+    detail: 'The trained LoRA adapter is merged back into the base model weights, then converted to ONNX format for browser inference. ONNX (Open Neural Network Exchange) is a portable format that runs on CPU/GPU/WebGPU without Python or PyTorch. The exported ~180MB model is uploaded to your HuggingFace space, where the browser app can download and run it client-side using transformers.js.',
   },
 ]
 
@@ -112,6 +118,7 @@ export default function TrainView() {
   const setMode = useStore((s) => s.setMode)
   const startTour = useStore((s) => s.startTour)
   const startExplore = useStore((s) => s.startExplore)
+  const [expandedStep, setExpandedStep] = useState(null)
 
   return (
     <div className="min-h-screen">
@@ -158,29 +165,37 @@ export default function TrainView() {
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
             Prerequisites
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                label: 'Google Account',
-                detail: 'For Google Colab (free tier works)',
-              },
-              {
-                label: 'HuggingFace Account',
-                detail: 'Free — for model hosting and ONNX export',
-              },
-              {
-                label: 'GPU Runtime',
-                detail: 'Colab provides free T4 / A100 GPUs',
-              },
-            ].map((prereq) => (
-              <div
-                key={prereq.label}
-                className="p-4 rounded-lg bg-slate-800/40 border border-slate-700/40"
-              >
-                <p className="text-sm font-semibold text-white">{prereq.label}</p>
-                <p className="text-xs text-slate-500 mt-1">{prereq.detail}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a
+              href="https://colab.research.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-5 rounded-lg bg-slate-800/40 border border-blue-800/40 hover:border-blue-500 transition-colors group"
+            >
+              <p className="text-sm font-semibold text-blue-400 mb-2">Google Colab</p>
+              <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                Free cloud Jupyter environment with GPU access. Sign in with any Google account.
+                The notebooks will prompt for login automatically.
+              </p>
+              <span className="inline-block text-xs font-semibold text-blue-400 bg-blue-950/40 px-3 py-1.5 rounded group-hover:bg-blue-900/50 transition-colors">
+                Open Google Colab
+              </span>
+            </a>
+            <a
+              href="https://huggingface.co/join"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-5 rounded-lg bg-slate-800/40 border border-yellow-800/40 hover:border-yellow-500 transition-colors group"
+            >
+              <p className="text-sm font-semibold text-yellow-400 mb-2">HuggingFace Account</p>
+              <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                Free account for hosting your trained model. Needed for the ONNX export step —
+                the notebook uploads your model to your HuggingFace space.
+              </p>
+              <span className="inline-block text-xs font-semibold text-yellow-400 bg-yellow-950/40 px-3 py-1.5 rounded group-hover:bg-yellow-900/50 transition-colors">
+                Create Free Account
+              </span>
+            </a>
           </div>
         </section>
 
@@ -189,37 +204,56 @@ export default function TrainView() {
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
             Pipeline Overview
           </h3>
+          <p className="text-xs text-slate-500 mb-3">Click any stage to learn more.</p>
           <div className="flex flex-col gap-3">
-            {PIPELINE_STEPS.map((s, i) => (
-              <div key={s.step} className="flex items-start gap-4">
-                {/* Step number + connector */}
-                <div className="flex flex-col items-center flex-shrink-0">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${s.bg} ${s.color} border ${s.border}`}
-                  >
-                    {s.step}
+            {PIPELINE_STEPS.map((s, i) => {
+              const isExpanded = expandedStep === s.step
+              return (
+                <div
+                  key={s.step}
+                  className="cursor-pointer"
+                  onClick={() => setExpandedStep(isExpanded ? null : s.step)}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Step number + connector */}
+                    <div className="flex flex-col items-center flex-shrink-0">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${s.bg} ${s.color} border ${s.border} relative`}
+                      >
+                        {s.step}
+                        <span className={`absolute -right-1 -top-1 text-[10px] ${s.color} transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                          ▶
+                        </span>
+                      </div>
+                      {i < PIPELINE_STEPS.length - 1 && (
+                        <div className="w-px h-6 bg-slate-700/50" />
+                      )}
+                    </div>
+                    {/* Content */}
+                    <div className={`flex-1 p-3 rounded-lg ${s.bg} border ${s.border} hover:brightness-125 transition-all`}>
+                      <p className={`text-sm font-semibold ${s.color}`}>
+                        {s.name}{' '}
+                        <span className="text-slate-500 font-normal">— {s.desc}</span>
+                      </p>
+                      <div className="flex gap-6 mt-1 text-xs text-slate-500">
+                        <span>
+                          In: <span className="text-slate-400">{s.input}</span>
+                        </span>
+                        <span>
+                          Out: <span className="text-slate-400">{s.output}</span>
+                        </span>
+                      </div>
+                      {/* Expandable detail */}
+                      {isExpanded && (
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed pl-0 border-t border-slate-700/30 pt-2">
+                          {s.detail}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  {i < PIPELINE_STEPS.length - 1 && (
-                    <div className="w-px h-6 bg-slate-700/50" />
-                  )}
                 </div>
-                {/* Content */}
-                <div className={`flex-1 p-3 rounded-lg ${s.bg} border ${s.border}`}>
-                  <p className={`text-sm font-semibold ${s.color}`}>
-                    {s.name}{' '}
-                    <span className="text-slate-500 font-normal">— {s.desc}</span>
-                  </p>
-                  <div className="flex gap-6 mt-1 text-xs text-slate-500">
-                    <span>
-                      In: <span className="text-slate-400">{s.input}</span>
-                    </span>
-                    <span>
-                      Out: <span className="text-slate-400">{s.output}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
 

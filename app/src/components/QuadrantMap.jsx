@@ -83,7 +83,7 @@ const ZIGZAG_POINTS = [
   { ...wp(1, 0, 0.55, 0.50), label: 'All Options' },
 ]
 
-export default function QuadrantMap({ mini = false, interactive = false }) {
+export default function QuadrantMap({ size = 'full', interactive = false }) {
   const mode = useStore((s) => s.mode)
   const currentStep = useStore((s) => s.currentStep)
   const activeQuadrant = useStore((s) => s.activeQuadrant)
@@ -130,14 +130,14 @@ export default function QuadrantMap({ mini = false, interactive = false }) {
   return (
     <svg
       viewBox={`0 0 ${VB_W} ${VB_H}`}
-      className={mini ? 'w-[220px] h-[190px]' : 'w-full max-w-[680px]'}
-      style={mini ? undefined : { aspectRatio: `${VB_W}/${VB_H}` }}
+      className={size === 'mini' ? 'w-[220px] h-[190px]' : size === 'medium' ? 'w-full max-w-[440px]' : 'w-full max-w-[680px]'}
+      style={size === 'mini' ? undefined : { aspectRatio: `${VB_W}/${VB_H}` }}
     >
       {/* Background */}
       <rect width={VB_W} height={VB_H} fill="#0f172a" rx="12" />
 
       {/* Title */}
-      {!mini && (
+      {size !== 'mini' && (
         <text x={VB_W / 2} y="30" textAnchor="middle" fill="#94a3b8" fontSize="15" fontWeight="600" fontFamily="system-ui, sans-serif">
           Context Optimization and Model Optimization
         </text>
@@ -147,7 +147,7 @@ export default function QuadrantMap({ mini = false, interactive = false }) {
       <line x1={MARGIN.left - 20} y1={MARGIN.top + QUAD_H * 2 + GAP + 10} x2={MARGIN.left - 20} y2={MARGIN.top - 10} stroke="#475569" strokeWidth="2" />
       <polygon points={`${MARGIN.left - 20},${MARGIN.top - 15} ${MARGIN.left - 24},${MARGIN.top - 5} ${MARGIN.left - 16},${MARGIN.top - 5}`} fill="#475569" />
 
-      {!mini && (
+      {size === 'full' && (
         <>
           <text x={MARGIN.left - 35} y={MARGIN.top + QUAD_H} textAnchor="middle" fill="#94a3b8" fontSize="12" fontWeight="600" transform={`rotate(-90, ${MARGIN.left - 35}, ${MARGIN.top + QUAD_H})`}>
             Context Optimization
@@ -162,7 +162,7 @@ export default function QuadrantMap({ mini = false, interactive = false }) {
       <line x1={MARGIN.left - 10} y1={VB_H - MARGIN.bottom + 20} x2={VB_W - MARGIN.right + 10} y2={VB_H - MARGIN.bottom + 20} stroke="#475569" strokeWidth="2" />
       <polygon points={`${VB_W - MARGIN.right + 15},${VB_H - MARGIN.bottom + 20} ${VB_W - MARGIN.right + 5},${VB_H - MARGIN.bottom + 16} ${VB_W - MARGIN.right + 5},${VB_H - MARGIN.bottom + 24}`} fill="#475569" />
 
-      {!mini && (
+      {size === 'full' && (
         <>
           <text x={MARGIN.left + QUAD_W} y={VB_H - 18} textAnchor="middle" fill="#94a3b8" fontSize="12" fontWeight="600">
             LLM Optimization
@@ -174,7 +174,7 @@ export default function QuadrantMap({ mini = false, interactive = false }) {
       )}
 
       {/* LLM icon */}
-      {!mini && (
+      {size === 'full' && (
         <g transform={`translate(${MARGIN.left - 22}, ${VB_H - MARGIN.bottom + 10})`}>
           <rect x="-18" y="-18" width="36" height="30" rx="6" fill="#1e1b4b" stroke="#6366f1" strokeWidth="1.5" />
           <text x="0" y="0" textAnchor="middle" fill="#a5b4fc" fontSize="10" fontWeight="700" fontFamily="system-ui, sans-serif">LLM</text>
@@ -206,18 +206,18 @@ export default function QuadrantMap({ mini = false, interactive = false }) {
             {/* Label */}
             <text
               x={qx + QUAD_W / 2}
-              y={qy + QUAD_H / 2 + (mini ? 5 : 6)}
+              y={qy + QUAD_H / 2 + (size === 'mini' ? 5 : 6)}
               textAnchor="middle"
               fill={q.textColor}
-              fontSize={mini ? '14' : '22'}
+              fontSize={size === 'mini' ? '14' : size === 'medium' ? '18' : '22'}
               fontWeight="800"
               fontFamily="system-ui, sans-serif"
             >
               {q.label}
             </text>
 
-            {/* Sub-labels with dots (full size only) */}
-            {!mini && q.subLabels.map((sub) => {
+            {/* Sub-labels with dots (medium and full) */}
+            {size !== 'mini' && q.subLabels.map((sub) => {
               const sx = qx + QUAD_W * sub.x
               const sy = qy + QUAD_H * sub.y
               return (
@@ -237,7 +237,7 @@ export default function QuadrantMap({ mini = false, interactive = false }) {
       <path d={zigzagPath} fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeDasharray="8 4" opacity="0.6" />
 
       {/* Arrow heads at midpoints of each segment */}
-      {!mini && arrowSegments.map((seg, i) => (
+      {size !== 'mini' && arrowSegments.map((seg, i) => (
         <polygon
           key={i}
           points="-5,-4 5,0 -5,4"

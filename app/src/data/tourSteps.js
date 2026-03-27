@@ -6,6 +6,7 @@ const tourSteps = [
   {
     id: 'welcome',
     quadrant: null,
+    shortTitle: 'Welcome',
     title: 'Welcome to the Post-Training Explorer',
     narration: `You have an LLM. It knows a lot about the world, but it doesn't know anything about YOUR world — your storage patterns, your infrastructure, your team's needs. This guided tour will walk you through the techniques used to change that, from the simplest (prompting) to the most advanced (reinforcement learning). At each stop, you'll try the technique yourself and see what's happening under the covers.`,
     component: 'Welcome',
@@ -15,6 +16,7 @@ const tourSteps = [
   {
     id: 'prompt-basic',
     quadrant: 'prompt',
+    shortTitle: 'Basic Prompt',
     subStop: null,
     zigzagPosition: 0,
     title: 'Prompt Engineering: Basic Prompt',
@@ -24,6 +26,7 @@ const tourSteps = [
   {
     id: 'prompt-fewshot',
     quadrant: 'prompt',
+    shortTitle: 'Few-Shot',
     subStop: null,
     zigzagPosition: 1,
     title: 'Prompt Engineering: Few-Shot Learning',
@@ -33,6 +36,7 @@ const tourSteps = [
   {
     id: 'prompt-limitation',
     quadrant: 'prompt',
+    shortTitle: 'Prompt Ceiling',
     subStop: null,
     zigzagPosition: 1,
     title: 'The Ceiling of Prompting',
@@ -44,6 +48,7 @@ const tourSteps = [
   {
     id: 'rag-simple',
     quadrant: 'rag',
+    shortTitle: 'RAG',
     subStop: null,
     zigzagPosition: 2,
     title: 'RAG: Simple Retrieval',
@@ -53,6 +58,7 @@ const tourSteps = [
   {
     id: 'rag-limitation',
     quadrant: 'rag',
+    shortTitle: 'RAG Ceiling',
     subStop: null,
     zigzagPosition: 3,
     title: 'The Ceiling of RAG',
@@ -64,6 +70,7 @@ const tourSteps = [
   {
     id: 'sft',
     quadrant: 'posttraining',
+    shortTitle: 'SFT',
     subStop: 'sft',
     zigzagPosition: 4,
     title: 'SFT: Teaching by Example',
@@ -75,6 +82,7 @@ const tourSteps = [
   {
     id: 'dpo',
     quadrant: 'posttraining',
+    shortTitle: 'DPO',
     subStop: 'dpo',
     zigzagPosition: 5,
     title: 'DPO: Learning from Your Preferences',
@@ -86,6 +94,7 @@ const tourSteps = [
   {
     id: 'grpo',
     quadrant: 'posttraining',
+    shortTitle: 'GRPO',
     subStop: 'grpo',
     zigzagPosition: 6,
     title: 'GRPO: Self-Improving Reasoning',
@@ -97,6 +106,7 @@ const tourSteps = [
   {
     id: 'combined',
     quadrant: 'alloptions',
+    shortTitle: 'All Together',
     subStop: null,
     zigzagPosition: 7,
     title: 'Putting It All Together',
@@ -106,6 +116,7 @@ const tourSteps = [
   {
     id: 'infrastructure',
     quadrant: 'alloptions',
+    shortTitle: 'Infrastructure',
     subStop: null,
     zigzagPosition: 7,
     title: 'The Infrastructure Story',
@@ -117,6 +128,7 @@ const tourSteps = [
   {
     id: 'epilogue',
     quadrant: null,
+    shortTitle: 'Your Turn',
     title: 'Your Turn',
     narration: `Everything you just saw is real. The models are on HuggingFace. The training code is in Colab notebooks. The dataset is open source. You can run this yourself on a single GPU in under an hour. Click "Explore Freely" to go back to any section, try your own I/O patterns, and dig deeper. Or follow the links below to start your own post-training journey.`,
     component: 'Epilogue',

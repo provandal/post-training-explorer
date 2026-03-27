@@ -110,7 +110,7 @@ export default function ExploreView() {
           </div>
         </div>
 
-        <QuadrantMap interactive />
+        <QuadrantMap size="full" interactive />
 
         {/* Sub-stop navigation for the active quadrant */}
         {subStops && (

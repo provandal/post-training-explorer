@@ -36,9 +36,6 @@ export default function Landing() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10">
       {/* Header */}
       <div className="text-center mb-10">
-        <p className="text-sm text-blue-400 font-semibold tracking-wide uppercase mb-2">
-          SNIA DSN AI Stack Webinar Series
-        </p>
         <h1 className="text-5xl font-extrabold text-white mb-3 tracking-tight">
           Post-Training Explorer
         </h1>

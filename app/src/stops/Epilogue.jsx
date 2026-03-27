@@ -6,15 +6,15 @@ const RESOURCES = [
   {
     category: 'Try It Yourself',
     items: [
-      { label: 'Training Notebooks (Colab)', url: 'https://colab.research.google.com/drive/YOUR_COLAB_NOTEBOOK_ID', description: 'Run SFT, DPO, and GRPO training yourself — free GPU included' },
-      { label: 'Storage I/O Dataset', url: 'https://huggingface.co/datasets/YOUR_HF_DATASET', description: 'The full labeled dataset used in this demo on HuggingFace' },
-      { label: 'Pre-trained Models', url: 'https://huggingface.co/YOUR_HF_MODELS', description: 'All model variants (base, SFT, DPO, GRPO) on HuggingFace' },
+      { label: 'Training Notebooks (Colab)', url: 'https://colab.research.google.com/github/provandal/post-training-explorer/blob/main/notebooks/Post_Training_Pipeline.ipynb', description: 'Run SFT, DPO, and GRPO training yourself — free GPU included' },
+      { label: 'Training Data (Synthetic)', url: 'https://github.com/provandal/post-training-explorer/tree/main/scripts', description: 'Data is generated synthetically at runtime — see the training scripts for workload profiles and generation logic' },
+      { label: 'Pre-trained Models', url: '#', description: 'All model variants (base, SFT, DPO, GRPO) on HuggingFace — coming after initial release' },
     ],
   },
   {
     category: 'Learn More',
     items: [
-      { label: 'HuggingFace SmolLM Training Playbook', url: 'https://github.com/huggingface/smollm/blob/main/finetuning/README.md', description: 'Comprehensive open-source post-training guide' },
+      { label: 'HuggingFace SmolLM2', url: 'https://huggingface.co/HuggingFaceTB/SmolLM2-360M', description: 'SmolLM2-360M model card — the base model used in this demo' },
       { label: 'Sebastian Raschka, "Understanding Reasoning LLMs"', url: 'https://magazine.sebastianraschka.com/p/understanding-reasoning-llms', description: 'Overview of the reasoning model revolution' },
       { label: 'DeepSeek R1 Technical Report', url: 'https://arxiv.org/abs/2501.12948', description: 'The paper that catalyzed the GRPO/RLVR movement' },
       { label: 'DPO: Direct Preference Optimization', url: 'https://arxiv.org/abs/2305.18290', description: 'Rafailov et al. — the paper that simplified RLHF' },
@@ -157,7 +157,7 @@ export default function Epilogue() {
       {/* Footer */}
       <div className="mt-8 pt-6 border-t border-slate-800">
         <p className="text-xs text-slate-600">
-          Post-Training Explorer &middot; SNIA DSN AI Stack Webinar Series &middot; 2026
+          Post-Training Explorer &middot; 2026
         </p>
         <p className="text-xs text-slate-700 mt-1">
           Built with React, D3.js, and SmolLM2-360M
