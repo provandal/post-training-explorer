@@ -9,3 +9,12 @@ __pycache__/
 *.pyc
 .vscode/
 .idea/
+
+# Tool configs
+.claude/
+
+# Private docs
+DEMO_SCRIPT.md
+
+# Binary drafts
+*.docx
