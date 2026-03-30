@@ -4,21 +4,25 @@ import TokenProbChart from '../components/TokenProbChart'
 import { isLoaded, getTokenProbsForChart } from '../data/loadArtifacts'
 import useStore from '../store'
 
-const EXAMPLE_INPUT = "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32"
+const EXAMPLE_INPUT =
+  'IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32'
 
 const FEW_SHOT_EXAMPLES = [
   {
-    input: "IOPS: 3000 | Latency: 8ms | Block Size: 512K | Read/Write: 99/1 | Sequential: 95% | Queue Depth: 4",
-    output: "Classification: Video Streaming"
+    input:
+      'IOPS: 3000 | Latency: 8ms | Block Size: 512K | Read/Write: 99/1 | Sequential: 95% | Queue Depth: 4',
+    output: 'Classification: Video Streaming',
   },
   {
-    input: "IOPS: 5000 | Latency: 25ms | Block Size: 1024K | Read/Write: 8/92 | Sequential: 94% | Queue Depth: 2",
-    output: "Classification: Backup Archive"
+    input:
+      'IOPS: 5000 | Latency: 25ms | Block Size: 1024K | Read/Write: 8/92 | Sequential: 94% | Queue Depth: 2',
+    output: 'Classification: Backup Archive',
   },
   {
-    input: "IOPS: 55000 | Latency: 0.4ms | Block Size: 4K | Read/Write: 75/25 | Sequential: 12% | Queue Depth: 48",
-    output: "Classification: OLTP Database"
-  }
+    input:
+      'IOPS: 55000 | Latency: 0.4ms | Block Size: 4K | Read/Write: 75/25 | Sequential: 12% | Queue Depth: 48',
+    output: 'Classification: OLTP Database',
+  },
 ]
 
 const FEW_SHOT_RESPONSE = `Classification: OLTP Database
@@ -82,16 +86,15 @@ export default function PromptFewShot() {
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
           What you just saw was <strong className="text-orange-300">zero-shot</strong> prompting
-          &mdash; instructions only, no examples. The model knew what we wanted but
-          had never seen a correct answer. Now we try <strong className="text-orange-300">few-shot</strong> prompting:
-          we prepend a handful of labeled examples directly into the prompt so the
-          model can mimic the pattern. The naming is literal &mdash; zero examples,
-          one example, or a few.
+          &mdash; instructions only, no examples. The model knew what we wanted but had never seen a
+          correct answer. Now we try <strong className="text-orange-300">few-shot</strong>{' '}
+          prompting: we prepend a handful of labeled examples directly into the prompt so the model
+          can mimic the pattern. The naming is literal &mdash; zero examples, one example, or a few.
         </p>
         <p className="text-sm text-slate-400 leading-relaxed">
-          Below are three input &rarr; output pairs we inject before the real
-          question. The model sees them and learns the expected format on the
-          fly &mdash; no training required, just a longer prompt.
+          Below are three input &rarr; output pairs we inject before the real question. The model
+          sees them and learns the expected format on the fly &mdash; no training required, just a
+          longer prompt.
         </p>
       </div>
 
@@ -105,7 +108,9 @@ export default function PromptFewShot() {
         </button>
         {showExamples && (
           <div className="bg-slate-800 border border-orange-800/30 rounded-lg p-3 space-y-2">
-            <p className="text-xs text-orange-400 italic">These examples are prepended to the prompt:</p>
+            <p className="text-xs text-orange-400 italic">
+              These examples are prepended to the prompt:
+            </p>
             {FEW_SHOT_EXAMPLES.map((ex, i) => (
               <div key={i} className="text-xs font-mono border-l-2 border-orange-700/50 pl-2">
                 <div className="text-slate-400">{ex.input}</div>
@@ -130,8 +135,8 @@ export default function PromptFewShot() {
 
       <div className="mt-3 p-3 rounded bg-green-950/20 border border-green-800/30">
         <p className="text-sm text-green-300">
-          With few-shot examples, the model follows the format and gets the right answer.
-          But it needed 3 examples eating up your context window to get here.
+          With few-shot examples, the model follows the format and gets the right answer. But it
+          needed 3 examples eating up your context window to get here.
         </p>
       </div>
 

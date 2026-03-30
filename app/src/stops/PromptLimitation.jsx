@@ -1,6 +1,7 @@
 import ModelOutput from '../components/ModelOutput'
 
-const HARD_INPUT = "IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64"
+const HARD_INPUT =
+  'IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64'
 
 const FEW_SHOT_RESPONSE_HARD = `Classification: OLTP Database
 
@@ -15,14 +16,14 @@ export default function PromptLimitation() {
           Where prompting breaks down
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          Few-shot prompting worked well on clear-cut patterns. But real-world storage
-          workloads aren't always obvious &mdash; some patterns sit right on the boundary
-          between two categories. Below is an I/O profile that could plausibly be either
-          OLTP or VDI. Let's see how the model handles ambiguity.
+          Few-shot prompting worked well on clear-cut patterns. But real-world storage workloads
+          aren't always obvious &mdash; some patterns sit right on the boundary between two
+          categories. Below is an I/O profile that could plausibly be either OLTP or VDI. Let's see
+          how the model handles ambiguity.
         </p>
         <p className="text-sm text-slate-400 leading-relaxed">
-          This is the fundamental ceiling of prompt engineering: no matter how well you
-          phrase the question, you can't give the model expertise it doesn't have.
+          This is the fundamental ceiling of prompt engineering: no matter how well you phrase the
+          question, you can't give the model expertise it doesn't have.
         </p>
       </div>
 
@@ -35,7 +36,8 @@ export default function PromptLimitation() {
           {HARD_INPUT}
         </div>
         <p className="text-xs text-yellow-500/70 mt-1">
-          This pattern blurs the line between OLTP Database and VDI. Correct answer: VDI Virtual Desktop.
+          This pattern blurs the line between OLTP Database and VDI. Correct answer: VDI Virtual
+          Desktop.
         </p>
       </div>
 
@@ -58,8 +60,8 @@ export default function PromptLimitation() {
         <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
           <h4 className="text-sm font-semibold text-red-400 mb-2">Problem 2: Hedging</h4>
           <p className="text-xs text-slate-400">
-            Even when it gets answers right, the model hedges: "could potentially be", "I should note".
-            Your ops team needs a clear answer, not uncertainty.
+            Even when it gets answers right, the model hedges: "could potentially be", "I should
+            note". Your ops team needs a clear answer, not uncertainty.
           </p>
         </div>
         <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
@@ -74,10 +76,10 @@ export default function PromptLimitation() {
       {/* Transition callout */}
       <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-orange-950/30 to-yellow-950/30 border border-orange-800/30">
         <p className="text-sm text-slate-300">
-          <span className="font-semibold text-orange-400">The ceiling of prompting:</span>{' '}
-          You can make the model better by giving it more context, but you can't make it
-          fundamentally smarter or change its behavior. For that, we need to move up the map
-          to <span className="text-yellow-400 font-semibold">RAG</span> — or across to{' '}
+          <span className="font-semibold text-orange-400">The ceiling of prompting:</span> You can
+          make the model better by giving it more context, but you can't make it fundamentally
+          smarter or change its behavior. For that, we need to move up the map to{' '}
+          <span className="text-yellow-400 font-semibold">RAG</span> — or across to{' '}
           <span className="text-slate-200 font-semibold">Post Training</span>.
         </p>
       </div>

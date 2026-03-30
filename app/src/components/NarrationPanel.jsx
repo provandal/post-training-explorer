@@ -18,7 +18,9 @@ export default function NarrationPanel() {
     posttraining: 'border-slate-400/50 bg-slate-800/30',
     alloptions: 'border-cyan-500/50 bg-cyan-950/20',
   }
-  const borderClass = step.quadrant ? quadrantColors[step.quadrant] : 'border-blue-500/50 bg-blue-950/20'
+  const borderClass = step.quadrant
+    ? quadrantColors[step.quadrant]
+    : 'border-blue-500/50 bg-blue-950/20'
 
   return (
     <div className={`border-t-2 ${borderClass} px-6 py-4`}>
@@ -39,9 +41,7 @@ export default function NarrationPanel() {
       <h3 className="text-lg font-semibold text-white mb-2">{step.title}</h3>
 
       {/* Narration text */}
-      <p className="text-slate-300 text-sm leading-relaxed mb-4 max-w-4xl">
-        {step.narration}
-      </p>
+      <p className="text-slate-300 text-sm leading-relaxed mb-4 max-w-4xl">{step.narration}</p>
 
       {/* Navigation */}
       <div className="flex items-center justify-between">
@@ -62,8 +62,8 @@ export default function NarrationPanel() {
                   i === currentStep
                     ? 'bg-blue-500'
                     : i < currentStep
-                    ? 'bg-slate-500'
-                    : 'bg-slate-700'
+                      ? 'bg-slate-500'
+                      : 'bg-slate-700'
                 }`}
               />
             ))}

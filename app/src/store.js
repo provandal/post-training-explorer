@@ -12,11 +12,11 @@ const useStore = create((set, get) => ({
 
   // Active quadrant for explore mode
   activeQuadrant: null, // 'prompt' | 'rag' | 'posttraining' | 'alloptions'
-  activeSubStop: null,  // 'sft' | 'dpo' | 'grpo' | null
+  activeSubStop: null, // 'sft' | 'dpo' | 'grpo' | null
 
   // User interactions tracked during tour
-  userPreferences: [],  // For DPO stop - which outputs they preferred
-  userPrompts: [],      // Custom prompts they've tried
+  userPreferences: [], // For DPO stop - which outputs they preferred
+  userPrompts: [], // Custom prompts they've tried
 
   // Precomputed data loading state
   artifactsLoaded: false,
@@ -59,7 +59,12 @@ const useStore = create((set, get) => ({
     if (currentStep < maxStep) {
       set({ currentStep: currentStep + 1 })
     } else {
-      set({ tourCompleted: true, mode: 'explore', activeQuadrant: 'prompt', tourReturnStep: currentStep })
+      set({
+        tourCompleted: true,
+        mode: 'explore',
+        activeQuadrant: 'prompt',
+        tourReturnStep: currentStep,
+      })
     }
   },
 
@@ -88,7 +93,10 @@ const useStore = create((set, get) => ({
       return
     }
     const success = await loadArtifacts()
-    set({ artifactsLoaded: success, artifactsError: success ? null : 'Failed to load precomputed data' })
+    set({
+      artifactsLoaded: success,
+      artifactsError: success ? null : 'Failed to load precomputed data',
+    })
   },
 
   setArtifactsLoaded: (loaded = true) => set({ artifactsLoaded: loaded }),

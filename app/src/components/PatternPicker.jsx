@@ -25,7 +25,7 @@ export default function PatternPicker({ onChange, compact = false }) {
     onChange?.(id)
   }
 
-  const selected = testPrompts.find(p => p.id === selectedPromptId) ?? testPrompts[0]
+  const selected = testPrompts.find((p) => p.id === selectedPromptId) ?? testPrompts[0]
 
   return (
     <div className={compact ? 'mb-3' : 'mb-4'}>

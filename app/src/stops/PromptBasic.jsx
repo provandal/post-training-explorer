@@ -2,7 +2,7 @@ import { useState } from 'react'
 import ModelOutput from '../components/ModelOutput'
 import TokenProbChart from '../components/TokenProbChart'
 import SectionTabs from '../components/SectionTabs'
-import { isLoaded, getTestPrompts, getModelOutput, getTokenProbsForChart, formatPromptMetrics } from '../data/loadArtifacts'
+import { isLoaded, getModelOutput, getTokenProbsForChart } from '../data/loadArtifacts'
 import useStore from '../store'
 
 // ---------------------------------------------------------------------------
@@ -10,7 +10,7 @@ import useStore from '../store'
 // ---------------------------------------------------------------------------
 
 const EXAMPLE_INPUT =
-  "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32"
+  'IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32'
 
 const BASE_RESPONSE = `This appears to be some kind of storage performance metrics. The IOPS value is 45000 which is relatively high. The latency is 0.3ms which is quite low. The block size is 8K. There is a 70/30 read to write ratio with 15% sequential access and a queue depth of 32. These metrics could be from various types of storage workloads depending on the specific use case and configuration being measured.`
 
@@ -43,7 +43,8 @@ const PROMPT_VARIANTS = [
     tagColor: 'bg-red-900/50 text-red-400',
     prompt: `What is this?\n\n${EXAMPLE_INPUT}`,
     response: `This is a set of numerical parameters or specifications, possibly related to computer storage or disk performance benchmarking. IOPS stands for Input/Output Operations Per Second, which measures how fast a storage device can read and write. The other values describe characteristics of the workload being measured.`,
-    verdict: 'The model has no idea what we actually want. It explains the acronyms like a dictionary.',
+    verdict:
+      'The model has no idea what we actually want. It explains the acronyms like a dictionary.',
     verdictColor: 'text-red-300',
   },
   {
@@ -52,7 +53,8 @@ const PROMPT_VARIANTS = [
     tagColor: 'bg-yellow-900/50 text-yellow-400',
     prompt: `You are a storage I/O expert. Given the following metrics, classify the workload into one of these categories: OLTP Database, OLAP Analytics, AI/ML Training, Video Streaming, VDI Virtual Desktop, Backup/Archive.\n\nMetrics:\n${EXAMPLE_INPUT}`,
     response: `Based on the provided metrics, this workload appears to be consistent with an OLTP Database pattern. The high IOPS (45,000) combined with very low latency (0.3ms) and small block size (8K) are characteristic of transactional database workloads. The predominantly random access pattern (only 15% sequential) further supports this classification.`,
-    verdict: 'Much better! Giving it categories and a role narrows its focus. But it hedges with "appears to be."',
+    verdict:
+      'Much better! Giving it categories and a role narrows its focus. But it hedges with "appears to be."',
     verdictColor: 'text-yellow-300',
   },
   {
@@ -61,7 +63,8 @@ const PROMPT_VARIANTS = [
     tagColor: 'bg-green-900/50 text-green-400',
     prompt: `Classify the following storage I/O pattern into exactly one category.\n\nCategories: OLTP Database, OLAP Analytics, AI/ML Training, Video Streaming, VDI Virtual Desktop, Backup/Archive\n\nRespond with ONLY the category name, then a confidence level (High/Medium/Low), then a one-sentence justification.\n\nPattern:\n${EXAMPLE_INPUT}`,
     response: `OLTP Database\nConfidence: High\nHigh IOPS (45K) with sub-millisecond latency and small random I/O blocks are the signature of transaction processing.`,
-    verdict: 'Tight instructions produce tight output. The model follows the exact format we asked for.',
+    verdict:
+      'Tight instructions produce tight output. The model follows the exact format we asked for.',
     verdictColor: 'text-green-300',
   },
 ]
@@ -78,7 +81,7 @@ const USER_MESSAGE = `Classify this storage I/O pattern into a workload type:\n\
 // Component
 // ---------------------------------------------------------------------------
 
-export default function PromptBasic({ explore = false }) {
+export default function PromptBasic() {
   const [section, setSection] = useState('problem')
   const [selectedVariant, setSelectedVariant] = useState(0)
   const selectedPromptId = useStore((s) => s.selectedPromptId)
@@ -120,15 +123,14 @@ export default function PromptBasic({ explore = false }) {
               A smart model with no domain knowledge
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              SmolLM2-360M is a capable small language model. It can summarize text,
-              answer general knowledge questions, and follow simple instructions. But it
-              was trained on general internet text &mdash; it has never seen storage I/O
-              patterns before and has no idea that workload categories like "OLTP Database"
-              or "VDI Virtual Desktop" exist.
+              SmolLM2-360M is a capable small language model. It can summarize text, answer general
+              knowledge questions, and follow simple instructions. But it was trained on general
+              internet text &mdash; it has never seen storage I/O patterns before and has no idea
+              that workload categories like "OLTP Database" or "VDI Virtual Desktop" exist.
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              So what happens when we show it a string of storage metrics and ask it to
-              classify the workload? Let's find out.
+              So what happens when we show it a string of storage metrics and ask it to classify the
+              workload? Let's find out.
             </p>
           </div>
 
@@ -141,8 +143,8 @@ export default function PromptBasic({ explore = false }) {
               {EXAMPLE_INPUT}
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              This is a classic OLTP Database pattern. High IOPS, sub-millisecond latency,
-              small blocks, mostly random reads.
+              This is a classic OLTP Database pattern. High IOPS, sub-millisecond latency, small
+              blocks, mostly random reads.
             </p>
           </div>
 
@@ -158,16 +160,16 @@ export default function PromptBasic({ explore = false }) {
           <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
             <h4 className="text-sm font-semibold text-red-400 mb-2">What went wrong?</h4>
             <p className="text-sm text-slate-300 leading-relaxed mb-2">
-              The model isn't stupid &mdash; it correctly describes each metric. It knows
-              45,000 IOPS is "relatively high" and 0.3ms latency is "quite low." But it
-              never actually <em>classifies</em> the workload. It ends with a vague
-              hedge: "could be from various types of storage workloads."
+              The model isn't stupid &mdash; it correctly describes each metric. It knows 45,000
+              IOPS is "relatively high" and 0.3ms latency is "quite low." But it never actually{' '}
+              <em>classifies</em> the workload. It ends with a vague hedge: "could be from various
+              types of storage workloads."
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              This is the fundamental challenge: the model can read the numbers but has
-              no framework for mapping them to storage workload categories. It's like
-              showing someone a blood test result who has never studied medicine &mdash;
-              they can read the numbers, but they can't tell you what's wrong.
+              This is the fundamental challenge: the model can read the numbers but has no framework
+              for mapping them to storage workload categories. It's like showing someone a blood
+              test result who has never studied medicine &mdash; they can read the numbers, but they
+              can't tell you what's wrong.
             </p>
           </div>
 
@@ -185,7 +187,10 @@ export default function PromptBasic({ explore = false }) {
                 { name: 'VDI Virtual Desktop', desc: 'Mixed R/W, small blocks, many users' },
                 { name: 'Backup/Archive', desc: 'Bulk sequential writes, high compression' },
               ].map((cat) => (
-                <div key={cat.name} className="p-2 rounded bg-slate-900/50 border border-slate-700/30">
+                <div
+                  key={cat.name}
+                  className="p-2 rounded bg-slate-900/50 border border-slate-700/30"
+                >
                   <div className="text-xs font-semibold text-orange-300">{cat.name}</div>
                   <div className="text-xs text-slate-500 mt-0.5">{cat.desc}</div>
                 </div>
@@ -196,8 +201,8 @@ export default function PromptBasic({ explore = false }) {
           {/* Transition */}
           <div className="p-3 rounded bg-orange-950/20 border border-orange-800/30">
             <p className="text-sm text-orange-300">
-              Can we fix this without changing the model at all? The first technique to
-              try is <strong>prompt engineering</strong> &mdash; changing <em>how we ask</em>
+              Can we fix this without changing the model at all? The first technique to try is{' '}
+              <strong>prompt engineering</strong> &mdash; changing <em>how we ask</em>
               the question. Head to the next tab to see how.
             </p>
           </div>
@@ -213,28 +218,26 @@ export default function PromptBasic({ explore = false }) {
               Prompt Engineering: How you ask matters
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              Imagine you're asking a new colleague for help. If you say "Hey, what do
-              you think about this?" and hand them a spreadsheet, you'll get a vague
-              answer. But if you say "I need you to categorize this into one of six
-              buckets &mdash; here are the buckets, here's the format I want &mdash; go,"
-              you'll get exactly what you need.
+              Imagine you're asking a new colleague for help. If you say "Hey, what do you think
+              about this?" and hand them a spreadsheet, you'll get a vague answer. But if you say "I
+              need you to categorize this into one of six buckets &mdash; here are the buckets,
+              here's the format I want &mdash; go," you'll get exactly what you need.
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Prompt engineering is the same idea applied to language models. The model
-              doesn't change &mdash; the weights stay frozen, the architecture is the same.
-              You're just changing the <strong className="text-orange-300">input text</strong> to
-              guide the model toward the output you want.
+              Prompt engineering is the same idea applied to language models. The model doesn't
+              change &mdash; the weights stay frozen, the architecture is the same. You're just
+              changing the <strong className="text-orange-300">input text</strong> to guide the
+              model toward the output you want.
             </p>
           </div>
 
           {/* Analogy box */}
           <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-800/30">
             <p className="text-xs text-blue-300 leading-relaxed">
-              <strong>Key insight:</strong> Prompt engineering does not modify the model.
-              There is no training, no new data, no GPU time. You are only changing
-              the text the model receives as input. Think of it as writing better
-              instructions on the exam paper &mdash; the student is the same, but clearer
-              questions produce clearer answers.
+              <strong>Key insight:</strong> Prompt engineering does not modify the model. There is
+              no training, no new data, no GPU time. You are only changing the text the model
+              receives as input. Think of it as writing better instructions on the exam paper
+              &mdash; the student is the same, but clearer questions produce clearer answers.
             </p>
           </div>
 
@@ -270,7 +273,9 @@ export default function PromptBasic({ explore = false }) {
                       <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                         Prompt
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${v.tagColor}`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-semibold ${v.tagColor}`}
+                      >
                         {v.style}
                       </span>
                     </div>
@@ -293,9 +298,7 @@ export default function PromptBasic({ explore = false }) {
 
                   {/* Verdict */}
                   <div className="p-3 rounded bg-slate-800/30 border border-slate-700/30">
-                    <p className={`text-sm ${v.verdictColor}`}>
-                      {v.verdict}
-                    </p>
+                    <p className={`text-sm ${v.verdictColor}`}>{v.verdict}</p>
                   </div>
                 </div>
               )
@@ -311,24 +314,27 @@ export default function PromptBasic({ explore = false }) {
               <div className="flex gap-3 items-start">
                 <span className="text-xs font-mono text-red-400 w-24 shrink-0 pt-0.5">Vague</span>
                 <p className="text-xs text-slate-400">
-                  No role, no categories, no format. The model treats it like a general
-                  knowledge question and explains what the acronyms mean.
+                  No role, no categories, no format. The model treats it like a general knowledge
+                  question and explains what the acronyms mean.
                 </p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="text-xs font-mono text-yellow-400 w-24 shrink-0 pt-0.5">Structured</span>
+                <span className="text-xs font-mono text-yellow-400 w-24 shrink-0 pt-0.5">
+                  Structured
+                </span>
                 <p className="text-xs text-slate-400">
-                  We give the model a role ("storage I/O expert"), list the six categories,
-                  and provide the metrics clearly. The model now attempts classification
-                  but still hedges its language.
+                  We give the model a role ("storage I/O expert"), list the six categories, and
+                  provide the metrics clearly. The model now attempts classification but still
+                  hedges its language.
                 </p>
               </div>
               <div className="flex gap-3 items-start">
-                <span className="text-xs font-mono text-green-400 w-24 shrink-0 pt-0.5">Instruction</span>
+                <span className="text-xs font-mono text-green-400 w-24 shrink-0 pt-0.5">
+                  Instruction
+                </span>
                 <p className="text-xs text-slate-400">
-                  We specify the exact output format: category name, confidence, one
-                  sentence. The model follows instructions precisely and produces a
-                  clean, actionable answer.
+                  We specify the exact output format: category name, confidence, one sentence. The
+                  model follows instructions precisely and produces a clean, actionable answer.
                 </p>
               </div>
             </div>
@@ -337,10 +343,10 @@ export default function PromptBasic({ explore = false }) {
           {/* Limitations teaser */}
           <div className="p-3 rounded bg-orange-950/20 border border-orange-800/30">
             <p className="text-sm text-orange-300">
-              Prompt engineering is powerful &mdash; and it's free. No training, no GPUs,
-              no data pipelines. But it has limits: the model still doesn't truly
-              <em> understand</em> storage I/O patterns. It's following instructions,
-              not applying learned expertise. We'll explore those limits in later stops.
+              Prompt engineering is powerful &mdash; and it's free. No training, no GPUs, no data
+              pipelines. But it has limits: the model still doesn't truly
+              <em> understand</em> storage I/O patterns. It's following instructions, not applying
+              learned expertise. We'll explore those limits in later stops.
             </p>
           </div>
         </div>
@@ -365,8 +371,8 @@ export default function PromptBasic({ explore = false }) {
               What the model actually sees
             </h4>
             <p className="text-xs text-slate-400 mb-3">
-              Language models don't just receive your question &mdash; they receive a
-              structured prompt. Here's the full text we send to SmolLM2-360M:
+              Language models don't just receive your question &mdash; they receive a structured
+              prompt. Here's the full text we send to SmolLM2-360M:
             </p>
 
             {/* System message */}
@@ -412,16 +418,15 @@ export default function PromptBasic({ explore = false }) {
           <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
             <h4 className="text-sm font-semibold text-red-400 mb-2">Result: Incorrect</h4>
             <p className="text-sm text-slate-300 leading-relaxed mb-2">
-              Even with a system message and a clear instruction, the base model fails to
-              classify. It describes the metrics accurately but never commits to a
-              category. The response ends with "could be from various types of storage
-              workloads" &mdash; which is not useful.
+              Even with a system message and a clear instruction, the base model fails to classify.
+              It describes the metrics accurately but never commits to a category. The response ends
+              with "could be from various types of storage workloads" &mdash; which is not useful.
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              The correct answer is <strong className="text-green-400">OLTP Database</strong>.
-              The pattern &mdash; high IOPS, sub-ms latency, small random blocks, read-heavy
-              &mdash; is textbook OLTP. But the model has no training data that maps
-              these patterns to workload categories, so prompting alone isn't enough.
+              The correct answer is <strong className="text-green-400">OLTP Database</strong>. The
+              pattern &mdash; high IOPS, sub-ms latency, small random blocks, read-heavy &mdash; is
+              textbook OLTP. But the model has no training data that maps these patterns to workload
+              categories, so prompting alone isn't enough.
             </p>
           </div>
 
@@ -464,14 +469,14 @@ export default function PromptBasic({ explore = false }) {
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
               Every time a language model generates a word (or more precisely, a
               <strong className="text-orange-300"> token</strong>), it isn't just picking one
-              answer. It's computing a probability distribution over its entire vocabulary
-              &mdash; tens of thousands of possible next tokens &mdash; and then sampling
-              from that distribution.
+              answer. It's computing a probability distribution over its entire vocabulary &mdash;
+              tens of thousands of possible next tokens &mdash; and then sampling from that
+              distribution.
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
               The chart below shows the model's probability distribution for the
-              <strong className="text-slate-200"> very first token</strong> of its response.
-              This is the moment of truth: what does the model think it should say first?
+              <strong className="text-slate-200"> very first token</strong> of its response. This is
+              the moment of truth: what does the model think it should say first?
             </p>
           </div>
 
@@ -486,34 +491,32 @@ export default function PromptBasic({ explore = false }) {
 
           {/* Reading the chart */}
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
-            <h4 className="text-sm font-semibold text-orange-400 mb-3">
-              Reading the chart
-            </h4>
+            <h4 className="text-sm font-semibold text-orange-400 mb-3">Reading the chart</h4>
             <div className="space-y-3">
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">1.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   <strong className="text-slate-200">The top tokens are generic words.</strong>{' '}
-                  "This" (18%), "The" (14%), "Based" (9%). The model's strongest instinct
-                  is to start a descriptive sentence &mdash; not to classify.
+                  "This" (18%), "The" (14%), "Based" (9%). The model's strongest instinct is to
+                  start a descriptive sentence &mdash; not to classify.
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">2.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   <strong className="text-green-400">"OLTP" has only 4% probability</strong>{' '}
-                  (highlighted in green). The correct answer is in the model's vocabulary
-                  &mdash; it's not impossible for the model to say it &mdash; but it's
-                  buried under a pile of generic alternatives.
+                  (highlighted in green). The correct answer is in the model's vocabulary &mdash;
+                  it's not impossible for the model to say it &mdash; but it's buried under a pile
+                  of generic alternatives.
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">3.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <strong className="text-slate-200">The distribution is flat.</strong>{' '}
-                  No single token dominates. This is what uncertainty looks like in a
-                  language model &mdash; it has no strong opinion about how to start, so
-                  probability is spread thinly across many options.
+                  <strong className="text-slate-200">The distribution is flat.</strong> No single
+                  token dominates. This is what uncertainty looks like in a language model &mdash;
+                  it has no strong opinion about how to start, so probability is spread thinly
+                  across many options.
                 </p>
               </div>
             </div>
@@ -525,16 +528,17 @@ export default function PromptBasic({ explore = false }) {
               Why this matters for post-training
             </h4>
             <p className="text-sm text-slate-300 leading-relaxed mb-2">
-              When we later apply fine-tuning techniques (SFT, DPO, GRPO), the goal is
-              to reshape this probability distribution. A well-trained model for this
-              task should put 80%+ probability on "OLTP" and near-zero on generic words
-              like "This" or "The."
+              When we later apply fine-tuning techniques (SFT, DPO, GRPO), the goal is to reshape
+              this probability distribution. A well-trained model for this task should put 80%+
+              probability on "OLTP" and near-zero on generic words like "This" or "The."
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              That's the core idea of post-training: <strong className="text-orange-300">
-              shifting the model's probability distribution</strong> so that the correct,
-              domain-specific answer becomes the most likely output &mdash; not just a
-              long-shot possibility buried at 4%.
+              That's the core idea of post-training:{' '}
+              <strong className="text-orange-300">
+                shifting the model's probability distribution
+              </strong>{' '}
+              so that the correct, domain-specific answer becomes the most likely output &mdash; not
+              just a long-shot possibility buried at 4%.
             </p>
           </div>
 
@@ -545,10 +549,10 @@ export default function PromptBasic({ explore = false }) {
                 What is a token?
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Language models don't work with whole words. They split text into
-                "tokens" &mdash; subword pieces. "OLTP" might be one token, "Database"
-                another. SmolLM2-360M has a vocabulary of ~49,152 tokens. Every generation
-                step picks from this full set based on the probability distribution.
+                Language models don't work with whole words. They split text into "tokens" &mdash;
+                subword pieces. "OLTP" might be one token, "Database" another. SmolLM2-360M has a
+                vocabulary of ~49,152 tokens. Every generation step picks from this full set based
+                on the probability distribution.
               </p>
             </div>
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
@@ -556,12 +560,11 @@ export default function PromptBasic({ explore = false }) {
                 Temperature and sampling
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                The probabilities shown are the model's raw "logits" after softmax. In
-                practice, a "temperature" parameter can sharpen or flatten this
-                distribution before sampling. Lower temperature = more deterministic
-                (picks the top token more often). But even at temperature 0, a flat
-                distribution like this produces unreliable output because "This" and
-                "The" are so close in probability.
+                The probabilities shown are the model's raw "logits" after softmax. In practice, a
+                "temperature" parameter can sharpen or flatten this distribution before sampling.
+                Lower temperature = more deterministic (picks the top token more often). But even at
+                temperature 0, a flat distribution like this produces unreliable output because
+                "This" and "The" are so close in probability.
               </p>
             </div>
           </div>

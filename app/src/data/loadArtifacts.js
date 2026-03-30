@@ -62,10 +62,16 @@ export function getMetadata() {
 }
 
 export function getCategories() {
-  return artifacts?.metadata?.categories ?? [
-    'OLTP Database', 'OLAP Analytics', 'AI ML Training',
-    'Video Streaming', 'VDI Virtual Desktop', 'Backup Archive',
-  ]
+  return (
+    artifacts?.metadata?.categories ?? [
+      'OLTP Database',
+      'OLAP Analytics',
+      'AI ML Training',
+      'Video Streaming',
+      'VDI Virtual Desktop',
+      'Backup Archive',
+    ]
+  )
 }
 
 export function getModelVariants() {
@@ -83,7 +89,7 @@ export function getTestPrompts() {
 
 /** Get a single test prompt by id. */
 export function getTestPrompt(id) {
-  return artifacts?.test_prompts?.find(p => p.id === id) ?? null
+  return artifacts?.test_prompts?.find((p) => p.id === id) ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +159,7 @@ export function getTokenProbs(variant, promptId) {
  */
 export function getTokenProbsForChart(variant, promptId, position = 0) {
   const snapshots = getTokenProbs(variant, promptId)
-  const snapshot = snapshots.find(s => s.position === position) ?? snapshots[0]
+  const snapshot = snapshots.find((s) => s.position === position) ?? snapshots[0]
   if (!snapshot) return []
   return snapshot.top_tokens.map((token, i) => ({
     token,
@@ -186,8 +192,11 @@ export function getDPOLossCurve() {
  * @returns {Array<{ step, accuracy }>}
  */
 export function getGRPOAccuracyCurve() {
-  return artifacts?.training_data?.grpo?.accuracy_curve ??
-         artifacts?.grpo_group_statistics?.accuracy_curve ?? []
+  return (
+    artifacts?.training_data?.grpo?.accuracy_curve ??
+    artifacts?.grpo_group_statistics?.accuracy_curve ??
+    []
+  )
 }
 
 /**
@@ -195,8 +204,11 @@ export function getGRPOAccuracyCurve() {
  * @returns {Array<{ step, mean_reward }>}
  */
 export function getGRPORewardCurve() {
-  return artifacts?.training_data?.grpo?.reward_curve ??
-         artifacts?.grpo_group_statistics?.reward_curve ?? []
+  return (
+    artifacts?.training_data?.grpo?.reward_curve ??
+    artifacts?.grpo_group_statistics?.reward_curve ??
+    []
+  )
 }
 
 /**

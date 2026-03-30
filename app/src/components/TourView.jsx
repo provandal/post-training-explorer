@@ -94,8 +94,8 @@ export default function TourView() {
                 i === currentStep
                   ? 'bg-blue-500'
                   : i < currentStep
-                  ? 'bg-slate-500'
-                  : 'bg-slate-700'
+                    ? 'bg-slate-500'
+                    : 'bg-slate-700'
               }`}
             />
           ))}
@@ -129,7 +129,9 @@ export default function TourView() {
           </div>
         )}
 
-        {StopComponent ? <StopComponent /> : (
+        {StopComponent ? (
+          <StopComponent />
+        ) : (
           <div className="text-center text-slate-500 py-20">
             Component "{step.component}" not yet implemented
           </div>

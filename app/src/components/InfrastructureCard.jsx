@@ -5,12 +5,32 @@ export default function InfrastructureCard({ data, comparison = null }) {
   if (!data) return null
 
   const fields = [
-    { key: 'gpuMemoryGB', label: 'GPU Memory', format: v => typeof v === 'number' ? `${v} GB` : v, icon: '&#x1F4BB;' },
-    { key: 'trainingTimeMinutes', label: 'Training Time', format: v => typeof v === 'number' ? `${v} min` : v, icon: '&#x23F1;' },
-    { key: 'checkpointSizeMB', label: 'Checkpoint Size', format: v => typeof v === 'number' ? `${v} MB` : v, icon: '&#x1F4BE;' },
-    { key: 'peakGPUUtilization', label: 'Peak GPU Util', format: v => typeof v === 'number' ? `${v}%` : v, icon: '&#x1F525;' },
-    { key: 'modelsInMemory', label: 'Models in Memory', format: v => `${v}`, icon: '&#x1F9E0;' },
-    { key: 'storageIOPattern', label: 'Storage I/O', format: v => v, icon: '&#x1F4CA;' },
+    {
+      key: 'gpuMemoryGB',
+      label: 'GPU Memory',
+      format: (v) => (typeof v === 'number' ? `${v} GB` : v),
+      icon: '&#x1F4BB;',
+    },
+    {
+      key: 'trainingTimeMinutes',
+      label: 'Training Time',
+      format: (v) => (typeof v === 'number' ? `${v} min` : v),
+      icon: '&#x23F1;',
+    },
+    {
+      key: 'checkpointSizeMB',
+      label: 'Checkpoint Size',
+      format: (v) => (typeof v === 'number' ? `${v} MB` : v),
+      icon: '&#x1F4BE;',
+    },
+    {
+      key: 'peakGPUUtilization',
+      label: 'Peak GPU Util',
+      format: (v) => (typeof v === 'number' ? `${v}%` : v),
+      icon: '&#x1F525;',
+    },
+    { key: 'modelsInMemory', label: 'Models in Memory', format: (v) => `${v}`, icon: '&#x1F9E0;' },
+    { key: 'storageIOPattern', label: 'Storage I/O', format: (v) => v, icon: '&#x1F4CA;' },
   ]
 
   return (
@@ -24,16 +44,15 @@ export default function InfrastructureCard({ data, comparison = null }) {
         {fields.map(({ key, label, format }) => {
           if (data[key] === undefined) return null
           const val = format(data[key])
-          const compVal = comparison && comparison[key] !== undefined ? format(comparison[key]) : null
+          const compVal =
+            comparison && comparison[key] !== undefined ? format(comparison[key]) : null
 
           return (
             <div key={key} className="flex flex-col">
               <span className="text-xs text-slate-500">{label}</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-sm font-semibold text-slate-200">{val}</span>
-                {compVal && (
-                  <span className="text-xs text-slate-500 line-through">{compVal}</span>
-                )}
+                {compVal && <span className="text-xs text-slate-500 line-through">{compVal}</span>}
               </div>
             </div>
           )
@@ -75,7 +94,8 @@ export default function InfrastructureCard({ data, comparison = null }) {
 
       {/* Scaling note */}
       <p className="text-xs text-slate-600 mt-2">
-        Numbers shown for SmolLM2-360M. For 7B models, multiply GPU memory ~20x and training time ~15x.
+        Numbers shown for SmolLM2-360M. For 7B models, multiply GPU memory ~20x and training time
+        ~15x.
       </p>
     </div>
   )

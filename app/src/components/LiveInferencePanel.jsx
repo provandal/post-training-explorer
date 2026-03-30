@@ -32,7 +32,7 @@ export default function LiveInferencePanel() {
     if (!success) {
       setError(
         downloadProgress[selectedModel]?.error ||
-          'Failed to download model. Make sure @huggingface/transformers is installed (npm install @huggingface/transformers).'
+          'Failed to download model. Make sure @huggingface/transformers is installed (npm install @huggingface/transformers).',
       )
     }
   }
@@ -61,8 +61,7 @@ export default function LiveInferencePanel() {
   const isDownloading =
     progress && (progress.status === 'loading' || progress.status === 'downloading')
   const isReady = isModelLoaded(selectedModel)
-  const progressPercent =
-    progress?.status === 'downloading' ? Math.round(progress.progress) : 0
+  const progressPercent = progress?.status === 'downloading' ? Math.round(progress.progress) : 0
 
   const variantMeta = MODEL_VARIANTS.find((v) => v.key === selectedModel)
   const accentColor = variantMeta?.color || 'cyan'
@@ -90,12 +89,10 @@ export default function LiveInferencePanel() {
 
   return (
     <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
-      <h3 className="text-base font-semibold text-cyan-400 mb-1">
-        Live Inference (Optional)
-      </h3>
+      <h3 className="text-base font-semibold text-cyan-400 mb-1">Live Inference (Optional)</h3>
       <p className="text-xs text-slate-400 mb-4">
-        Download a model to your browser and run inference locally. ~180MB per
-        model, cached for offline use.
+        Download a model to your browser and run inference locally. ~180MB per model, cached for
+        offline use.
       </p>
 
       {/* ---- Model selector toggle ---- */}
@@ -106,8 +103,7 @@ export default function LiveInferencePanel() {
         <div className="flex gap-1 bg-slate-800 rounded-lg p-1 w-fit">
           {MODEL_VARIANTS.map((v) => {
             const isActive = selectedModel === v.key
-            const activeClass =
-              v.color === 'red' ? 'bg-red-600' : 'bg-emerald-600'
+            const activeClass = v.color === 'red' ? 'bg-red-600' : 'bg-emerald-600'
             return (
               <button
                 key={v.key}
@@ -123,9 +119,7 @@ export default function LiveInferencePanel() {
                 }`}
               >
                 {v.label}
-                {isModelLoaded(v.key) && (
-                  <span className="ml-1.5 text-xs opacity-70">Ready</span>
-                )}
+                {isModelLoaded(v.key) && <span className="ml-1.5 text-xs opacity-70">Ready</span>}
               </button>
             )
           })}
@@ -155,9 +149,7 @@ export default function LiveInferencePanel() {
                   : `${accent.bg} ${accent.bgHover} text-white`
               }`}
             >
-              {isDownloading
-                ? `Downloading... ${progressPercent}%`
-                : 'Download Model (~180MB)'}
+              {isDownloading ? `Downloading... ${progressPercent}%` : 'Download Model (~180MB)'}
             </button>
 
             {/* Progress bar */}
@@ -171,9 +163,7 @@ export default function LiveInferencePanel() {
             )}
 
             {progress?.status === 'loading' && (
-              <p className="text-xs text-slate-500 mt-1.5">
-                Initializing model pipeline...
-              </p>
+              <p className="text-xs text-slate-500 mt-1.5">Initializing model pipeline...</p>
             )}
           </div>
         ) : (
@@ -199,8 +189,7 @@ export default function LiveInferencePanel() {
           placeholder="IOPS: ... | Latency: ... | Block Size: ... | Read/Write: ... | Sequential: ... | Queue Depth: ..."
         />
         <p className="text-xs text-slate-600 mt-1">
-          Format: IOPS | Latency | Block Size | Read/Write ratio | Sequential %
-          | Queue Depth
+          Format: IOPS | Latency | Block Size | Read/Write ratio | Sequential % | Queue Depth
         </p>
       </div>
 
@@ -223,14 +212,10 @@ export default function LiveInferencePanel() {
       {output && (
         <div className={`border rounded-lg p-4 ${accent.border} ${accent.bgFaint}`}>
           <div className="flex items-center justify-between mb-2">
-            <span
-              className={`text-xs font-semibold uppercase tracking-wide ${accent.text}`}
-            >
+            <span className={`text-xs font-semibold uppercase tracking-wide ${accent.text}`}>
               {selectedModel === 'base' ? 'Base Model Output' : 'GRPO Model Output'}
             </span>
-            <span className="text-xs text-slate-500">
-              {output.generation_time_ms}ms
-            </span>
+            <span className="text-xs text-slate-500">{output.generation_time_ms}ms</span>
           </div>
           <pre className="text-sm text-slate-200 whitespace-pre-wrap font-mono leading-relaxed">
             {output.generated_text}
@@ -245,13 +230,27 @@ export default function LiveInferencePanel() {
             <>
               <p className="text-sm font-semibold text-amber-400 mb-2">Model Not Yet Published</p>
               <p className="text-xs text-slate-300 mb-2">
-                The ONNX models haven't been uploaded to HuggingFace Hub yet. To enable live inference:
+                The ONNX models haven't been uploaded to HuggingFace Hub yet. To enable live
+                inference:
               </p>
               <ol className="text-xs text-slate-400 list-decimal list-inside space-y-1">
-                <li>Run the training pipeline in Colab (or <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">scripts/</code>)</li>
-                <li>Export to ONNX with <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">convert_to_onnx.py</code></li>
+                <li>
+                  Run the training pipeline in Colab (or{' '}
+                  <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">scripts/</code>)
+                </li>
+                <li>
+                  Export to ONNX with{' '}
+                  <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">
+                    convert_to_onnx.py
+                  </code>
+                </li>
                 <li>Push the ONNX model to a HuggingFace Hub repo</li>
-                <li>Update the model IDs in <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">app/src/services/inference.js</code></li>
+                <li>
+                  Update the model IDs in{' '}
+                  <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">
+                    app/src/services/inference.js
+                  </code>
+                </li>
               </ol>
             </>
           ) : (
@@ -278,8 +277,8 @@ export default function LiveInferencePanel() {
         <code className="text-slate-500 bg-slate-800 px-1 py-0.5 rounded text-xs">
           @huggingface/transformers
         </code>{' '}
-        (not bundled by default). Models run entirely in-browser via WebAssembly
-        &mdash; no data leaves your machine.
+        (not bundled by default). Models run entirely in-browser via WebAssembly &mdash; no data
+        leaves your machine.
       </p>
     </div>
   )

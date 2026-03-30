@@ -4,7 +4,13 @@ import * as d3 from 'd3'
 // Training loss curve visualization
 // Shows how loss decreases over training steps
 
-export default function LossChart({ data, label = 'Training Loss', width = 450, height = 200, color = '#3b82f6' }) {
+export default function LossChart({
+  data,
+  label = 'Training Loss',
+  width = 450,
+  height = 200,
+  color = '#3b82f6',
+}) {
   const svgRef = useRef()
 
   useEffect(() => {
@@ -23,16 +29,19 @@ export default function LossChart({ data, label = 'Training Loss', width = 450, 
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`)
 
-    const x = d3.scaleLinear()
-      .domain(d3.extent(data, d => d.step))
+    const x = d3
+      .scaleLinear()
+      .domain(d3.extent(data, (d) => d.step))
       .range([0, w])
 
-    const y = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.loss) * 1.1])
+    const y = d3
+      .scaleLinear()
+      .domain([0, d3.max(data, (d) => d.loss) * 1.1])
       .range([h, 0])
 
     // Title
-    svg.append('text')
+    svg
+      .append('text')
       .attr('x', width / 2)
       .attr('y', 14)
       .attr('text-anchor', 'middle')
@@ -45,8 +54,10 @@ export default function LossChart({ data, label = 'Training Loss', width = 450, 
     g.selectAll('.grid-y')
       .data(y.ticks(4))
       .join('line')
-      .attr('x1', 0).attr('x2', w)
-      .attr('y1', d => y(d)).attr('y2', d => y(d))
+      .attr('x1', 0)
+      .attr('x2', w)
+      .attr('y1', (d) => y(d))
+      .attr('y2', (d) => y(d))
       .attr('stroke', '#1e293b')
       .attr('stroke-dasharray', '2,2')
 
@@ -54,48 +65,55 @@ export default function LossChart({ data, label = 'Training Loss', width = 450, 
     g.append('g')
       .attr('transform', `translate(0,${h})`)
       .call(d3.axisBottom(x).ticks(6))
-      .selectAll('text').attr('fill', '#64748b').attr('font-size', '9')
+      .selectAll('text')
+      .attr('fill', '#64748b')
+      .attr('font-size', '9')
 
     g.append('g')
       .call(d3.axisLeft(y).ticks(4))
-      .selectAll('text').attr('fill', '#64748b').attr('font-size', '9')
+      .selectAll('text')
+      .attr('fill', '#64748b')
+      .attr('font-size', '9')
 
     g.selectAll('.domain').attr('stroke', '#334155')
 
     // Axis labels
     g.append('text')
-      .attr('x', w / 2).attr('y', h + 30)
+      .attr('x', w / 2)
+      .attr('y', h + 30)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#64748b').attr('font-size', '9')
+      .attr('fill', '#64748b')
+      .attr('font-size', '9')
       .text('Training Step')
 
     g.append('text')
       .attr('transform', 'rotate(-90)')
-      .attr('x', -h / 2).attr('y', -35)
+      .attr('x', -h / 2)
+      .attr('y', -35)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#64748b').attr('font-size', '9')
+      .attr('fill', '#64748b')
+      .attr('font-size', '9')
       .text('Loss')
 
     // Area fill
-    const area = d3.area()
-      .x(d => x(d.step))
+    const area = d3
+      .area()
+      .x((d) => x(d.step))
       .y0(h)
-      .y1(d => y(d.loss))
+      .y1((d) => y(d.loss))
       .curve(d3.curveMonotoneX)
 
-    g.append('path')
-      .datum(data)
-      .attr('fill', color)
-      .attr('opacity', 0.1)
-      .attr('d', area)
+    g.append('path').datum(data).attr('fill', color).attr('opacity', 0.1).attr('d', area)
 
     // Line
-    const line = d3.line()
-      .x(d => x(d.step))
-      .y(d => y(d.loss))
+    const line = d3
+      .line()
+      .x((d) => x(d.step))
+      .y((d) => y(d.loss))
       .curve(d3.curveMonotoneX)
 
-    const path = g.append('path')
+    const path = g
+      .append('path')
       .datum(data)
       .attr('fill', 'none')
       .attr('stroke', color)
@@ -111,7 +129,6 @@ export default function LossChart({ data, label = 'Training Loss', width = 450, 
       .duration(1500)
       .ease(d3.easeLinear)
       .attr('stroke-dashoffset', 0)
-
   }, [data, label, width, height, color])
 
   return <svg ref={svgRef} />

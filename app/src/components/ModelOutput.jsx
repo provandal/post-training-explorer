@@ -1,7 +1,13 @@
 // Renders a model's text output with a label and optional styling
 // Used throughout the app for side-by-side comparisons
 
-export default function ModelOutput({ label, text, variant = 'default', isCorrect = null, className = '' }) {
+export default function ModelOutput({
+  label,
+  text,
+  variant = 'default',
+  isCorrect = null,
+  className = '',
+}) {
   const variantStyles = {
     default: 'border-slate-600 bg-slate-800/50',
     base: 'border-red-800/50 bg-red-950/20',
@@ -31,7 +37,9 @@ export default function ModelOutput({ label, text, variant = 'default', isCorrec
           {label}
         </span>
         {isCorrect !== null && (
-          <span className={`text-xs px-2 py-0.5 rounded-full ${isCorrect ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full ${isCorrect ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}
+          >
             {isCorrect ? 'Correct' : 'Incorrect'}
           </span>
         )}

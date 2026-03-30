@@ -9,7 +9,8 @@ const QUADRANTS = {
     color: '#f97316',
     bgColor: '#ea8c3c',
     textColor: '#000000',
-    col: 0, row: 1, // lower-left
+    col: 0,
+    row: 1, // lower-left
     subLabels: [
       { label: 'Prompt', x: 0.3, y: 0.75 },
       { label: 'Few Shot', x: 0.65, y: 0.35 },
@@ -20,7 +21,8 @@ const QUADRANTS = {
     bgColor: '#e8c840',
     color: '#eab308',
     textColor: '#000000',
-    col: 0, row: 0, // upper-left
+    col: 0,
+    row: 0, // upper-left
     subLabels: [
       { label: 'Simple Retrieval', x: 0.38, y: 0.75 },
       { label: 'Optimize Retrieval', x: 0.6, y: 0.3 },
@@ -31,7 +33,8 @@ const QUADRANTS = {
     color: '#475569',
     bgColor: '#1a2540',
     textColor: '#e2e8f0',
-    col: 1, row: 1, // lower-right
+    col: 1,
+    row: 1, // lower-right
     subLabels: [
       { label: 'SFT', x: 0.22, y: 0.72 },
       { label: 'DPO', x: 0.48, y: 0.55 },
@@ -43,7 +46,8 @@ const QUADRANTS = {
     color: '#06b6d4',
     bgColor: '#4ab8cc',
     textColor: '#000000',
-    col: 1, row: 0, // upper-right
+    col: 1,
+    row: 0, // upper-right
     subLabels: [
       { label: 'Post Training', x: 0.45, y: 0.72 },
       { label: 'Fine Tune with RAG', x: 0.6, y: 0.28 },
@@ -73,14 +77,14 @@ function wp(col, row, fracX, fracY) {
 }
 
 const ZIGZAG_POINTS = [
-  { ...wp(0, 1, 0.30, 0.75), label: 'Prompt' },
+  { ...wp(0, 1, 0.3, 0.75), label: 'Prompt' },
   { ...wp(0, 1, 0.65, 0.35), label: 'Few Shot' },
   { ...wp(0, 0, 0.38, 0.75), label: 'Simple Retrieval' },
-  { ...wp(0, 0, 0.60, 0.30), label: 'Optimize Retrieval' },
+  { ...wp(0, 0, 0.6, 0.3), label: 'Optimize Retrieval' },
   { ...wp(1, 1, 0.22, 0.72), label: 'SFT' },
   { ...wp(1, 1, 0.48, 0.55), label: 'DPO' },
   { ...wp(1, 1, 0.74, 0.38), label: 'GRPO' },
-  { ...wp(1, 0, 0.55, 0.50), label: 'All Options' },
+  { ...wp(1, 0, 0.55, 0.5), label: 'All Options' },
 ]
 
 export default function QuadrantMap({ size = 'full', interactive = false }) {
@@ -117,11 +121,13 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
       const b = ZIGZAG_POINTS[i + 1]
       // midpoint for arrow
       segments.push({
-        x1: a.x, y1: a.y,
-        x2: b.x, y2: b.y,
+        x1: a.x,
+        y1: a.y,
+        x2: b.x,
+        y2: b.y,
         mx: (a.x + b.x) / 2,
         my: (a.y + b.y) / 2,
-        angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI,
+        angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
       })
     }
     return segments
@@ -130,7 +136,13 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
   return (
     <svg
       viewBox={`0 0 ${VB_W} ${VB_H}`}
-      className={size === 'mini' ? 'w-[220px] h-[190px]' : size === 'medium' ? 'w-full max-w-[440px]' : 'w-full max-w-[680px]'}
+      className={
+        size === 'mini'
+          ? 'w-[220px] h-[190px]'
+          : size === 'medium'
+            ? 'w-full max-w-[440px]'
+            : 'w-full max-w-[680px]'
+      }
       style={size === 'mini' ? undefined : { aspectRatio: `${VB_W}/${VB_H}` }}
     >
       {/* Background */}
@@ -138,36 +150,94 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
 
       {/* Title */}
       {size !== 'mini' && (
-        <text x={VB_W / 2} y="30" textAnchor="middle" fill="#94a3b8" fontSize="15" fontWeight="600" fontFamily="system-ui, sans-serif">
+        <text
+          x={VB_W / 2}
+          y="30"
+          textAnchor="middle"
+          fill="#94a3b8"
+          fontSize="15"
+          fontWeight="600"
+          fontFamily="system-ui, sans-serif"
+        >
           Context Optimization and Model Optimization
         </text>
       )}
 
       {/* Y-axis */}
-      <line x1={MARGIN.left - 20} y1={MARGIN.top + QUAD_H * 2 + GAP + 10} x2={MARGIN.left - 20} y2={MARGIN.top - 10} stroke="#475569" strokeWidth="2" />
-      <polygon points={`${MARGIN.left - 20},${MARGIN.top - 15} ${MARGIN.left - 24},${MARGIN.top - 5} ${MARGIN.left - 16},${MARGIN.top - 5}`} fill="#475569" />
+      <line
+        x1={MARGIN.left - 20}
+        y1={MARGIN.top + QUAD_H * 2 + GAP + 10}
+        x2={MARGIN.left - 20}
+        y2={MARGIN.top - 10}
+        stroke="#475569"
+        strokeWidth="2"
+      />
+      <polygon
+        points={`${MARGIN.left - 20},${MARGIN.top - 15} ${MARGIN.left - 24},${MARGIN.top - 5} ${MARGIN.left - 16},${MARGIN.top - 5}`}
+        fill="#475569"
+      />
 
       {size === 'full' && (
         <>
-          <text x={MARGIN.left - 35} y={MARGIN.top + QUAD_H} textAnchor="middle" fill="#94a3b8" fontSize="12" fontWeight="600" transform={`rotate(-90, ${MARGIN.left - 35}, ${MARGIN.top + QUAD_H})`}>
+          <text
+            x={MARGIN.left - 35}
+            y={MARGIN.top + QUAD_H}
+            textAnchor="middle"
+            fill="#94a3b8"
+            fontSize="12"
+            fontWeight="600"
+            transform={`rotate(-90, ${MARGIN.left - 35}, ${MARGIN.top + QUAD_H})`}
+          >
             Context Optimization
           </text>
-          <text x={MARGIN.left - 50} y={MARGIN.top + QUAD_H} textAnchor="middle" fill="#64748b" fontSize="9" fontStyle="italic" transform={`rotate(-90, ${MARGIN.left - 50}, ${MARGIN.top + QUAD_H})`}>
+          <text
+            x={MARGIN.left - 50}
+            y={MARGIN.top + QUAD_H}
+            textAnchor="middle"
+            fill="#64748b"
+            fontSize="9"
+            fontStyle="italic"
+            transform={`rotate(-90, ${MARGIN.left - 50}, ${MARGIN.top + QUAD_H})`}
+          >
             What the model needs to know?
           </text>
         </>
       )}
 
       {/* X-axis */}
-      <line x1={MARGIN.left - 10} y1={VB_H - MARGIN.bottom + 20} x2={VB_W - MARGIN.right + 10} y2={VB_H - MARGIN.bottom + 20} stroke="#475569" strokeWidth="2" />
-      <polygon points={`${VB_W - MARGIN.right + 15},${VB_H - MARGIN.bottom + 20} ${VB_W - MARGIN.right + 5},${VB_H - MARGIN.bottom + 16} ${VB_W - MARGIN.right + 5},${VB_H - MARGIN.bottom + 24}`} fill="#475569" />
+      <line
+        x1={MARGIN.left - 10}
+        y1={VB_H - MARGIN.bottom + 20}
+        x2={VB_W - MARGIN.right + 10}
+        y2={VB_H - MARGIN.bottom + 20}
+        stroke="#475569"
+        strokeWidth="2"
+      />
+      <polygon
+        points={`${VB_W - MARGIN.right + 15},${VB_H - MARGIN.bottom + 20} ${VB_W - MARGIN.right + 5},${VB_H - MARGIN.bottom + 16} ${VB_W - MARGIN.right + 5},${VB_H - MARGIN.bottom + 24}`}
+        fill="#475569"
+      />
 
       {size === 'full' && (
         <>
-          <text x={MARGIN.left + QUAD_W} y={VB_H - 18} textAnchor="middle" fill="#94a3b8" fontSize="12" fontWeight="600">
+          <text
+            x={MARGIN.left + QUAD_W}
+            y={VB_H - 18}
+            textAnchor="middle"
+            fill="#94a3b8"
+            fontSize="12"
+            fontWeight="600"
+          >
             LLM Optimization
           </text>
-          <text x={MARGIN.left + QUAD_W} y={VB_H - 4} textAnchor="middle" fill="#64748b" fontSize="9" fontStyle="italic">
+          <text
+            x={MARGIN.left + QUAD_W}
+            y={VB_H - 4}
+            textAnchor="middle"
+            fill="#64748b"
+            fontSize="9"
+            fontStyle="italic"
+          >
             How the model needs to act?
           </text>
         </>
@@ -176,8 +246,27 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
       {/* LLM icon */}
       {size === 'full' && (
         <g transform={`translate(${MARGIN.left - 22}, ${VB_H - MARGIN.bottom + 10})`}>
-          <rect x="-18" y="-18" width="36" height="30" rx="6" fill="#1e1b4b" stroke="#6366f1" strokeWidth="1.5" />
-          <text x="0" y="0" textAnchor="middle" fill="#a5b4fc" fontSize="10" fontWeight="700" fontFamily="system-ui, sans-serif">LLM</text>
+          <rect
+            x="-18"
+            y="-18"
+            width="36"
+            height="30"
+            rx="6"
+            fill="#1e1b4b"
+            stroke="#6366f1"
+            strokeWidth="1.5"
+          />
+          <text
+            x="0"
+            y="0"
+            textAnchor="middle"
+            fill="#a5b4fc"
+            fontSize="10"
+            fontWeight="700"
+            fontFamily="system-ui, sans-serif"
+          >
+            LLM
+          </text>
         </g>
       )}
 
@@ -197,7 +286,17 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
           >
             {/* Glow for active */}
             {isActive && (
-              <rect x={qx - 4} y={qy - 4} width={QUAD_W + 8} height={QUAD_H + 8} rx="14" fill="none" stroke={q.color} strokeWidth="2.5" opacity="0.7" />
+              <rect
+                x={qx - 4}
+                y={qy - 4}
+                width={QUAD_W + 8}
+                height={QUAD_H + 8}
+                rx="14"
+                fill="none"
+                stroke={q.color}
+                strokeWidth="2.5"
+                opacity="0.7"
+              />
             )}
 
             {/* Background */}
@@ -217,35 +316,59 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             </text>
 
             {/* Sub-labels with dots (medium and full) */}
-            {size !== 'mini' && q.subLabels.map((sub) => {
-              const sx = qx + QUAD_W * sub.x
-              const sy = qy + QUAD_H * sub.y
-              return (
-                <g key={sub.label}>
-                  <rect x={sx - 3} y={sy - 3} width="6" height="6" rx="1" fill={q.textColor} opacity="0.5" />
-                  <text x={sx + 8} y={sy + 4} fill={q.textColor} fontSize="10" opacity="0.7" fontFamily="system-ui, sans-serif">
-                    {sub.label}
-                  </text>
-                </g>
-              )
-            })}
+            {size !== 'mini' &&
+              q.subLabels.map((sub) => {
+                const sx = qx + QUAD_W * sub.x
+                const sy = qy + QUAD_H * sub.y
+                return (
+                  <g key={sub.label}>
+                    <rect
+                      x={sx - 3}
+                      y={sy - 3}
+                      width="6"
+                      height="6"
+                      rx="1"
+                      fill={q.textColor}
+                      opacity="0.5"
+                    />
+                    <text
+                      x={sx + 8}
+                      y={sy + 4}
+                      fill={q.textColor}
+                      fontSize="10"
+                      opacity="0.7"
+                      fontFamily="system-ui, sans-serif"
+                    >
+                      {sub.label}
+                    </text>
+                  </g>
+                )
+              })}
           </g>
         )
       })}
 
       {/* Zig-zag path */}
-      <path d={zigzagPath} fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeDasharray="8 4" opacity="0.6" />
+      <path
+        d={zigzagPath}
+        fill="none"
+        stroke="#94a3b8"
+        strokeWidth="2.5"
+        strokeDasharray="8 4"
+        opacity="0.6"
+      />
 
       {/* Arrow heads at midpoints of each segment */}
-      {size !== 'mini' && arrowSegments.map((seg, i) => (
-        <polygon
-          key={i}
-          points="-5,-4 5,0 -5,4"
-          fill="#94a3b8"
-          opacity="0.5"
-          transform={`translate(${seg.mx}, ${seg.my}) rotate(${seg.angle})`}
-        />
-      ))}
+      {size !== 'mini' &&
+        arrowSegments.map((seg, i) => (
+          <polygon
+            key={i}
+            points="-5,-4 5,0 -5,4"
+            fill="#94a3b8"
+            opacity="0.5"
+            transform={`translate(${seg.mx}, ${seg.my}) rotate(${seg.angle})`}
+          />
+        ))}
 
       {/* Zig-zag waypoints */}
       {ZIGZAG_POINTS.map((point, i) => {
@@ -263,9 +386,22 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
               strokeWidth={isCurrentStop ? 2.5 : 1}
             />
             {isCurrentStop && (
-              <circle cx={point.x} cy={point.y} r="8" fill="none" stroke="#3b82f6" strokeWidth="2" opacity="0.5">
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="8"
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth="2"
+                opacity="0.5"
+              >
                 <animate attributeName="r" values="8;16;8" dur="2s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite" />
+                <animate
+                  attributeName="opacity"
+                  values="0.5;0;0.5"
+                  dur="2s"
+                  repeatCount="indefinite"
+                />
               </circle>
             )}
           </g>

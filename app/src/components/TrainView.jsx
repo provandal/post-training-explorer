@@ -15,7 +15,8 @@ const PIPELINE_STEPS = [
     color: 'text-blue-400',
     bg: 'bg-blue-950/30',
     border: 'border-blue-800/40',
-    detail: 'Training data is generated synthetically from workload profiles — statistical distributions of I/O metrics (IOPS, throughput, latency, block size, read/write ratio, queue depth, sequential %) for each of 6 storage workload types. Each sample is a randomized draw from these distributions, formatted as a natural-language classification prompt. No external dataset is needed — the notebook generates fresh training data every run.',
+    detail:
+      'Training data is generated synthetically from workload profiles — statistical distributions of I/O metrics (IOPS, throughput, latency, block size, read/write ratio, queue depth, sequential %) for each of 6 storage workload types. Each sample is a randomized draw from these distributions, formatted as a natural-language classification prompt. No external dataset is needed — the notebook generates fresh training data every run.',
   },
   {
     step: 2,
@@ -26,7 +27,8 @@ const PIPELINE_STEPS = [
     color: 'text-cyan-400',
     bg: 'bg-cyan-950/30',
     border: 'border-cyan-800/40',
-    detail: 'Supervised Fine-Tuning teaches the model WHAT to output. We show it ~1,400 prompt/completion pairs where the prompt describes I/O metrics and the completion is the correct workload label. SFT uses LoRA (Low-Rank Adaptation) — instead of updating all 360M parameters, we train small adapter matrices (~0.5% of total weights) that modify the model\'s behavior. Training takes ~12 minutes on a T4 GPU.',
+    detail:
+      "Supervised Fine-Tuning teaches the model WHAT to output. We show it ~1,400 prompt/completion pairs where the prompt describes I/O metrics and the completion is the correct workload label. SFT uses LoRA (Low-Rank Adaptation) — instead of updating all 360M parameters, we train small adapter matrices (~0.5% of total weights) that modify the model's behavior. Training takes ~12 minutes on a T4 GPU.",
   },
   {
     step: 3,
@@ -37,7 +39,8 @@ const PIPELINE_STEPS = [
     color: 'text-yellow-400',
     bg: 'bg-yellow-950/30',
     border: 'border-yellow-800/40',
-    detail: 'Direct Preference Optimization teaches the model HOW to respond. Given two possible outputs for the same prompt — one preferred ("chosen") and one not ("rejected") — DPO adjusts the model to favor the preferred style. This refines confidence and formatting without needing a separate reward model. It\'s the technique that made RLHF practical for most teams. Training takes ~8 minutes on T4.',
+    detail:
+      'Direct Preference Optimization teaches the model HOW to respond. Given two possible outputs for the same prompt — one preferred ("chosen") and one not ("rejected") — DPO adjusts the model to favor the preferred style. This refines confidence and formatting without needing a separate reward model. It\'s the technique that made RLHF practical for most teams. Training takes ~8 minutes on T4.',
   },
   {
     step: 4,
@@ -48,7 +51,8 @@ const PIPELINE_STEPS = [
     color: 'text-emerald-400',
     bg: 'bg-emerald-950/30',
     border: 'border-emerald-800/40',
-    detail: 'Group Relative Policy Optimization is the technique behind DeepSeek R1. For each prompt, the model generates K=8 candidate responses. A reward function scores each one (1.0 for correct, 0.0 for wrong). The model learns from the group statistics — no human feedback needed. The answer itself is the teacher. This is where accuracy improves most dramatically. Training takes ~35 minutes on T4.',
+    detail:
+      'Group Relative Policy Optimization is the technique behind DeepSeek R1. For each prompt, the model generates K=8 candidate responses. A reward function scores each one (1.0 for correct, 0.0 for wrong). The model learns from the group statistics — no human feedback needed. The answer itself is the teacher. This is where accuracy improves most dramatically. Training takes ~35 minutes on T4.',
   },
   {
     step: 5,
@@ -59,7 +63,8 @@ const PIPELINE_STEPS = [
     color: 'text-purple-400',
     bg: 'bg-purple-950/30',
     border: 'border-purple-800/40',
-    detail: 'The trained LoRA adapter is merged back into the base model weights, then converted to ONNX format for browser inference. ONNX (Open Neural Network Exchange) is a portable format that runs on CPU/GPU/WebGPU without Python or PyTorch. The exported ~180MB model is uploaded to your HuggingFace space, where the browser app can download and run it client-side using transformers.js.',
+    detail:
+      'The trained LoRA adapter is merged back into the base model weights, then converted to ONNX format for browser inference. ONNX (Open Neural Network Exchange) is a portable format that runs on CPU/GPU/WebGPU without Python or PyTorch. The exported ~180MB model is uploaded to your HuggingFace space, where the browser app can download and run it client-side using transformers.js.',
   },
 ]
 
@@ -150,13 +155,11 @@ export default function TrainView() {
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Hero */}
         <section className="text-center">
-          <h2 className="text-3xl font-extrabold text-white mb-3">
-            Train Your Own Model
-          </h2>
+          <h2 className="text-3xl font-extrabold text-white mb-3">Train Your Own Model</h2>
           <p className="text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Run the same training pipeline used to build this demo. You'll fine-tune
-            a SmolLM2-360M language model to classify storage I/O workloads using SFT,
-            DPO, and GRPO — then test it live in your browser.
+            Run the same training pipeline used to build this demo. You'll fine-tune a SmolLM2-360M
+            language model to classify storage I/O workloads using SFT, DPO, and GRPO — then test it
+            live in your browser.
           </p>
         </section>
 
@@ -174,8 +177,8 @@ export default function TrainView() {
             >
               <p className="text-sm font-semibold text-blue-400 mb-2">Google Colab</p>
               <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                Free cloud Jupyter environment with GPU access. Sign in with any Google account.
-                The notebooks will prompt for login automatically.
+                Free cloud Jupyter environment with GPU access. Sign in with any Google account. The
+                notebooks will prompt for login automatically.
               </p>
               <span className="inline-block text-xs font-semibold text-blue-400 bg-blue-950/40 px-3 py-1.5 rounded group-hover:bg-blue-900/50 transition-colors">
                 Open Google Colab
@@ -189,8 +192,8 @@ export default function TrainView() {
             >
               <p className="text-sm font-semibold text-yellow-400 mb-2">HuggingFace Account</p>
               <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                Free account for hosting your trained model. Needed for the ONNX export step —
-                the notebook uploads your model to your HuggingFace space.
+                Free account for hosting your trained model. Needed for the ONNX export step — the
+                notebook uploads your model to your HuggingFace space.
               </p>
               <span className="inline-block text-xs font-semibold text-yellow-400 bg-yellow-950/40 px-3 py-1.5 rounded group-hover:bg-yellow-900/50 transition-colors">
                 Create Free Account
@@ -221,7 +224,9 @@ export default function TrainView() {
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${s.bg} ${s.color} border ${s.border} relative`}
                       >
                         {s.step}
-                        <span className={`absolute -right-1 -top-1 text-[10px] ${s.color} transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                        <span
+                          className={`absolute -right-1 -top-1 text-[10px] ${s.color} transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        >
                           ▶
                         </span>
                       </div>
@@ -230,10 +235,11 @@ export default function TrainView() {
                       )}
                     </div>
                     {/* Content */}
-                    <div className={`flex-1 p-3 rounded-lg ${s.bg} border ${s.border} hover:brightness-125 transition-all`}>
+                    <div
+                      className={`flex-1 p-3 rounded-lg ${s.bg} border ${s.border} hover:brightness-125 transition-all`}
+                    >
                       <p className={`text-sm font-semibold ${s.color}`}>
-                        {s.name}{' '}
-                        <span className="text-slate-500 font-normal">— {s.desc}</span>
+                        {s.name} <span className="text-slate-500 font-normal">— {s.desc}</span>
                       </p>
                       <div className="flex gap-6 mt-1 text-xs text-slate-500">
                         <span>
@@ -268,12 +274,8 @@ export default function TrainView() {
                 key={nb.title}
                 className={`p-5 rounded-lg bg-slate-800/50 border ${nb.color} flex flex-col transition-colors`}
               >
-                <h4 className={`text-sm font-bold ${nb.accent} mb-2`}>
-                  {nb.title}
-                </h4>
-                <p className="text-xs text-slate-400 leading-relaxed flex-1 mb-3">
-                  {nb.desc}
-                </p>
+                <h4 className={`text-sm font-bold ${nb.accent} mb-2`}>{nb.title}</h4>
+                <p className="text-xs text-slate-400 leading-relaxed flex-1 mb-3">{nb.desc}</p>
                 <div className="text-xs text-slate-600 mb-3 space-y-0.5">
                   <p>{nb.runtime}</p>
                   <p>{nb.time}</p>
@@ -306,9 +308,7 @@ export default function TrainView() {
                   <span className="text-xs font-bold text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded">
                     {d.stage}
                   </span>
-                  <span className="text-sm text-slate-300 font-medium">
-                    {d.format}
-                  </span>
+                  <span className="text-sm text-slate-300 font-medium">{d.format}</span>
                 </div>
                 <pre className="text-xs text-slate-500 bg-slate-900/50 rounded px-3 py-2 overflow-x-auto font-mono">
                   {d.example}
@@ -365,9 +365,8 @@ export default function TrainView() {
             Try Your Model
           </h3>
           <p className="text-sm text-slate-400 mb-4">
-            After training and exporting to ONNX, download the model to your browser
-            and run inference locally. Compare the untrained base model against your
-            GRPO-trained model.
+            After training and exporting to ONNX, download the model to your browser and run
+            inference locally. Compare the untrained base model against your GRPO-trained model.
           </p>
           <LiveInferencePanel />
         </section>

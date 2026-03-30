@@ -5,7 +5,7 @@ import { getAccuracySummary } from '../data/loadArtifacts'
 const DEBUGGING_STORIES = [
   {
     title: 'The Model Invented Its Own Labels',
-    summary: 'Small models can\'t memorize valid outputs from training data alone',
+    summary: "Small models can't memorize valid outputs from training data alone",
     detail:
       'During GRPO training, the 360M model generated classifications like "Vogeek Podcast", "Games Volumes", "RAID OPS", and "Fiction Writing" — labels that don\'t exist. The model had learned the concept of classification but not the vocabulary. Fix: include the 6 valid labels directly in the prompt. Key insight: small models need constraints in-context. This is a great example of why prompt engineering matters even after fine-tuning.',
   },
@@ -13,7 +13,7 @@ const DEBUGGING_STORIES = [
     title: 'GRPO Training Stuck at 0%',
     summary: 'The reward function was too rigid for freeform model output',
     detail:
-      'GRPO\'s accuracy curve was flat at 0% for all 180 training steps. The reward function only accepted exact matches like "Classification: OLTP Database", but the model generated freeform text with extra words, reasoning, and varied formatting. The model was actually learning — it was getting answers right — but the scoring function couldn\'t see it. Fix: robust extraction with keyword matching and fallback scanning. Lesson: in RL, the reward function IS the specification. If it\'s too narrow, the model can\'t learn.',
+      "GRPO's accuracy curve was flat at 0% for all 180 training steps. The reward function only accepted exact matches like \"Classification: OLTP Database\", but the model generated freeform text with extra words, reasoning, and varied formatting. The model was actually learning — it was getting answers right — but the scoring function couldn't see it. Fix: robust extraction with keyword matching and fallback scanning. Lesson: in RL, the reward function IS the specification. If it's too narrow, the model can't learn.",
   },
   {
     title: 'The Invisible Space That Broke Everything',
@@ -31,17 +31,59 @@ const DEBUGGING_STORIES = [
     title: 'Post-Training Is Debugging, Not Magic',
     summary: 'The full pipeline required multiple re-runs and alignment across all stages',
     detail:
-      'We ran the pipeline at least 5 times end-to-end before getting reasonable results. Each fix (prompt format, temperature, extraction logic, BPE alignment) required re-training the ENTIRE pipeline — SFT, then DPO, then GRPO — because each stage builds on the previous one. Running GRPO with a new prompt format but an OLD SFT adapter produced worse results than starting over. This is the reality of post-training work: it\'s iterative, it requires alignment across every stage, and the debugging skills matter as much as the ML knowledge.',
+      "We ran the pipeline at least 5 times end-to-end before getting reasonable results. Each fix (prompt format, temperature, extraction logic, BPE alignment) required re-training the ENTIRE pipeline — SFT, then DPO, then GRPO — because each stage builds on the previous one. Running GRPO with a new prompt format but an OLD SFT adapter produced worse results than starting over. This is the reality of post-training work: it's iterative, it requires alignment across every stage, and the debugging skills matter as much as the ML knowledge.",
   },
 ]
 
 const INFRA_TABLE = [
-  { technique: 'Traditional ML', timeT4: '0.4 sec', timeA100: 'N/A', gpuMem: 'None', modelSize: '~50 KB', hardware: 'CPU' },
-  { technique: 'SFT', timeT4: '~12 min', timeA100: '~4 min', gpuMem: '~15 GB', modelSize: '~700 MB', hardware: 'GPU' },
-  { technique: 'DPO', timeT4: '~8 min', timeA100: '~3 min', gpuMem: '~15 GB', modelSize: '~700 MB', hardware: 'GPU' },
-  { technique: 'GRPO', timeT4: '~35 min', timeA100: '~10 min', gpuMem: '~15 GB', modelSize: '~700 MB', hardware: 'GPU' },
-  { technique: 'ONNX Export', timeT4: '~5 min', timeA100: '~3 min', gpuMem: '~8 GB', modelSize: '~180 MB', hardware: 'GPU' },
-  { technique: 'Full Pipeline', timeT4: '~60 min', timeA100: '~20 min', gpuMem: '~15 GB', modelSize: '~180 MB', hardware: 'GPU' },
+  {
+    technique: 'Traditional ML',
+    timeT4: '0.4 sec',
+    timeA100: 'N/A',
+    gpuMem: 'None',
+    modelSize: '~50 KB',
+    hardware: 'CPU',
+  },
+  {
+    technique: 'SFT',
+    timeT4: '~12 min',
+    timeA100: '~4 min',
+    gpuMem: '~15 GB',
+    modelSize: '~700 MB',
+    hardware: 'GPU',
+  },
+  {
+    technique: 'DPO',
+    timeT4: '~8 min',
+    timeA100: '~3 min',
+    gpuMem: '~15 GB',
+    modelSize: '~700 MB',
+    hardware: 'GPU',
+  },
+  {
+    technique: 'GRPO',
+    timeT4: '~35 min',
+    timeA100: '~10 min',
+    gpuMem: '~15 GB',
+    modelSize: '~700 MB',
+    hardware: 'GPU',
+  },
+  {
+    technique: 'ONNX Export',
+    timeT4: '~5 min',
+    timeA100: '~3 min',
+    gpuMem: '~8 GB',
+    modelSize: '~180 MB',
+    hardware: 'GPU',
+  },
+  {
+    technique: 'Full Pipeline',
+    timeT4: '~60 min',
+    timeA100: '~20 min',
+    gpuMem: '~15 GB',
+    modelSize: '~180 MB',
+    hardware: 'GPU',
+  },
 ]
 
 const TAKEAWAYS = [
@@ -53,7 +95,7 @@ const TAKEAWAYS = [
   {
     num: 2,
     title: 'Small models have real limits',
-    text: '360M parameters can learn tasks but can\'t memorize valid outputs. Constraints must be in-context.',
+    text: "360M parameters can learn tasks but can't memorize valid outputs. Constraints must be in-context.",
   },
   {
     num: 3,
@@ -63,7 +105,7 @@ const TAKEAWAYS = [
   {
     num: 4,
     title: 'The reward function IS the specification',
-    text: 'In GRPO/RLVR, if your reward function can\'t score correctly, the model can\'t learn. Invest in robust evaluation.',
+    text: "In GRPO/RLVR, if your reward function can't score correctly, the model can't learn. Invest in robust evaluation.",
   },
   {
     num: 5,
@@ -72,7 +114,7 @@ const TAKEAWAYS = [
   },
 ]
 
-function AccuracyBar({ label, accuracy, color, maxWidth = 100 }) {
+function AccuracyBar({ label, accuracy, color }) {
   const pct = Math.round(accuracy * 100)
   const barWidth = Math.max(pct, 2) // minimum visible width
   return (
@@ -170,8 +212,8 @@ export default function ResultsView() {
         <section className="text-center">
           <h2 className="text-3xl font-extrabold text-white mb-3">What We Learned</h2>
           <p className="text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Building a post-training pipeline from scratch — the honest results, the
-            debugging journey, and when to use (and not use) an LLM.
+            Building a post-training pipeline from scratch — the honest results, the debugging
+            journey, and when to use (and not use) an LLM.
           </p>
         </section>
 
@@ -240,8 +282,8 @@ export default function ResultsView() {
                 </p>
               </div>
               <p className="text-xs text-blue-400/80 mt-3 pt-3 border-t border-blue-800/30 leading-relaxed">
-                If your input is natural language with variable phrasing, LLMs understand
-                context that bag-of-words models miss.
+                If your input is natural language with variable phrasing, LLMs understand context
+                that bag-of-words models miss.
               </p>
             </div>
           </div>
@@ -262,10 +304,10 @@ export default function ResultsView() {
 
           <p className="text-sm text-slate-400 mt-4 leading-relaxed">
             These numbers look low — and they are. That's the point. A 360M-parameter model
-            classifying structured numeric data is the wrong tool for this job. Random Forest
-            gets 97% in under a second. But the <em className="text-slate-300">techniques</em> we
-            used (SFT, DPO, GRPO) are the same ones used to build ChatGPT and DeepSeek R1. The
-            value is in learning the process, not in the accuracy on this particular task.
+            classifying structured numeric data is the wrong tool for this job. Random Forest gets
+            97% in under a second. But the <em className="text-slate-300">techniques</em> we used
+            (SFT, DPO, GRPO) are the same ones used to build ChatGPT and DeepSeek R1. The value is
+            in learning the process, not in the accuracy on this particular task.
           </p>
 
           {/* What would improve these numbers */}
@@ -275,18 +317,17 @@ export default function ResultsView() {
             </p>
             <div className="space-y-2 text-xs text-slate-400 leading-relaxed">
               <p>
-                <span className="text-slate-300 font-medium">More training data:</span> We used
-                ~720 samples. Production fine-tuning uses 10K-100K+ examples.
+                <span className="text-slate-300 font-medium">More training data:</span> We used ~720
+                samples. Production fine-tuning uses 10K-100K+ examples.
               </p>
               <p>
-                <span className="text-slate-300 font-medium">Larger model:</span> SmolLM2-360M
-                was chosen for browser inference. A 1.7B or 7B model would score significantly
-                higher.
+                <span className="text-slate-300 font-medium">Larger model:</span> SmolLM2-360M was
+                chosen for browser inference. A 1.7B or 7B model would score significantly higher.
               </p>
               <p>
-                <span className="text-slate-300 font-medium">Unstructured input:</span> On error
-                log classification (text, not numbers), the same SFT technique achieves ~80-90%.
-                The task matters more than the technique.
+                <span className="text-slate-300 font-medium">Unstructured input:</span> On error log
+                classification (text, not numbers), the same SFT technique achieves ~80-90%. The
+                task matters more than the technique.
               </p>
               <p>
                 <span className="text-slate-300 font-medium">More GRPO steps:</span> We ran 180
@@ -335,8 +376,8 @@ export default function ResultsView() {
                         isLast
                           ? 'bg-slate-800/40 font-semibold text-white'
                           : i % 2 === 0
-                          ? 'text-slate-300'
-                          : 'bg-slate-800/20 text-slate-300'
+                            ? 'text-slate-300'
+                            : 'bg-slate-800/20 text-slate-300'
                       }`}
                     >
                       <td className="px-3 py-2">{row.technique}</td>
@@ -353,9 +394,8 @@ export default function ResultsView() {
           </div>
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
             GRPO takes 3x longer than SFT — reinforcement learning generates K=8 candidates per
-            prompt and scores each one. This is where GPU burst capacity matters. For
-            infrastructure teams: expect sustained GPU utilization during GRPO, not the bursty
-            pattern of SFT.
+            prompt and scores each one. This is where GPU burst capacity matters. For infrastructure
+            teams: expect sustained GPU utilization during GRPO, not the bursty pattern of SFT.
           </p>
         </section>
 

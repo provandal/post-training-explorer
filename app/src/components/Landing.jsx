@@ -13,7 +13,8 @@ export default function Landing() {
         'Follow the zig-zag path from simple prompting to advanced reinforcement learning. At each stop, try the technique and see what happens under the covers.',
       action: startTour,
       buttonLabel: 'Start Tour',
-      buttonClass: 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40',
+      buttonClass:
+        'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40',
     },
     {
       title: 'Explore Freely',
@@ -29,7 +30,8 @@ export default function Landing() {
         'What we learned building this demo — accuracy numbers, debugging war stories, and a framework for choosing between traditional ML and LLM fine-tuning.',
       action: startResults,
       buttonLabel: 'See Results',
-      buttonClass: 'bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 hover:shadow-purple-500/40',
+      buttonClass:
+        'bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 hover:shadow-purple-500/40',
     },
     {
       title: 'Train Your Model',
@@ -37,7 +39,8 @@ export default function Landing() {
         'Run the notebooks yourself in Google Colab. Train SFT, DPO, and GRPO models on a free GPU, then test your model right here in the browser.',
       action: startTrain,
       buttonLabel: 'Get Started',
-      buttonClass: 'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40',
+      buttonClass:
+        'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-500/40',
     },
   ]
 
@@ -49,9 +52,8 @@ export default function Landing() {
           Post-Training Explorer
         </h1>
         <p className="text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
-          An interactive guide to the techniques that turn a general-purpose
-          language model into one that works for{' '}
-          <span className="text-cyan-400 font-semibold">your</span> organization.
+          An interactive guide to the techniques that turn a general-purpose language model into one
+          that works for <span className="text-cyan-400 font-semibold">your</span> organization.
         </p>
       </div>
 
@@ -63,9 +65,7 @@ export default function Landing() {
             className="bg-slate-800/50 border border-slate-700/50 hover:border-blue-600/50 rounded-xl p-6 flex flex-col transition-colors"
           >
             <h2 className="text-xl font-bold text-white mb-3">{card.title}</h2>
-            <p className="text-sm text-slate-400 leading-relaxed flex-1 mb-5">
-              {card.description}
-            </p>
+            <p className="text-sm text-slate-400 leading-relaxed flex-1 mb-5">{card.description}</p>
             <button
               onClick={card.action}
               className={`w-full py-3 text-white rounded-lg font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] ${card.buttonClass}`}

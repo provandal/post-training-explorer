@@ -1,6 +1,7 @@
 import ModelOutput from '../components/ModelOutput'
 
-const EXAMPLE_INPUT = "IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64"
+const EXAMPLE_INPUT =
+  'IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64'
 
 const RAG_VERBOSE_RESPONSE = `Based on the retrieved reference patterns, this I/O profile presents an interesting case. The retrieved documents show two potential matches:
 
@@ -25,10 +26,10 @@ export default function RAGLimitation() {
           RAG gave the model knowledge. It didn't give it discipline.
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          In the previous stop, RAG worked beautifully &mdash; the model pulled the right
-          reference pattern and classified correctly. But that was a clear-cut case. Now
-          we give it the same ambiguous I/O pattern that tripped up few-shot prompting
-          and see whether having a knowledge base is enough.
+          In the previous stop, RAG worked beautifully &mdash; the model pulled the right reference
+          pattern and classified correctly. But that was a clear-cut case. Now we give it the same
+          ambiguous I/O pattern that tripped up few-shot prompting and see whether having a
+          knowledge base is enough.
         </p>
         <p className="text-sm text-slate-400 leading-relaxed">
           Spoiler: the model gets the right answer this time. The problem is <em>how</em> it
@@ -66,10 +67,12 @@ export default function RAGLimitation() {
       {/* The problems */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="p-4 rounded-lg bg-yellow-950/20 border border-yellow-800/30">
-          <h4 className="text-sm font-semibold text-yellow-400 mb-2">Right Answer, Wrong Delivery</h4>
+          <h4 className="text-sm font-semibold text-yellow-400 mb-2">
+            Right Answer, Wrong Delivery
+          </h4>
           <p className="text-xs text-slate-400">
-            The model eventually gets to VDI, but buried it in 6 paragraphs of hedging.
-            Your ops team doesn't have time to read a dissertation on every classification.
+            The model eventually gets to VDI, but buried it in 6 paragraphs of hedging. Your ops
+            team doesn't have time to read a dissertation on every classification.
           </p>
         </div>
         <div className="p-4 rounded-lg bg-yellow-950/20 border border-yellow-800/30">
@@ -85,11 +88,11 @@ export default function RAGLimitation() {
       {/* Transition to post-training */}
       <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-yellow-950/30 to-slate-800 border border-slate-600/30">
         <p className="text-sm text-slate-300">
-          <span className="font-semibold text-yellow-400">The ceiling of RAG:</span>{' '}
-          RAG changes what the model <em>sees</em>. But to change how the model <em>behaves</em>
-          — its format, confidence, style — you need to change the model itself.
-          That's what <span className="text-slate-100 font-semibold">Post Training</span> does.
-          We're crossing from the left side of the map to the right.
+          <span className="font-semibold text-yellow-400">The ceiling of RAG:</span> RAG changes
+          what the model <em>sees</em>. But to change how the model <em>behaves</em>— its format,
+          confidence, style — you need to change the model itself. That's what{' '}
+          <span className="text-slate-100 font-semibold">Post Training</span> does. We're crossing
+          from the left side of the map to the right.
         </p>
       </div>
     </div>

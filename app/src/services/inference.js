@@ -4,17 +4,16 @@
 
 const MODEL_CONFIGS = {
   base: {
-    id: 'YOUR_HF_USERNAME/smollm2-360m-storage-io-base-onnx',  // Update after running convert_to_onnx.py
+    id: 'YOUR_HF_USERNAME/smollm2-360m-storage-io-base-onnx', // Update after running convert_to_onnx.py
     label: 'Base Model (untrained)',
   },
   grpo: {
-    id: 'YOUR_HF_USERNAME/smollm2-360m-storage-io-grpo-onnx',  // Update after running convert_to_onnx.py
+    id: 'YOUR_HF_USERNAME/smollm2-360m-storage-io-grpo-onnx', // Update after running convert_to_onnx.py
     label: 'GRPO Fine-tuned',
   },
 }
 
 let loadedModels = {}
-let loadedTokenizers = {}
 
 export async function loadModel(variant, onProgress = () => {}) {
   // Check if already loaded
@@ -37,7 +36,7 @@ export async function loadModel(variant, onProgress = () => {}) {
     if (config.id.includes('YOUR_HF_USERNAME')) {
       throw new Error(
         'SETUP_NEEDED: Model not yet published to HuggingFace Hub. ' +
-        'Run the training pipeline in Colab, then update the model IDs in app/src/services/inference.js.'
+          'Run the training pipeline in Colab, then update the model IDs in app/src/services/inference.js.',
       )
     }
 
@@ -49,7 +48,7 @@ export async function loadModel(variant, onProgress = () => {}) {
           onProgress({ status: 'downloading', variant, progress: data.progress || 0 })
         }
       },
-      dtype: 'q4',  // INT4 quantization
+      dtype: 'q4', // INT4 quantization
     })
 
     loadedModels[variant] = generator

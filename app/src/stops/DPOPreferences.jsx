@@ -4,14 +4,15 @@ import useStore from '../store'
 import ModelOutput from '../components/ModelOutput'
 import InfrastructureCard from '../components/InfrastructureCard'
 import SectionTabs from '../components/SectionTabs'
-import { isLoaded, getDPOProbabilityShifts, getDPOLossCurve, getTestPrompts, getModelOutput, getTokenProbsForChart, formatPromptMetrics, getTrainingTime } from '../data/loadArtifacts'
+import { isLoaded, getDPOProbabilityShifts, getTrainingTime } from '../data/loadArtifacts'
 
 // ---------------------------------------------------------------------------
 // Precomputed data: Preference pairs (interactive demo)
 // ---------------------------------------------------------------------------
 const PREFERENCE_PAIRS = [
   {
-    input: "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32",
+    input:
+      'IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32',
     responseA: `Classification: OLTP Database
 Confidence: High
 Key indicators: High IOPS (45K) with very low latency (0.3ms) and small block size (8K) are hallmarks of transaction processing. Random-dominant access (85%) with moderate read bias confirms OLTP pattern.`,
@@ -22,7 +23,8 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
     whyBWorse: 'Correct answer but verbose, hedging, mentions alternatives unnecessarily',
   },
   {
-    input: "IOPS: 2500 | Latency: 18ms | Block Size: 512K | Read/Write: 5/95 | Sequential: 93% | Queue Depth: 2",
+    input:
+      'IOPS: 2500 | Latency: 18ms | Block Size: 512K | Read/Write: 5/95 | Sequential: 93% | Queue Depth: 2',
     responseA: `Classification: Backup Archive
 Confidence: High
 Key indicators: Very large sequential writes (512K blocks, 93% sequential) with heavy write bias (5/95) and low queue depth (2) indicate batch backup or archive operations. High latency tolerance (18ms) is consistent with background archival processes.`,
@@ -33,7 +35,8 @@ The storage metrics indicate this is a backup or archive workload.`,
     whyBWorse: 'Too terse — correct but provides no actionable information',
   },
   {
-    input: "IOPS: 22000 | Latency: 1.2ms | Block Size: 256K | Read/Write: 96/4 | Sequential: 88% | Queue Depth: 64",
+    input:
+      'IOPS: 22000 | Latency: 1.2ms | Block Size: 256K | Read/Write: 96/4 | Sequential: 88% | Queue Depth: 64',
     responseA: `Classification: AI ML Training
 Confidence: High
 Key indicators: Large sequential reads (256K, 88% sequential) with extreme read bias (96/4) and high queue depth (64) indicate data pipeline feeding GPU training. Moderate IOPS with high throughput profile is characteristic of deep learning data loaders.`,
@@ -51,9 +54,10 @@ Note: Could be confused with Video Streaming, but IOPS (22K) and queue depth are
 // Precomputed data: Probability shift (Under the Covers)
 // ---------------------------------------------------------------------------
 const FALLBACK_PROB_SHIFT = {
-  example: "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32",
-  chosen: "Concise, confident, structured",
-  rejected: "Verbose, hedging, uncertain",
+  example:
+    'IOPS: 45000 | Latency: 0.3ms | Block Size: 8K | Read/Write: 70/30 | Sequential: 15% | Queue Depth: 32',
+  chosen: 'Concise, confident, structured',
+  rejected: 'Verbose, hedging, uncertain',
   before: { chosenLogProb: -2.1, rejectedLogProb: -1.8 },
   after: { chosenLogProb: -0.9, rejectedLogProb: -3.2 },
 }
@@ -67,15 +71,15 @@ const DPO_INFRA = {
   checkpointSizeMB: 1.7,
   peakGPUUtilization: 82,
   modelsInMemory: 1,
-  storageIOPattern: "Similar to SFT \u2014 reads preference pairs, writes checkpoints periodically",
-  note: "DPO needs reference model logits, but these can be precomputed. Effective memory is ~1.2x SFT.",
+  storageIOPattern: 'Similar to SFT \u2014 reads preference pairs, writes checkpoints periodically',
+  note: 'DPO needs reference model logits, but these can be precomputed. Effective memory is ~1.2x SFT.',
   vsRLHF: {
     rlhfGPUMemoryGB: 12.8,
     rlhfTrainingTimeMinutes: 45,
     rlhfModelsInMemory: 3,
     dpoModelsInMemory: 1,
-    note: "DPO achieves similar alignment with ~60% less compute by skipping the reward model entirely."
-  }
+    note: 'DPO achieves similar alignment with ~60% less compute by skipping the reward model entirely.',
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +91,7 @@ function ProbabilityShiftChart() {
   // Resolve real vs fallback data
   const realShifts = isLoaded() ? getDPOProbabilityShifts() : null
   const realExample = realShifts?.examples?.[0] ?? null
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const probData = realExample
     ? { before: realExample.before, after: realExample.after }
     : { before: FALLBACK_PROB_SHIFT.before, after: FALLBACK_PROB_SHIFT.after }
@@ -112,21 +117,38 @@ function ProbabilityShiftChart() {
     const x = d3.scaleBand().domain(categories).range([0, w]).padding(0.4)
     const y = d3.scaleLinear().domain([-4, 0]).range([h, 0])
 
-    svg.append('text').attr('x', width / 2).attr('y', 16)
-      .attr('text-anchor', 'middle').attr('fill', '#94a3b8')
-      .attr('font-size', '11').attr('font-weight', '600')
+    svg
+      .append('text')
+      .attr('x', width / 2)
+      .attr('y', 16)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#94a3b8')
+      .attr('font-size', '11')
+      .attr('font-weight', '600')
       .text('Log Probability Shift: Before vs After DPO')
 
-    g.selectAll('.grid').data(y.ticks(4)).join('line')
-      .attr('x1', 0).attr('x2', w)
-      .attr('y1', d => y(d)).attr('y2', d => y(d))
-      .attr('stroke', '#1e293b').attr('stroke-dasharray', '2,2')
+    g.selectAll('.grid')
+      .data(y.ticks(4))
+      .join('line')
+      .attr('x1', 0)
+      .attr('x2', w)
+      .attr('y1', (d) => y(d))
+      .attr('y2', (d) => y(d))
+      .attr('stroke', '#1e293b')
+      .attr('stroke-dasharray', '2,2')
 
-    g.append('g').call(d3.axisLeft(y).ticks(4))
-      .selectAll('text').attr('fill', '#64748b').attr('font-size', '9')
-    g.append('text').attr('transform', 'rotate(-90)')
-      .attr('x', -h / 2).attr('y', -50)
-      .attr('text-anchor', 'middle').attr('fill', '#64748b').attr('font-size', '9')
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(4))
+      .selectAll('text')
+      .attr('fill', '#64748b')
+      .attr('font-size', '9')
+    g.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -h / 2)
+      .attr('y', -50)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#64748b')
+      .attr('font-size', '9')
       .text('Log Probability (higher = more likely)')
 
     g.selectAll('.domain').attr('stroke', '#334155')
@@ -136,53 +158,63 @@ function ProbabilityShiftChart() {
     g.selectAll('.before')
       .data(categories)
       .join('rect')
-      .attr('x', d => x(d))
+      .attr('x', (d) => x(d))
       .attr('y', h)
       .attr('width', barWidth)
       .attr('height', 0)
       .attr('fill', '#ef4444')
       .attr('opacity', 0.6)
       .attr('rx', 3)
-      .transition().duration(700)
+      .transition()
+      .duration(700)
       .attr('y', (d, i) => y(beforeData[i]))
       .attr('height', (d, i) => h - y(beforeData[i]))
 
     g.selectAll('.after')
       .data(categories)
       .join('rect')
-      .attr('x', d => x(d) + barWidth + 6)
+      .attr('x', (d) => x(d) + barWidth + 6)
       .attr('y', h)
       .attr('width', barWidth)
       .attr('height', 0)
-      .attr('fill', (d, i) => i === 0 ? '#22c55e' : '#f97316')
+      .attr('fill', (d, i) => (i === 0 ? '#22c55e' : '#f97316'))
       .attr('opacity', 0.8)
       .attr('rx', 3)
-      .transition().duration(700).delay(400)
+      .transition()
+      .duration(700)
+      .delay(400)
       .attr('y', (d, i) => y(afterData[i]))
       .attr('height', (d, i) => h - y(afterData[i]))
 
     g.selectAll('.label-before')
       .data(categories)
       .join('text')
-      .attr('x', d => x(d) + barWidth / 2)
+      .attr('x', (d) => x(d) + barWidth / 2)
       .attr('y', (d, i) => y(beforeData[i]) - 5)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#ef4444').attr('font-size', '10').attr('font-weight', '600')
+      .attr('fill', '#ef4444')
+      .attr('font-size', '10')
+      .attr('font-weight', '600')
       .text((d, i) => beforeData[i].toFixed(1))
       .attr('opacity', 0)
-      .transition().delay(700).attr('opacity', 1)
+      .transition()
+      .delay(700)
+      .attr('opacity', 1)
 
     g.selectAll('.label-after')
       .data(categories)
       .join('text')
-      .attr('x', d => x(d) + barWidth + 6 + barWidth / 2)
+      .attr('x', (d) => x(d) + barWidth + 6 + barWidth / 2)
       .attr('y', (d, i) => y(afterData[i]) - 5)
       .attr('text-anchor', 'middle')
-      .attr('fill', (d, i) => i === 0 ? '#22c55e' : '#f97316')
-      .attr('font-size', '10').attr('font-weight', '600')
+      .attr('fill', (d, i) => (i === 0 ? '#22c55e' : '#f97316'))
+      .attr('font-size', '10')
+      .attr('font-weight', '600')
       .text((d, i) => afterData[i].toFixed(1))
       .attr('opacity', 0)
-      .transition().delay(1100).attr('opacity', 1)
+      .transition()
+      .delay(1100)
+      .attr('opacity', 1)
 
     categories.forEach((cat) => {
       cat.split('\n').forEach((line, j) => {
@@ -190,16 +222,44 @@ function ProbabilityShiftChart() {
           .attr('x', x(cat) + x.bandwidth() / 2)
           .attr('y', h + 15 + j * 12)
           .attr('text-anchor', 'middle')
-          .attr('fill', '#94a3b8').attr('font-size', '9')
+          .attr('fill', '#94a3b8')
+          .attr('font-size', '9')
           .text(line)
       })
     })
 
-    const legend = svg.append('g').attr('transform', `translate(${margin.left + 10}, ${margin.top - 18})`)
-    legend.append('rect').attr('width', 10).attr('height', 10).attr('fill', '#ef4444').attr('opacity', 0.6).attr('rx', 2)
-    legend.append('text').attr('x', 14).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('Before DPO')
-    legend.append('rect').attr('x', 100).attr('width', 10).attr('height', 10).attr('fill', '#22c55e').attr('opacity', 0.8).attr('rx', 2)
-    legend.append('text').attr('x', 114).attr('y', 9).attr('fill', '#94a3b8').attr('font-size', '9').text('After DPO')
+    const legend = svg
+      .append('g')
+      .attr('transform', `translate(${margin.left + 10}, ${margin.top - 18})`)
+    legend
+      .append('rect')
+      .attr('width', 10)
+      .attr('height', 10)
+      .attr('fill', '#ef4444')
+      .attr('opacity', 0.6)
+      .attr('rx', 2)
+    legend
+      .append('text')
+      .attr('x', 14)
+      .attr('y', 9)
+      .attr('fill', '#94a3b8')
+      .attr('font-size', '9')
+      .text('Before DPO')
+    legend
+      .append('rect')
+      .attr('x', 100)
+      .attr('width', 10)
+      .attr('height', 10)
+      .attr('fill', '#22c55e')
+      .attr('opacity', 0.8)
+      .attr('rx', 2)
+    legend
+      .append('text')
+      .attr('x', 114)
+      .attr('y', 9)
+      .attr('fill', '#94a3b8')
+      .attr('font-size', '9')
+      .text('After DPO')
   }, [probData])
 
   return (
@@ -218,7 +278,7 @@ function ProbabilityShiftChart() {
 // ===========================================================================
 // Main component
 // ===========================================================================
-export default function DPOPreferences({ explore = false }) {
+export default function DPOPreferences() {
   const [section, setSection] = useState('problem')
 
   // --- preference picker state ---
@@ -267,9 +327,9 @@ export default function DPOPreferences({ explore = false }) {
               SFT taught the model WHAT to say. But not HOW to say it.
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
-              After supervised fine-tuning, our SmolLM2-360M model can correctly classify
-              storage I/O patterns. It knows that high IOPS with small blocks and low
-              latency means OLTP. That's the "what." But look at the difference in
+              After supervised fine-tuning, our SmolLM2-360M model can correctly classify storage
+              I/O patterns. It knows that high IOPS with small blocks and low latency means OLTP.
+              That's the "what." But look at the difference in
               <em> how</em> two correct answers can sound:
             </p>
 
@@ -294,21 +354,20 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                 Both answers are correct. So why does it matter?
               </p>
               <p className="text-sm text-slate-400 leading-relaxed mb-3">
-                Imagine it's 3 AM during an incident and your monitoring pipeline surfaces
-                one of these responses. Response A gives you a clear classification, a
-                confidence level, and the reasoning in a scannable format. Response B
-                waffles, hedges, and buries the answer in qualifications. In production,
-                that difference matters.
+                Imagine it's 3 AM during an incident and your monitoring pipeline surfaces one of
+                these responses. Response A gives you a clear classification, a confidence level,
+                and the reasoning in a scannable format. Response B waffles, hedges, and buries the
+                answer in qualifications. In production, that difference matters.
               </p>
               <p className="text-sm text-slate-400 leading-relaxed mb-3">
-                The model defaults to the verbose, hedging style because cautious language
-                was more common in its pretraining data. Phrases like "could potentially
-                be" and "I'm not entirely certain" are safe bets when you've been trained
-                on internet text where hedging is everywhere.
+                The model defaults to the verbose, hedging style because cautious language was more
+                common in its pretraining data. Phrases like "could potentially be" and "I'm not
+                entirely certain" are safe bets when you've been trained on internet text where
+                hedging is everywhere.
               </p>
               <p className="text-sm text-slate-400 leading-relaxed">
-                SFT can't fix this because it only trains on "correct vs. incorrect." It
-                has no mechanism to express <em>"correct AND well-formatted"</em> vs.{' '}
+                SFT can't fix this because it only trains on "correct vs. incorrect." It has no
+                mechanism to express <em>"correct AND well-formatted"</em> vs.{' '}
                 <em>"correct but unhelpful."</em>
               </p>
             </div>
@@ -317,10 +376,10 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* Transition */}
           <div className="p-4 rounded bg-pink-950/20 border border-pink-800/30">
             <p className="text-sm text-pink-300">
-              We need a way to teach the model our <strong>style preferences</strong> —
-              not just what answer to give, but how to give it. That's exactly what{' '}
-              <strong className="text-pink-200">Direct Preference Optimization (DPO)</strong>{' '}
-              does. Head to the next tab to see how it works.
+              We need a way to teach the model our <strong>style preferences</strong> — not just
+              what answer to give, but how to give it. That's exactly what{' '}
+              <strong className="text-pink-200">Direct Preference Optimization (DPO)</strong> does.
+              Head to the next tab to see how it works.
             </p>
           </div>
         </div>
@@ -337,17 +396,16 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               Teaching with comparisons, not examples
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              SFT teaches by showing the model examples: "given this input, produce this
-              output." <strong className="text-pink-300">DPO (Direct Preference
-              Optimization)</strong> teaches a different way — through comparisons. Instead
-              of saying "here's the right answer," you say "this answer is{' '}
-              <em>better than</em> that one."
+              SFT teaches by showing the model examples: "given this input, produce this output."{' '}
+              <strong className="text-pink-300">DPO (Direct Preference Optimization)</strong>{' '}
+              teaches a different way — through comparisons. Instead of saying "here's the right
+              answer," you say "this answer is <em>better than</em> that one."
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Think of it like training a new hire. SFT is handing them a style guide and
-              saying "write reports like this." DPO is showing them two reports side by side
-              and saying "this one is better — do you see why?" Both work, but comparisons
-              teach nuances that are hard to spell out in a single example.
+              Think of it like training a new hire. SFT is handing them a style guide and saying
+              "write reports like this." DPO is showing them two reports side by side and saying
+              "this one is better — do you see why?" Both work, but comparisons teach nuances that
+              are hard to spell out in a single example.
             </p>
           </div>
 
@@ -358,29 +416,29 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               Before DPO, the standard approach to preference learning was{' '}
-              <strong>Reinforcement Learning from Human Feedback (RLHF)</strong>. It works,
-              but it's complicated and expensive:
+              <strong>Reinforcement Learning from Human Feedback (RLHF)</strong>. It works, but it's
+              complicated and expensive:
             </p>
             <ol className="text-sm text-slate-300 space-y-3 list-decimal list-inside mb-4">
               <li>
-                <strong className="text-red-400">Collect preferences.</strong> Show humans
-                two model outputs for the same input. They pick the better one. (This is
-                exactly what you'll do in the "See It Work" tab.)
+                <strong className="text-red-400">Collect preferences.</strong> Show humans two model
+                outputs for the same input. They pick the better one. (This is exactly what you'll
+                do in the "See It Work" tab.)
               </li>
               <li>
-                <strong className="text-red-400">Train a reward model.</strong> A separate
-                neural network learns to predict which response a human would prefer. That's
-                Model #2 in GPU memory.
+                <strong className="text-red-400">Train a reward model.</strong> A separate neural
+                network learns to predict which response a human would prefer. That's Model #2 in
+                GPU memory.
               </li>
               <li>
-                <strong className="text-red-400">Optimize with PPO.</strong> Use Proximal
-                Policy Optimization (a reinforcement learning algorithm) to maximize the
-                reward model's score. This requires a value network too — Model #3 in memory.
+                <strong className="text-red-400">Optimize with PPO.</strong> Use Proximal Policy
+                Optimization (a reinforcement learning algorithm) to maximize the reward model's
+                score. This requires a value network too — Model #3 in memory.
               </li>
             </ol>
             <p className="text-sm text-slate-400 italic">
-              Three models running simultaneously. Unstable training dynamics. 45 minutes for
-              our small 360M model. It works, but the engineering cost is steep.
+              Three models running simultaneously. Unstable training dynamics. 45 minutes for our
+              small 360M model. It works, but the engineering cost is steep.
             </p>
           </div>
 
@@ -391,9 +449,9 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               In 2023, Rafailov et al. published a key insight: there is a{' '}
-              <strong>closed-form solution</strong> that maps directly from preference data
-              to the optimal policy. You don't need to train a reward model first and then
-              do RL against it. You can collapse those two steps into a single training loss.
+              <strong>closed-form solution</strong> that maps directly from preference data to the
+              optimal policy. You don't need to train a reward model first and then do RL against
+              it. You can collapse those two steps into a single training loss.
             </p>
 
             {/* RLHF vs DPO comparison */}
@@ -417,7 +475,12 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                   <p className="text-slate-600 line-through">3. No value network needed</p>
                 </div>
                 <p className="text-xs text-green-300 mt-3 font-semibold">
-                  5.1 GB GPU memory. {(() => { const t = getTrainingTime('dpo'); return t ? `${Math.round(t / 60)} min` : '8 min' })()} training. Stable.
+                  5.1 GB GPU memory.{' '}
+                  {(() => {
+                    const t = getTrainingTime('dpo')
+                    return t ? `${Math.round(t / 60)} min` : '8 min'
+                  })()}{' '}
+                  training. Stable.
                 </p>
               </div>
             </div>
@@ -425,11 +488,10 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             {/* Analogy */}
             <div className="p-4 rounded bg-slate-800 border border-slate-700/50 mb-5">
               <p className="text-sm text-slate-300 leading-relaxed">
-                <strong className="text-pink-300">Analogy:</strong> RLHF is like hiring a
-                quality inspector (the reward model) to check every report your employee
-                writes, then giving the employee feedback based on the inspector's scores.
-                DPO is like the employee learning directly from your feedback — no
-                middleman. Same outcome, less overhead.
+                <strong className="text-pink-300">Analogy:</strong> RLHF is like hiring a quality
+                inspector (the reward model) to check every report your employee writes, then giving
+                the employee feedback based on the inspector's scores. DPO is like the employee
+                learning directly from your feedback — no middleman. Same outcome, less overhead.
               </p>
             </div>
 
@@ -443,18 +505,17 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               </p>
               <div className="text-sm text-slate-400 space-y-2 leading-relaxed">
                 <p>
-                  <strong className="text-slate-300">In plain English:</strong> For each
-                  preference pair, compare how likely the model thinks the chosen response is
-                  vs. the rejected one. If the model already agrees with the human preference,
-                  the loss is low. If it disagrees, the loss is high and the gradient pushes
-                  the model to increase the probability of the chosen response and decrease
-                  the rejected one.
+                  <strong className="text-slate-300">In plain English:</strong> For each preference
+                  pair, compare how likely the model thinks the chosen response is vs. the rejected
+                  one. If the model already agrees with the human preference, the loss is low. If it
+                  disagrees, the loss is high and the gradient pushes the model to increase the
+                  probability of the chosen response and decrease the rejected one.
                 </p>
                 <p>
                   <strong className="text-pink-300">beta</strong> controls how aggressively
-                  preferences are enforced. A high beta means "stick closely to the reference
-                  model, just nudge preferences." A low beta means "reshape outputs
-                  dramatically." We used beta = 0.1 for our training run.
+                  preferences are enforced. A high beta means "stick closely to the reference model,
+                  just nudge preferences." A low beta means "reshape outputs dramatically." We used
+                  beta = 0.1 for our training run.
                 </p>
               </div>
             </div>
@@ -462,10 +523,14 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             {/* Key insight */}
             <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-800/30">
               <p className="text-sm text-blue-300 leading-relaxed">
-                <strong>Key insight:</strong> DPO doesn't need a separate reward model. It
-                learns preferences directly from chosen/rejected pairs — same result as RLHF
-                with 60% less compute. For our demo: 400 preference pairs, 0.12% of
-                parameters trained via LoRA, {(() => { const t = getTrainingTime('dpo'); return t ? `${Math.round(t / 60)} minutes` : '8 minutes' })()} of training on a single GPU.
+                <strong>Key insight:</strong> DPO doesn't need a separate reward model. It learns
+                preferences directly from chosen/rejected pairs — same result as RLHF with 60% less
+                compute. For our demo: 400 preference pairs, 0.12% of parameters trained via LoRA,{' '}
+                {(() => {
+                  const t = getTrainingTime('dpo')
+                  return t ? `${Math.round(t / 60)} minutes` : '8 minutes'
+                })()}{' '}
+                of training on a single GPU.
               </p>
             </div>
           </div>
@@ -479,12 +544,12 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
         <div className="space-y-4">
           <div className="p-4 rounded-lg bg-slate-800/40 border border-slate-700/50 mb-2">
             <p className="text-sm text-slate-300 leading-relaxed">
-              You're about to do exactly what DPO training data looks like: comparing two
-              model outputs and choosing the one you prefer. We have{' '}
-              <strong className="text-pink-400">3 preference pairs</strong> below. Both
-              responses in each pair are <em>correct</em> classifications — the
-              difference is in style, confidence, and helpfulness. Click the one you'd
-              rather see in a production monitoring system.
+              You're about to do exactly what DPO training data looks like: comparing two model
+              outputs and choosing the one you prefer. We have{' '}
+              <strong className="text-pink-400">3 preference pairs</strong> below. Both responses in
+              each pair are <em>correct</em> classifications — the difference is in style,
+              confidence, and helpfulness. Click the one you'd rather see in a production monitoring
+              system.
             </p>
           </div>
 
@@ -494,13 +559,17 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             {PREFERENCE_PAIRS.map((_, i) => (
               <button
                 key={i}
-                onClick={() => { setCurrentPair(i); setUserChoice(null); setShowReveal(false) }}
+                onClick={() => {
+                  setCurrentPair(i)
+                  setUserChoice(null)
+                  setShowReveal(false)
+                }}
                 className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${
                   i === currentPair
                     ? 'bg-pink-600 text-white'
                     : i < currentPair
-                    ? 'bg-pink-900/50 text-pink-400'
-                    : 'bg-slate-700 text-slate-500'
+                      ? 'bg-pink-900/50 text-pink-400'
+                      : 'bg-slate-700 text-slate-500'
                 }`}
               >
                 {i + 1}
@@ -525,25 +594,37 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             <div
               onClick={() => !userChoice && handleChoice('A')}
               className={`cursor-pointer transition-all ${!userChoice ? 'hover:scale-[1.01]' : ''} ${
-                userChoice === 'A' ? 'ring-2 ring-green-500' : userChoice === 'B' ? 'opacity-50' : ''
+                userChoice === 'A'
+                  ? 'ring-2 ring-green-500'
+                  : userChoice === 'B'
+                    ? 'opacity-50'
+                    : ''
               }`}
             >
               <ModelOutput
                 label="Response A"
                 text={pair.responseA}
-                variant={userChoice === 'A' ? 'chosen' : userChoice === 'B' ? 'rejected' : 'default'}
+                variant={
+                  userChoice === 'A' ? 'chosen' : userChoice === 'B' ? 'rejected' : 'default'
+                }
               />
             </div>
             <div
               onClick={() => !userChoice && handleChoice('B')}
               className={`cursor-pointer transition-all ${!userChoice ? 'hover:scale-[1.01]' : ''} ${
-                userChoice === 'B' ? 'ring-2 ring-green-500' : userChoice === 'A' ? 'opacity-50' : ''
+                userChoice === 'B'
+                  ? 'ring-2 ring-green-500'
+                  : userChoice === 'A'
+                    ? 'opacity-50'
+                    : ''
               }`}
             >
               <ModelOutput
                 label="Response B"
                 text={pair.responseB}
-                variant={userChoice === 'B' ? 'chosen' : userChoice === 'A' ? 'rejected' : 'default'}
+                variant={
+                  userChoice === 'B' ? 'chosen' : userChoice === 'A' ? 'rejected' : 'default'
+                }
               />
             </div>
           </div>
@@ -552,13 +633,14 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {showReveal && (
             <div className="mt-4 p-4 rounded-lg bg-pink-950/20 border border-pink-800/30">
               <p className="text-sm text-slate-300 mb-2">
-                <span className="font-semibold text-pink-400">You picked Response {userChoice}.</span>{' '}
+                <span className="font-semibold text-pink-400">
+                  You picked Response {userChoice}.
+                </span>{' '}
                 {userChoice === pair.betterIs
                   ? "That matches the training data's preference."
                   : pair.betterIs
-                  ? `Interesting! The training data preferred Response ${pair.betterIs}, but preferences are subjective \u2014 that's the whole point.`
-                  : "This one is genuinely ambiguous \u2014 reasonable people disagree, and that's informative too."
-                }
+                    ? `Interesting! The training data preferred Response ${pair.betterIs}, but preferences are subjective \u2014 that's the whole point.`
+                    : "This one is genuinely ambiguous \u2014 reasonable people disagree, and that's informative too."}
               </p>
               {pair.whyABetter && (
                 <p className="text-xs text-slate-400">
@@ -572,12 +654,16 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               )}
 
               <p className="text-xs text-slate-500 mt-3 italic">
-                You just did exactly what DPO training data looks like: comparing two outputs and saying
-                which is better. 400 pairs like this is all it takes to reshape the model's style.
+                You just did exactly what DPO training data looks like: comparing two outputs and
+                saying which is better. 400 pairs like this is all it takes to reshape the model's
+                style.
               </p>
 
               {currentPair < PREFERENCE_PAIRS.length - 1 && (
-                <button onClick={nextPair} className="mt-3 px-4 py-1.5 text-sm bg-pink-700 hover:bg-pink-600 rounded-md transition-colors">
+                <button
+                  onClick={nextPair}
+                  className="mt-3 px-4 py-1.5 text-sm bg-pink-700 hover:bg-pink-600 rounded-md transition-colors"
+                >
                   Next pair &rarr;
                 </button>
               )}
@@ -604,10 +690,10 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               How DPO reshapes the model's probabilities
             </h3>
             <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-              The chart below shows log probabilities for two response styles — concise
-              (chosen) and verbose (rejected) — before and after DPO training. Log
-              probabilities are negative numbers where <strong className="text-slate-200">
-              higher (closer to 0) means more likely</strong>.
+              The chart below shows log probabilities for two response styles — concise (chosen) and
+              verbose (rejected) — before and after DPO training. Log probabilities are negative
+              numbers where{' '}
+              <strong className="text-slate-200">higher (closer to 0) means more likely</strong>.
             </p>
 
             <ProbabilityShiftChart />
@@ -616,28 +702,28 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">1.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <strong className="text-red-400">Before DPO</strong>, the model actually
-                  slightly preferred the verbose response (log prob -1.8 vs. -2.1 for
-                  concise). Hedging language was more common in its training data, so the
-                  model defaulted to "cautious" phrasing.
+                  <strong className="text-red-400">Before DPO</strong>, the model actually slightly
+                  preferred the verbose response (log prob -1.8 vs. -2.1 for concise). Hedging
+                  language was more common in its training data, so the model defaulted to
+                  "cautious" phrasing.
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">2.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <strong className="text-green-400">After DPO</strong>, the concise response
-                  jumped to -0.9 (strongly preferred) while the verbose response dropped to
-                  -3.2 (strongly suppressed). That's a complete reversal — the model now
-                  generates the concise style by default.
+                  <strong className="text-green-400">After DPO</strong>, the concise response jumped
+                  to -0.9 (strongly preferred) while the verbose response dropped to -3.2 (strongly
+                  suppressed). That's a complete reversal — the model now generates the concise
+                  style by default.
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">3.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   <strong className="text-slate-200">The gap matters.</strong> Before DPO the
-                  difference was only 0.3 (almost a coin flip). After DPO it's 2.3 — the
-                  model is now highly confident about which style to use. Your 400 preference
-                  pairs literally reshaped the model's writing style.
+                  difference was only 0.3 (almost a coin flip). After DPO it's 2.3 — the model is
+                  now highly confident about which style to use. Your 400 preference pairs literally
+                  reshaped the model's writing style.
                 </p>
               </div>
             </div>
@@ -652,9 +738,9 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               Loss = -log(sigmoid(beta * (log_prob_chosen - log_prob_rejected)))
             </p>
             <p className="text-xs text-slate-500">
-              Increase log probability of the chosen response, decrease the rejected.
-              No intermediate reward model needed. Beta (0.1 in our run) controls how
-              aggressively preferences are enforced.
+              Increase log probability of the chosen response, decrease the rejected. No
+              intermediate reward model needed. Beta (0.1 in our run) controls how aggressively
+              preferences are enforced.
             </p>
           </div>
 
@@ -664,9 +750,13 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               <h4 className="text-sm font-semibold text-red-400 mb-2">RLHF (the old way)</h4>
               <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
                 <li>Collect human preferences</li>
-                <li>Train a separate <strong>reward model</strong> on those preferences</li>
+                <li>
+                  Train a separate <strong>reward model</strong> on those preferences
+                </li>
                 <li>Use PPO to optimize the policy against the reward model</li>
-                <li>Need a <strong>value network</strong> for PPO baseline</li>
+                <li>
+                  Need a <strong>value network</strong> for PPO baseline
+                </li>
               </ol>
               <p className="text-xs text-red-300 mt-2 font-semibold">
                 3 models in memory simultaneously. 45 minutes training.
@@ -681,16 +771,19 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                 <li>Math proves this is equivalent to implicit reward modeling</li>
               </ol>
               <p className="text-xs text-green-300 mt-2 font-semibold">
-                1 model in memory. {(() => { const t = getTrainingTime('dpo'); return t ? `${Math.round(t / 60)} minutes` : '8 minutes' })()} training. Same result.
+                1 model in memory.{' '}
+                {(() => {
+                  const t = getTrainingTime('dpo')
+                  return t ? `${Math.round(t / 60)} minutes` : '8 minutes'
+                })()}{' '}
+                training. Same result.
               </p>
             </div>
           </div>
 
           {/* Infrastructure card - always visible */}
           <div>
-            <h3 className="text-base font-semibold text-pink-400 mb-3">
-              Infrastructure profile
-            </h3>
+            <h3 className="text-base font-semibold text-pink-400 mb-3">Infrastructure profile</h3>
             <InfrastructureCard data={DPO_INFRA} />
           </div>
         </div>

@@ -95,7 +95,13 @@ export default function ExploreView() {
           <div className="flex items-center gap-2">
             {tourReturnStep !== null && (
               <button
-                onClick={() => useStore.setState({ mode: 'tour', currentStep: tourReturnStep, tourReturnStep: null })}
+                onClick={() =>
+                  useStore.setState({
+                    mode: 'tour',
+                    currentStep: tourReturnStep,
+                    tourReturnStep: null,
+                  })
+                }
                 className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded border border-blue-700/50 hover:border-blue-500 transition-colors"
               >
                 &larr; Return to Tour
@@ -118,7 +124,8 @@ export default function ExploreView() {
             <p className="text-xs text-slate-500 mb-2">Topics</p>
             <div className="flex flex-wrap gap-2">
               {subStops.map((sub) => {
-                const isActive = activeSubStop === sub.key || (!activeSubStop && sub === subStops[0])
+                const isActive =
+                  activeSubStop === sub.key || (!activeSubStop && sub === subStops[0])
                 return (
                   <button
                     key={sub.key}

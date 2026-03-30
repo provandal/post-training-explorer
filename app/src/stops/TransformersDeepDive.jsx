@@ -13,29 +13,26 @@ export default function TransformersDeepDive() {
           Transformers and Attention: The Architecture Behind LLMs
         </h2>
         <p className="text-sm text-slate-400 mt-2">
-          Every large language model &mdash; GPT, Claude, Llama, SmolLM2 &mdash; is built
-          on the same core architecture: the <strong className="text-violet-300">Transformer</strong>.
-          Understanding how it works explains why techniques like LoRA and fine-tuning are
-          possible at all.
+          Every large language model &mdash; GPT, Claude, Llama, SmolLM2 &mdash; is built on the
+          same core architecture: the <strong className="text-violet-300">Transformer</strong>.
+          Understanding how it works explains why techniques like LoRA and fine-tuning are possible
+          at all.
         </p>
       </div>
 
       {/* The big picture */}
       <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
-        <h3 className="text-base font-semibold text-violet-400 mb-3">
-          What is a Transformer?
-        </h3>
+        <h3 className="text-base font-semibold text-violet-400 mb-3">What is a Transformer?</h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          A Transformer is a neural network architecture designed to process sequences of
-          tokens (words, subwords, or characters). It was introduced in 2017 in the paper
-          "Attention Is All You Need" and has since become the foundation of virtually all
-          modern language models.
+          A Transformer is a neural network architecture designed to process sequences of tokens
+          (words, subwords, or characters). It was introduced in 2017 in the paper "Attention Is All
+          You Need" and has since become the foundation of virtually all modern language models.
         </p>
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          The key innovation: instead of processing tokens one at a time (like older RNNs),
-          a Transformer processes all tokens <em>in parallel</em> and uses a mechanism
-          called <strong className="text-violet-300">attention</strong> to figure out which
-          tokens are relevant to each other.
+          The key innovation: instead of processing tokens one at a time (like older RNNs), a
+          Transformer processes all tokens <em>in parallel</em> and uses a mechanism called{' '}
+          <strong className="text-violet-300">attention</strong> to figure out which tokens are
+          relevant to each other.
         </p>
 
         {/* Architecture diagram */}
@@ -62,12 +59,18 @@ export default function TransformersDeepDive() {
             </div>
             <div className="flex items-center gap-3">
               <span className="w-24 text-right text-slate-500">&darr;</span>
-              <span className="text-slate-600">+ positional encoding (where each token is in the sequence)</span>
+              <span className="text-slate-600">
+                + positional encoding (where each token is in the sequence)
+              </span>
             </div>
 
             {/* Transformer layers block */}
             <div className="flex items-stretch gap-3">
-              <span className="w-24 text-right text-violet-400 pt-2">Layers<br/>(&times;32)</span>
+              <span className="w-24 text-right text-violet-400 pt-2">
+                Layers
+                <br />
+                (&times;32)
+              </span>
               <div className="flex-1 p-3 rounded bg-violet-950/20 border-2 border-violet-800/40 space-y-2">
                 <div className="p-2 rounded bg-violet-900/30 border border-violet-700/30 text-violet-300">
                   Self-Attention &mdash; "which other tokens should I pay attention to?"
@@ -104,8 +107,8 @@ export default function TransformersDeepDive() {
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
           Attention is the mechanism that lets each token "look at" every other token in the
-          sequence and decide how much to weight each one. This is how the model connects
-          "IOPS: 45000" with "OLTP Database" even when they're far apart in the text.
+          sequence and decide how much to weight each one. This is how the model connects "IOPS:
+          45000" with "OLTP Database" even when they're far apart in the text.
         </p>
 
         <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/30 mb-4">
@@ -118,10 +121,13 @@ export default function TransformersDeepDive() {
               <div>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   <strong className="text-violet-300">Query, Key, Value.</strong> Each token is
-                  projected into three vectors: a <em>query</em> ("what am I looking for?"),
-                  a <em>key</em> ("what do I contain?"), and a <em>value</em> ("what information
+                  projected into three vectors: a <em>query</em> ("what am I looking for?"), a{' '}
+                  <em>key</em> ("what do I contain?"), and a <em>value</em> ("what information
                   should I contribute?"). These projections are learned matrices &mdash;
-                  <strong className="text-violet-300"> this is where LoRA inserts its adapters.</strong>
+                  <strong className="text-violet-300">
+                    {' '}
+                    this is where LoRA inserts its adapters.
+                  </strong>
                 </p>
               </div>
             </div>
@@ -130,9 +136,9 @@ export default function TransformersDeepDive() {
               <div>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   <strong className="text-violet-300">Attention scores.</strong> The model computes
-                  dot products between each token's query and every other token's key. High score
-                  = "these tokens are relevant to each other." The scores are normalized with
-                  softmax so they sum to 1.
+                  dot products between each token's query and every other token's key. High score =
+                  "these tokens are relevant to each other." The scores are normalized with softmax
+                  so they sum to 1.
                 </p>
               </div>
             </div>
@@ -156,8 +162,8 @@ export default function TransformersDeepDive() {
             Example: What attention looks like for I/O classification
           </p>
           <p className="text-xs text-slate-300 leading-relaxed mb-3">
-            When the model processes "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K" and
-            needs to generate "Classification:", attention helps it connect:
+            When the model processes "IOPS: 45000 | Latency: 0.3ms | Block Size: 8K" and needs to
+            generate "Classification:", attention helps it connect:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
             <div className="p-2 rounded bg-slate-800/50 border border-slate-700/30">
@@ -189,19 +195,22 @@ export default function TransformersDeepDive() {
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
           A single attention mechanism can only capture one type of relationship at a time.
-          SmolLM2-360M uses <strong className="text-violet-300">15 attention heads per
-          layer</strong>, each learning to focus on different patterns:
+          SmolLM2-360M uses{' '}
+          <strong className="text-violet-300">15 attention heads per layer</strong>, each learning
+          to focus on different patterns:
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
             <h4 className="text-xs font-semibold text-violet-300 mb-1">Head A: Syntax</h4>
             <p className="text-xs text-slate-400">
-              Might learn to connect "Classification:" with the format that follows &mdash;
-              ensuring the output follows a structured pattern.
+              Might learn to connect "Classification:" with the format that follows &mdash; ensuring
+              the output follows a structured pattern.
             </p>
           </div>
           <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
-            <h4 className="text-xs font-semibold text-violet-300 mb-1">Head B: Numeric reasoning</h4>
+            <h4 className="text-xs font-semibold text-violet-300 mb-1">
+              Head B: Numeric reasoning
+            </h4>
             <p className="text-xs text-slate-400">
               Might focus on the relationship between "IOPS: 45000" and "high" &mdash; connecting
               specific numbers to qualitative descriptions.
@@ -216,22 +225,19 @@ export default function TransformersDeepDive() {
           </div>
         </div>
         <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-          The outputs of all 15 heads are concatenated and projected through a final linear
-          layer. Each layer in the model has its own set of 15 heads, for a total of
-          15 &times; 32 = <strong className="text-slate-300">480 attention heads</strong> across
-          the entire model.
+          The outputs of all 15 heads are concatenated and projected through a final linear layer.
+          Each layer in the model has its own set of 15 heads, for a total of 15 &times; 32 ={' '}
+          <strong className="text-slate-300">480 attention heads</strong> across the entire model.
         </p>
       </div>
 
       {/* How layers build on each other */}
       <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
-        <h3 className="text-base font-semibold text-violet-400 mb-3">
-          Layers build on each other
-        </h3>
+        <h3 className="text-base font-semibold text-violet-400 mb-3">Layers build on each other</h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          SmolLM2-360M has 32 layers stacked on top of each other. Each layer takes the
-          output of the previous layer as input. Research has shown that different layers
-          tend to capture different levels of abstraction:
+          SmolLM2-360M has 32 layers stacked on top of each other. Each layer takes the output of
+          the previous layer as input. Research has shown that different layers tend to capture
+          different levels of abstraction:
         </p>
         <div className="space-y-2">
           <div className="flex gap-3 items-center">
@@ -239,7 +245,9 @@ export default function TransformersDeepDive() {
               <span className="text-xs font-mono text-blue-400">Layers 1-8</span>
             </div>
             <div className="flex-1 h-8 rounded bg-blue-950/30 border border-blue-800/30 flex items-center px-3">
-              <span className="text-xs text-blue-300">Surface patterns: token identity, position, basic syntax</span>
+              <span className="text-xs text-blue-300">
+                Surface patterns: token identity, position, basic syntax
+              </span>
             </div>
           </div>
           <div className="flex gap-3 items-center">
@@ -247,7 +255,9 @@ export default function TransformersDeepDive() {
               <span className="text-xs font-mono text-violet-400">Layers 9-20</span>
             </div>
             <div className="flex-1 h-8 rounded bg-violet-950/30 border border-violet-800/30 flex items-center px-3">
-              <span className="text-xs text-violet-300">Semantic meaning: "45000 IOPS is high", number-to-concept mapping</span>
+              <span className="text-xs text-violet-300">
+                Semantic meaning: "45000 IOPS is high", number-to-concept mapping
+              </span>
             </div>
           </div>
           <div className="flex gap-3 items-center">
@@ -255,43 +265,50 @@ export default function TransformersDeepDive() {
               <span className="text-xs font-mono text-green-400">Layers 21-32</span>
             </div>
             <div className="flex-1 h-8 rounded bg-green-950/30 border border-green-800/30 flex items-center px-3">
-              <span className="text-xs text-green-300">Task-level reasoning: combining evidence &rarr; "this is OLTP"</span>
+              <span className="text-xs text-green-300">
+                Task-level reasoning: combining evidence &rarr; "this is OLTP"
+              </span>
             </div>
           </div>
         </div>
         <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-          This is why LoRA can be targeted at specific layers. For a classification task,
-          adapting the later layers (where task-level reasoning happens) often has more
-          impact than adapting the early layers (which handle surface-level patterns that
-          are already well-learned).
+          This is why LoRA can be targeted at specific layers. For a classification task, adapting
+          the later layers (where task-level reasoning happens) often has more impact than adapting
+          the early layers (which handle surface-level patterns that are already well-learned).
         </p>
       </div>
 
       {/* Connection to LoRA */}
       <div className="p-5 rounded-lg bg-gradient-to-r from-violet-950/30 to-blue-950/30 border border-violet-800/30">
-        <h3 className="text-base font-semibold text-violet-400 mb-3">
-          Where LoRA fits in
-        </h3>
+        <h3 className="text-base font-semibold text-violet-400 mb-3">Where LoRA fits in</h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          Now you can see why the LoRA heatmap is labeled "for one attention layer." Each
-          attention head has four weight matrices (Q, K, V, and output projection). LoRA
-          inserts a small trainable adapter alongside these matrices:
+          Now you can see why the LoRA heatmap is labeled "for one attention layer." Each attention
+          head has four weight matrices (Q, K, V, and output projection). LoRA inserts a small
+          trainable adapter alongside these matrices:
         </p>
         <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/30 font-mono text-xs space-y-1">
           <div className="text-slate-500"># Original attention computation:</div>
-          <div className="text-slate-300">output = input &times; W<sub className="text-slate-500">original</sub>
-            <span className="text-slate-600"> (360M params, frozen)</span></div>
+          <div className="text-slate-300">
+            output = input &times; W<sub className="text-slate-500">original</sub>
+            <span className="text-slate-600"> (360M params, frozen)</span>
+          </div>
           <div className="text-slate-500 mt-2"># With LoRA:</div>
-          <div className="text-violet-300">output = input &times; W<sub className="text-slate-500">original</sub> + input &times; A &times; B
-            <span className="text-violet-500"> (432K params, trained)</span></div>
-          <div className="text-slate-500 mt-2"># A is rank&times;hidden, B is hidden&times;rank</div>
-          <div className="text-slate-500"># rank=16 for our training &mdash; hence the 16 rows in the heatmap</div>
+          <div className="text-violet-300">
+            output = input &times; W<sub className="text-slate-500">original</sub> + input &times; A
+            &times; B<span className="text-violet-500"> (432K params, trained)</span>
+          </div>
+          <div className="text-slate-500 mt-2">
+            # A is rank&times;hidden, B is hidden&times;rank
+          </div>
+          <div className="text-slate-500">
+            # rank=16 for our training &mdash; hence the 16 rows in the heatmap
+          </div>
         </div>
         <p className="text-sm text-slate-400 leading-relaxed mt-3">
-          The heatmap you saw on the SFT stop visualizes the product A &times; B for one
-          layer's query projection. The structured patterns in those weights are the model's
-          learned understanding of "how to map I/O metrics to workload categories" &mdash;
-          compressed into a tiny 16-rank adapter matrix.
+          The heatmap you saw on the SFT stop visualizes the product A &times; B for one layer's
+          query projection. The structured patterns in those weights are the model's learned
+          understanding of "how to map I/O metrics to workload categories" &mdash; compressed into a
+          tiny 16-rank adapter matrix.
         </p>
       </div>
 

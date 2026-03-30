@@ -3,12 +3,17 @@ import ModelOutput from '../components/ModelOutput'
 import PatternPicker from '../components/PatternPicker'
 import useStore from '../store'
 import {
-  isLoaded, getTestPrompts, getModelOutput, formatPromptMetrics,
-  getAccuracySummary, getCategories, getResourceUtilization,
+  isLoaded,
+  getTestPrompts,
+  getModelOutput,
+  formatPromptMetrics,
+  getAccuracySummary,
+  getResourceUtilization,
 } from '../data/loadArtifacts'
 
-const FALLBACK_INPUT = "IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64"
-const FALLBACK_LABEL = "VDI Virtual Desktop"
+const FALLBACK_INPUT =
+  'IOPS: 38000 | Latency: 0.5ms | Block Size: 8K | Read/Write: 55/45 | Sequential: 22% | Queue Depth: 64'
+const FALLBACK_LABEL = 'VDI Virtual Desktop'
 
 // Fallback hardcoded stages (used when precomputed_results.json is not available)
 const FALLBACK_STAGES = [
@@ -18,7 +23,7 @@ const FALLBACK_STAGES = [
     variant: 'base',
     correct: false,
     output: `These storage metrics indicate a workload with 38000 IOPS at 0.5ms latency. Block size is 8K, read/write ratio is nearly balanced at 55/45, with 22% sequential access and a queue depth of 64. The high IOPS and low latency suggest this is a performance-sensitive database application, possibly OLTP or a similar transactional workload.`,
-    note: 'Describes but doesn\'t classify. Guesses OLTP.',
+    note: "Describes but doesn't classify. Guesses OLTP.",
   },
   {
     id: 'fewshot',
@@ -99,7 +104,7 @@ function buildRealStages(promptId, trueLabel) {
       output: baseOut.generated_text,
       note: checkCorrect(baseOut.generated_text, trueLabel)
         ? 'Base model gets it right, but output is unstructured.'
-        : 'Describes but doesn\'t classify correctly.',
+        : "Describes but doesn't classify correctly.",
     },
   ]
 
@@ -110,8 +115,9 @@ function buildRealStages(promptId, trueLabel) {
     label: '+ Few-Shot',
     variant: 'default',
     correct: false,
-    output: '(Few-shot is a prompting technique — results vary by prompt design, not by model training.)',
-    note: 'Few-shot prompting helps format but doesn\'t guarantee correctness.',
+    output:
+      '(Few-shot is a prompting technique — results vary by prompt design, not by model training.)',
+    note: "Few-shot prompting helps format but doesn't guarantee correctness.",
   })
 
   // RAG is also a prompting strategy — keep curated
@@ -121,7 +127,7 @@ function buildRealStages(promptId, trueLabel) {
     variant: 'rag',
     correct: true,
     output: '(RAG retrieves reference patterns. Correct answer, but verbose.)',
-    note: 'RAG provides knowledge but doesn\'t control output format.',
+    note: "RAG provides knowledge but doesn't control output format.",
   })
 
   if (sftOut) {
@@ -166,7 +172,7 @@ function buildRealStages(promptId, trueLabel) {
   return stages
 }
 
-export default function CombinedResults({ explore = false }) {
+export default function CombinedResults() {
   const [visibleStages, setVisibleStages] = useState(1)
   const selectedPromptId = useStore((s) => s.selectedPromptId)
 
@@ -179,7 +185,7 @@ export default function CombinedResults({ explore = false }) {
 
   if (hasRealData) {
     const testPrompts = getTestPrompts()
-    const selected = testPrompts.find(p => p.id === selectedPromptId) ?? testPrompts[0]
+    const selected = testPrompts.find((p) => p.id === selectedPromptId) ?? testPrompts[0]
     if (selected) {
       const realStages = buildRealStages(selected.id, selected.true_label)
       if (realStages) {
@@ -206,7 +212,9 @@ export default function CombinedResults({ explore = false }) {
       {resourceUtil && (
         <div className="mb-4 flex items-center gap-2 text-xs text-slate-500">
           <span className="px-2 py-1 rounded bg-slate-800 border border-slate-700/50 text-slate-400">
-            Trained on: {resourceUtil.gpu_name || 'GPU'} · {resourceUtil.gpu_memory_total_gb ? `${resourceUtil.gpu_memory_total_gb} GB` : ''} · SmolLM2-360M
+            Trained on: {resourceUtil.gpu_name || 'GPU'} ·{' '}
+            {resourceUtil.gpu_memory_total_gb ? `${resourceUtil.gpu_memory_total_gb} GB` : ''} ·
+            SmolLM2-360M
           </span>
         </div>
       )}
@@ -223,7 +231,8 @@ export default function CombinedResults({ explore = false }) {
           {inputDisplay}
         </div>
         <p className="text-xs text-slate-500 mt-1">
-          Correct: <span className="text-emerald-400 font-semibold">{correctLabel}</span> — Watch the progressive improvement.
+          Correct: <span className="text-emerald-400 font-semibold">{correctLabel}</span> — Watch
+          the progressive improvement.
         </p>
       </div>
 
@@ -250,16 +259,16 @@ export default function CombinedResults({ explore = false }) {
           <div key={stage.id} className="flex gap-3 items-start">
             {/* Step indicator */}
             <div className="flex flex-col items-center flex-shrink-0 pt-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                stage.correct
-                  ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-700'
-                  : 'bg-red-900/50 text-red-400 border border-red-700'
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                  stage.correct
+                    ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-700'
+                    : 'bg-red-900/50 text-red-400 border border-red-700'
+                }`}
+              >
                 {i + 1}
               </div>
-              {i < visibleStages - 1 && (
-                <div className="w-px h-full bg-slate-700 mt-1" />
-              )}
+              {i < visibleStages - 1 && <div className="w-px h-full bg-slate-700 mt-1" />}
             </div>
 
             {/* Content */}
@@ -282,7 +291,10 @@ export default function CombinedResults({ explore = false }) {
           <h4 className="text-sm font-semibold text-cyan-400 mb-2">The Full Journey</h4>
           <div className="grid grid-cols-7 gap-1 text-center text-xs mb-3">
             {stages.map((s) => (
-              <div key={s.id} className={`py-1 px-0.5 rounded ${s.correct ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>
+              <div
+                key={s.id}
+                className={`py-1 px-0.5 rounded ${s.correct ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}
+              >
                 {s.label.replace('+ ', '')}
               </div>
             ))}
@@ -291,19 +303,24 @@ export default function CombinedResults({ explore = false }) {
           {/* Accuracy summary from real data */}
           {summary && (
             <div className="grid grid-cols-4 gap-2 text-center text-xs mb-3">
-              {Object.entries(summary).map(([variant, s]) => s && (
-                <div key={variant} className="py-1 px-1 rounded bg-slate-800/50">
-                  <div className="font-bold text-slate-200">{(s.accuracy * 100).toFixed(0)}%</div>
-                  <div className="text-slate-500">{variant.toUpperCase()}</div>
-                </div>
-              ))}
+              {Object.entries(summary).map(
+                ([variant, s]) =>
+                  s && (
+                    <div key={variant} className="py-1 px-1 rounded bg-slate-800/50">
+                      <div className="font-bold text-slate-200">
+                        {(s.accuracy * 100).toFixed(0)}%
+                      </div>
+                      <div className="text-slate-500">{variant.toUpperCase()}</div>
+                    </div>
+                  ),
+              )}
             </div>
           )}
 
           <p className="text-sm text-slate-300">
-            Each technique built on the last. Prompting gave format. RAG gave knowledge.
-            SFT gave classification skill. DPO gave style. GRPO gave reasoning precision.
-            The combination in the upper-right quadrant is greater than the sum of its parts.
+            Each technique built on the last. Prompting gave format. RAG gave knowledge. SFT gave
+            classification skill. DPO gave style. GRPO gave reasoning precision. The combination in
+            the upper-right quadrant is greater than the sum of its parts.
           </p>
         </div>
       )}
