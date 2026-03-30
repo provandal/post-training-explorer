@@ -184,7 +184,12 @@ export default function AttentionHeatmap() {
 
     const row = matrix[selectedToken]
     const barData = row
-      .map((weight, j) => ({ token: TOKENS[j].text, weight, index: j }))
+      .map((weight, j) => ({
+        token: TOKENS[j].text,
+        label: `${TOKENS[j].text} [${j}]`,
+        weight,
+        index: j,
+      }))
       .filter((d) => d.index <= selectedToken) // only non-masked tokens
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 8)
@@ -205,7 +210,7 @@ export default function AttentionHeatmap() {
 
     const y = d3
       .scaleBand()
-      .domain(barData.map((d) => d.token))
+      .domain(barData.map((d) => d.label))
       .range([0, barData.length * barHeight])
       .padding(0.2)
 
@@ -234,7 +239,7 @@ export default function AttentionHeatmap() {
       .join('rect')
       .attr('class', 'att-bar')
       .attr('x', 0)
-      .attr('y', (d) => y(d.token))
+      .attr('y', (d) => y(d.label))
       .attr('width', 0)
       .attr('height', y.bandwidth())
       .attr('fill', '#8b5cf6')
@@ -250,7 +255,7 @@ export default function AttentionHeatmap() {
       .join('text')
       .attr('class', 'att-label')
       .attr('x', (d) => x(d.weight) + 4)
-      .attr('y', (d) => y(d.token) + y.bandwidth() / 2 + 3)
+      .attr('y', (d) => y(d.label) + y.bandwidth() / 2 + 3)
       .attr('fill', '#64748b')
       .attr('font-size', '8')
       .text((d) => `${(d.weight * 100).toFixed(1)}%`)
