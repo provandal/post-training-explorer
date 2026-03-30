@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import useStore from '../store'
 import tourSteps from '../data/tourSteps'
 import QuadrantMap from './QuadrantMap'
@@ -42,11 +42,9 @@ export default function TourView() {
   const isLast = currentStep === tourSteps.length - 1
   const total = tourSteps.length
 
-  const mainRef = useRef(null)
-
   // Scroll to top on step change
   useEffect(() => {
-    mainRef.current?.scrollTo(0, 0)
+    window.scrollTo(0, 0)
   }, [currentStep])
 
   // Keyboard navigation: Left/Right arrows move between tour steps
@@ -75,7 +73,7 @@ export default function TourView() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Combined top bar: Home | title | progress | nav */}
-      <header className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 border-b border-slate-700/50">
+      <header className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2 bg-slate-800/95 backdrop-blur border-b border-slate-700/50">
         <button
           onClick={() => useStore.getState().setMode('landing')}
           className="text-xs text-slate-400 hover:text-white px-2.5 py-1.5 rounded border border-slate-700 hover:border-slate-500 transition-colors flex-shrink-0"
@@ -123,12 +121,7 @@ export default function TourView() {
       </header>
 
       {/* Main content area */}
-      <main ref={mainRef} className="flex-1 overflow-y-auto p-6">
-        {/* QuadrantMap above narration */}
-        <div className="flex justify-center mb-4">
-          <QuadrantMap size="medium" />
-        </div>
-
+      <main className="flex-1 p-6">
         {/* Narration callout */}
         {step.narration && (
           <div className="mb-4 p-3 rounded-lg bg-slate-800/50 border border-slate-700/30 text-sm text-slate-300">

@@ -4,6 +4,7 @@ export default function Landing() {
   const startTour = useStore((s) => s.startTour)
   const startExplore = useStore((s) => s.startExplore)
   const startTrain = useStore((s) => s.startTrain)
+  const startResults = useStore((s) => s.startResults)
 
   const cards = [
     {
@@ -21,6 +22,14 @@ export default function Landing() {
       action: startExplore,
       buttonLabel: 'Explore',
       buttonClass: 'bg-slate-600 hover:bg-slate-500 shadow-lg shadow-slate-600/20',
+    },
+    {
+      title: 'Results & Learnings',
+      description:
+        'What we learned building this demo — accuracy numbers, debugging war stories, and a framework for choosing between traditional ML and LLM fine-tuning.',
+      action: startResults,
+      buttonLabel: 'See Results',
+      buttonClass: 'bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-600/30 hover:shadow-purple-500/40',
     },
     {
       title: 'Train Your Model',
@@ -47,7 +56,7 @@ export default function Landing() {
       </div>
 
       {/* Three cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl w-full mb-10">
         {cards.map((card) => (
           <div
             key={card.title}
