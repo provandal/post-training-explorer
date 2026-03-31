@@ -183,14 +183,21 @@ export default function AttentionHeatmap() {
     if (selectedToken === null || !matrix) return
 
     const row = matrix[selectedToken]
+
+    // Build labels — only disambiguate tokens that appear more than once
+    const textCounts = {}
+    TOKENS.forEach((t) => {
+      textCounts[t.text] = (textCounts[t.text] || 0) + 1
+    })
+
     const barData = row
       .map((weight, j) => ({
         token: TOKENS[j].text,
-        label: `${TOKENS[j].text} [${j}]`,
+        label: textCounts[TOKENS[j].text] > 1 ? `${TOKENS[j].text} (${j})` : TOKENS[j].text,
         weight,
         index: j,
       }))
-      .filter((d) => d.index <= selectedToken) // only non-masked tokens
+      .filter((d) => d.index <= selectedToken && d.weight > 0.005) // non-masked, non-zero
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 8)
 
@@ -357,7 +364,7 @@ export default function AttentionHeatmap() {
 
       {/* Heatmap + Bar chart side by side */}
       <div className="flex flex-wrap gap-4 items-start">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto">
           <svg ref={heatmapRef} />
         </div>
         {selectedToken !== null && (
