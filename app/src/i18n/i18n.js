@@ -41,6 +41,8 @@ i18n
     interpolation: {
       escapeValue: false,
     },
+
+    debug: true, // TODO: remove after verifying i18n loading works
   })
 
 export default i18n

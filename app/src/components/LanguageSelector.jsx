@@ -1,10 +1,19 @@
-import { Component, useState, useRef, useEffect, lazy, Suspense } from 'react'
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
-const GeoLingua = lazy(() =>
-  import('geolingua').catch(() => ({
-    default: () => null,
-  })),
+// --- GeoLingua dynamic import (optional dependency) ---
+let geoLinguaModule = null
+const geoLinguaReady = import('geolingua')
+  .then((m) => {
+    if (m.GeoLingua) geoLinguaModule = m
+  })
+  .catch(() => {})
+
+const GeoLinguaLazy = lazy(() =>
+  import('geolingua').then((m) => {
+    if (!m.GeoLingua) throw new Error('geolingua not installed')
+    return { default: m.GeoLingua }
+  }),
 )
 
 const LANGUAGES = [
@@ -24,149 +33,97 @@ const LANGUAGES = [
   { code: 'ht', flag: '🇭🇹', label: 'Kreyòl Ayisyen' },
 ]
 
-function GeoLinguaFallback() {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90">
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center max-w-sm">
-        <p className="text-slate-400 text-sm">
-          GeoLingua is not available. Use the language dropdown instead.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function GeoLinguaErrorBoundary({ children, fallback }) {
-  const [hasError, setHasError] = useState(false)
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setHasError(false), [children])
-
-  if (hasError) return fallback
-
-  return <ErrorCatcher onError={() => setHasError(true)}>{children}</ErrorCatcher>
-}
-
-class ErrorCatcher extends Component {
+// --- Error boundary for GeoLingua ---
+class GeoLinguaErrorBoundary extends React.Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false }
   }
-
   static getDerivedStateFromError() {
     return { hasError: true }
   }
-
   componentDidCatch() {
-    this.props.onError?.()
+    // GeoLingua failed to render — silently fall back
   }
-
   render() {
-    if (this.state.hasError) return null
-    return this.props.children
+    return this.state.hasError ? null : this.props.children
   }
 }
 
-export default function LanguageSelector() {
-  const { i18n } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [globeOpen, setGlobeOpen] = useState(false)
-  const wrapperRef = useRef(null)
+// --- GeoLingua globe icon ---
+function GeoLinguaIcon({ onLanguageSelect }) {
+  const [available, setAvailable] = useState(false)
+  const [showGlobe, setShowGlobe] = useState(false)
+  const overlayRef = useRef(null)
+  const openedAtRef = useRef(0)
 
-  const currentLang = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[0]
-
-  /* Close dropdown when clicking outside */
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    geoLinguaReady.then(() => {
+      if (geoLinguaModule) setAvailable(true)
+    })
   }, [])
 
-  function selectLanguage(code) {
-    i18n.changeLanguage(code)
-    localStorage.setItem('pte_locale', code)
-    setOpen(false)
+  if (!available) return null
+
+  const handleSelect = (locale) => {
+    onLanguageSelect(locale)
+    if (showGlobe && Date.now() - openedAtRef.current > 1000) {
+      setTimeout(() => setShowGlobe(false), 600)
+    }
   }
 
-  function handleGeoLinguaSelect(code) {
-    if (LANGUAGES.some((l) => l.code === code)) {
-      selectLanguage(code)
-    }
-    setGlobeOpen(false)
+  const handleOpen = () => {
+    openedAtRef.current = Date.now()
+    setShowGlobe(true)
   }
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
-        {/* GeoLingua globe icon — standalone, next to dropdown */}
-        <button
-          onClick={() => setGlobeOpen(true)}
-          className="w-7 h-7 rounded-full border border-slate-700 bg-slate-800 hover:border-blue-500 flex items-center justify-center transition-colors text-sm flex-shrink-0"
-          aria-label="Open GeoLingua globe"
-          title="GeoLingua"
+      <button
+        onClick={handleOpen}
+        className="w-7 h-7 rounded-full border border-slate-700 bg-slate-800 hover:border-blue-500 hover:scale-110 flex items-center justify-center transition-all text-sm flex-shrink-0"
+        aria-label="Open GeoLingua globe"
+        title="GeoLingua"
+      >
+        🌐
+      </button>
+
+      {showGlobe && (
+        <div
+          ref={overlayRef}
+          onClick={(e) => {
+            if (e.target === overlayRef.current) setShowGlobe(false)
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
         >
-          🌐
-        </button>
-
-        <div ref={wrapperRef} className="relative inline-block">
-          {/* Language button */}
-          <button
-            onClick={() => setOpen((prev) => !prev)}
-            className="bg-slate-800 border border-slate-700 text-slate-400 hover:border-blue-500 hover:text-slate-200 rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1"
-            aria-label="Select language"
+          <div
+            className="relative rounded-2xl overflow-hidden shadow-2xl"
+            style={{ width: 520, maxWidth: '95vw', height: 600, maxHeight: '90vh' }}
           >
-            <span>{currentLang.flag}</span>
-            <span className="hidden sm:inline">{currentLang.label}</span>
-            <span className="text-[8px]">{open ? '▲' : '▼'}</span>
-          </button>
-
-          {/* Dropdown */}
-          {open && (
-            <div className="absolute right-0 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
-              {LANGUAGES.map((lang) => {
-                const isActive = lang.code === i18n.language
-                return (
-                  <button
-                    key={lang.code}
-                    onClick={() => selectLanguage(lang.code)}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      isActive
-                        ? 'text-blue-400 font-semibold bg-slate-800'
-                        : 'text-slate-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    {lang.flag} {lang.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* GeoLingua full-screen modal overlay */}
-      {globeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/95">
-          <div className="relative w-full h-full flex items-center justify-center">
-            {/* Close button */}
             <button
-              onClick={() => setGlobeOpen(false)}
-              className="absolute top-4 right-4 z-10 bg-slate-800 border border-slate-700 text-slate-400 hover:border-blue-500 hover:text-slate-200 rounded-md px-3 py-1.5 text-sm transition-colors"
+              onClick={() => setShowGlobe(false)}
+              className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full border border-slate-700 bg-slate-900/80 text-slate-400 hover:text-white flex items-center justify-center text-lg"
             >
-              ✕ Close
+              ×
             </button>
-
-            <GeoLinguaErrorBoundary fallback={<GeoLinguaFallback />}>
+            <GeoLinguaErrorBoundary>
               <Suspense
-                fallback={<div className="text-slate-400 text-sm">Loading GeoLingua...</div>}
+                fallback={
+                  <div className="w-full h-full bg-slate-950 flex items-center justify-center text-slate-500 text-sm">
+                    Loading globe...
+                  </div>
+                }
               >
-                <GeoLingua
-                  onSelect={handleGeoLinguaSelect}
-                  supportedLanguages={LANGUAGES.map((l) => l.code)}
+                <GeoLinguaLazy
+                  initialMode="full"
+                  theme="space"
+                  onLanguageSelect={handleSelect}
+                  showSkip={false}
+                  voiceDetectionEnabled={true}
+                  detectBrowserLanguage={true}
+                  persist={false}
+                  style={{ width: '100%', height: '100%' }}
                 />
               </Suspense>
             </GeoLinguaErrorBoundary>
@@ -174,5 +131,80 @@ export default function LanguageSelector() {
         </div>
       )}
     </>
+  )
+}
+
+// --- Dropdown selector ---
+function DropdownSelector({ onLanguageSelect }) {
+  const { i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const current = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[0]
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const handleSelect = (code) => {
+    onLanguageSelect(code)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="bg-slate-800 border border-slate-700 text-slate-400 hover:border-blue-500 hover:text-slate-200 rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1"
+        aria-label="Select language"
+      >
+        <span>{current.flag}</span>
+        <span className="hidden sm:inline">{current.label}</span>
+        <span className="text-[8px] ms-0.5">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
+          {LANGUAGES.map((lang) => {
+            const isActive = lang.code === i18n.language
+            return (
+              <button
+                key={lang.code}
+                onClick={() => handleSelect(lang.code)}
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                  isActive
+                    ? 'text-blue-400 font-semibold bg-slate-800'
+                    : 'text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                {lang.flag} {lang.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// --- Main export ---
+export default function LanguageSelector() {
+  const { i18n } = useTranslation()
+
+  const handleLanguageSelect = (code) => {
+    i18n.changeLanguage(code)
+    localStorage.setItem('pte_locale', code)
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <GeoLinguaIcon onLanguageSelect={handleLanguageSelect} />
+      <DropdownSelector onLanguageSelect={handleLanguageSelect} />
+    </div>
   )
 }
