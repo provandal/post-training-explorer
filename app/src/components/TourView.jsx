@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import useStore from '../store'
 import getTourSteps from '../data/tourSteps'
 import QuadrantMap from './QuadrantMap'
+import LanguageSelector from './LanguageSelector'
 
 // Stop components
 import Welcome from '../stops/Welcome'
@@ -121,6 +122,7 @@ export default function TourView() {
         >
           {isLast ? t('nav.exploreFreelyNav') : `${nextTitle} \u2192`}
         </button>
+        <LanguageSelector />
       </header>
 
       {/* Main content area */}

@@ -101,51 +101,51 @@ export default function LanguageSelector() {
 
   return (
     <>
-      <div ref={wrapperRef} className="relative inline-block">
-        {/* Language button */}
+      <div className="flex items-center gap-1.5">
+        {/* GeoLingua globe icon — standalone, next to dropdown */}
         <button
-          onClick={() => setOpen((prev) => !prev)}
-          className="bg-slate-800 border border-slate-700 text-slate-400 hover:border-blue-500 hover:text-slate-200 rounded-md px-2.5 py-1.5 text-xs transition-colors"
-          aria-label="Select language"
+          onClick={() => setGlobeOpen(true)}
+          className="w-7 h-7 rounded-full border border-slate-700 bg-slate-800 hover:border-blue-500 flex items-center justify-center transition-colors text-sm flex-shrink-0"
+          aria-label="Open GeoLingua globe"
+          title="GeoLingua"
         >
-          {currentLang.flag} {currentLang.label}
+          🌐
         </button>
 
-        {/* Dropdown */}
-        {open && (
-          <div className="absolute right-0 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
-            {LANGUAGES.map((lang) => {
-              const isActive = lang.code === i18n.language
-              return (
-                <button
-                  key={lang.code}
-                  onClick={() => selectLanguage(lang.code)}
-                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                    isActive
-                      ? 'text-blue-400 font-semibold bg-slate-800'
-                      : 'text-slate-200 hover:bg-slate-800'
-                  }`}
-                >
-                  {lang.flag} {lang.label}
-                </button>
-              )
-            })}
+        <div ref={wrapperRef} className="relative inline-block">
+          {/* Language button */}
+          <button
+            onClick={() => setOpen((prev) => !prev)}
+            className="bg-slate-800 border border-slate-700 text-slate-400 hover:border-blue-500 hover:text-slate-200 rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1"
+            aria-label="Select language"
+          >
+            <span>{currentLang.flag}</span>
+            <span className="hidden sm:inline">{currentLang.label}</span>
+            <span className="text-[8px]">{open ? '▲' : '▼'}</span>
+          </button>
 
-            {/* GeoLingua globe trigger inside dropdown */}
-            <div className="border-t border-slate-700 mt-1 pt-1 px-3 py-2">
-              <button
-                onClick={() => {
-                  setOpen(false)
-                  setGlobeOpen(true)
-                }}
-                className="w-8 h-8 rounded-full border-2 border-slate-700 bg-slate-800 hover:border-blue-500 flex items-center justify-center transition-colors mx-auto"
-                aria-label="Open GeoLingua globe"
-              >
-                🌐
-              </button>
+          {/* Dropdown */}
+          {open && (
+            <div className="absolute right-0 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
+              {LANGUAGES.map((lang) => {
+                const isActive = lang.code === i18n.language
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => selectLanguage(lang.code)}
+                    className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                      isActive
+                        ? 'text-blue-400 font-semibold bg-slate-800'
+                        : 'text-slate-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {lang.flag} {lang.label}
+                  </button>
+                )
+              })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* GeoLingua full-screen modal overlay */}

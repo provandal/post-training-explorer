@@ -1,5 +1,6 @@
 import { useTranslation, Trans } from 'react-i18next'
 import useStore from '../store'
+import LanguageSelector from './LanguageSelector'
 
 export default function Landing() {
   const { t } = useTranslation()
@@ -48,6 +49,11 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10">
+      {/* Language selector */}
+      <div className="absolute top-4 right-4">
+        <LanguageSelector />
+      </div>
+
       {/* Header */}
       <div className="text-center mb-10">
         <h1 className="text-5xl font-extrabold text-white mb-3 tracking-tight">
