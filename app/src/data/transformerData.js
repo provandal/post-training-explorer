@@ -44,6 +44,16 @@ export const TOKEN_TYPE_LABELS = {
   punct: 'Punctuation',
 }
 
+export function getTokenTypeLabels(t) {
+  return {
+    task: t('transformer.tokenType.task'),
+    context: t('transformer.tokenType.context'),
+    metric: t('transformer.tokenType.metric'),
+    value: t('transformer.tokenType.value'),
+    punct: t('transformer.tokenType.punct'),
+  }
+}
+
 // --- Attention Heads ---
 export const ATTENTION_HEADS = [
   {
@@ -66,6 +76,26 @@ export const ATTENTION_HEADS = [
   },
 ]
 
+export function getAttentionHeads(t) {
+  return [
+    {
+      id: 'syntax',
+      label: t('transformer.headSyntax'),
+      description: t('transformer.headSyntaxDesc'),
+    },
+    {
+      id: 'value-link',
+      label: t('transformer.headValueLink'),
+      description: t('transformer.headValueLinkDesc'),
+    },
+    {
+      id: 'cross-metric',
+      label: t('transformer.headCrossMetric'),
+      description: t('transformer.headCrossMetricDesc'),
+    },
+  ]
+}
+
 export const ATTENTION_LAYERS = [
   {
     id: 0,
@@ -86,6 +116,29 @@ export const ATTENTION_LAYERS = [
     description: 'Task reasoning — combining evidence for classification',
   },
 ]
+
+export function getAttentionLayers(t) {
+  return [
+    {
+      id: 0,
+      num: 4,
+      label: t('transformer.layerEarly'),
+      description: t('transformer.layerEarlyDesc'),
+    },
+    {
+      id: 1,
+      num: 16,
+      label: t('transformer.layerMiddle'),
+      description: t('transformer.layerMiddleDesc'),
+    },
+    {
+      id: 2,
+      num: 28,
+      label: t('transformer.layerLate'),
+      description: t('transformer.layerLateDesc'),
+    },
+  ]
+}
 
 // --- Attention Weight Matrices ---
 // Key format: "layerIndex_headId"
@@ -336,6 +389,23 @@ export const ATTENTION_INSIGHTS = {
     'The final token is the decision point — it gathers evidence from ALL metrics simultaneously: high IOPS (45000), low latency (0.3ms), and block size, then passes this combined signal to generate "OLTP".',
 }
 
+export function getAttentionInsights(t) {
+  return {
+    syntax_5: t('transformer.insight.syntax_5'),
+    syntax_7: t('transformer.insight.syntax_7'),
+    syntax_10: t('transformer.insight.syntax_10'),
+    syntax_17: t('transformer.insight.syntax_17'),
+    'value-link_8': t('transformer.insight.valueLink_8'),
+    'value-link_9': t('transformer.insight.valueLink_9'),
+    'value-link_13': t('transformer.insight.valueLink_13'),
+    'value-link_14': t('transformer.insight.valueLink_14'),
+    'cross-metric_6': t('transformer.insight.crossMetric_6'),
+    'cross-metric_8': t('transformer.insight.crossMetric_8'),
+    'cross-metric_11': t('transformer.insight.crossMetric_11'),
+    'cross-metric_17': t('transformer.insight.crossMetric_17'),
+  }
+}
+
 // --- Forward Pass Step Definitions ---
 export const FORWARD_PASS_STEPS = [
   {
@@ -387,6 +457,16 @@ export const FORWARD_PASS_STEPS = [
       'The final hidden state is projected to a score for every token in the 49,152-word vocabulary. Softmax converts these scores to probabilities. The token with the highest probability is selected as the output. Fine-tuning changes which token gets the highest probability — from generic words to the correct classification label.',
   },
 ]
+
+export function getForwardPassSteps(t) {
+  const ids = ['tokenize', 'embed', 'position', 'attention', 'ffn', 'predict']
+  return FORWARD_PASS_STEPS.map((step, i) => ({
+    ...step,
+    title: t(`forwardPass.${ids[i]}.title`),
+    subtitle: t(`forwardPass.${ids[i]}.subtitle`),
+    explanation: t(`forwardPass.${ids[i]}.explanation`),
+  }))
+}
 
 // --- Embedding Visualization Data ---
 // 8 representative dimensions (out of 960) for 5 tokens

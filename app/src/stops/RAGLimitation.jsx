@@ -1,3 +1,4 @@
+import { useTranslation, Trans } from 'react-i18next'
 import ModelOutput from '../components/ModelOutput'
 
 const EXAMPLE_INPUT =
@@ -18,29 +19,27 @@ Confidence: Medium
 Key indicators: Balanced R/W ratio (55/45) and high queue depth (64) distinguish this from OLTP. Small blocks (8K) with random access are consistent with VDI.`
 
 export default function RAGLimitation() {
+  const { t } = useTranslation()
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Intro — bridge from RAG success */}
       <div className="mb-5 p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
         <h3 className="text-base font-semibold text-yellow-400 mb-3">
-          RAG gave the model knowledge. It didn't give it discipline.
+          {t('stop.ragLimitation.heading')}
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          In the previous stop, RAG worked beautifully &mdash; the model pulled the right reference
-          pattern and classified correctly. But that was a clear-cut case. Now we give it the same
-          ambiguous I/O pattern that tripped up few-shot prompting and see whether having a
-          knowledge base is enough.
+          {t('stop.ragLimitation.introP1')}
         </p>
         <p className="text-sm text-slate-400 leading-relaxed">
-          Spoiler: the model gets the right answer this time. The problem is <em>how</em> it
-          delivers it.
+          <Trans i18nKey="stop.ragLimitation.introP2" components={{ 1: <em /> }} />
         </p>
       </div>
 
       {/* Input */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-          Ambiguous I/O Pattern (same one that tripped up few-shot)
+          {t('stop.ragLimitation.inputLabel')}
         </label>
         <div className="bg-slate-800 border border-yellow-700/50 rounded-lg p-3 font-mono text-sm text-yellow-200">
           {EXAMPLE_INPUT}
@@ -49,7 +48,7 @@ export default function RAGLimitation() {
 
       {/* RAG response - correct but problematic */}
       <ModelOutput
-        label="Base Model + RAG Context"
+        label={t('stop.ragLimitation.ragModelLabel')}
         text={RAG_VERBOSE_RESPONSE}
         variant="rag"
         isCorrect={true}
@@ -58,7 +57,7 @@ export default function RAGLimitation() {
       {/* What we wanted */}
       <div className="mt-4">
         <ModelOutput
-          label="What your team actually needs"
+          label={t('stop.ragLimitation.desiredLabel')}
           text={DESIRED_RESPONSE}
           variant="default"
         />
@@ -68,19 +67,19 @@ export default function RAGLimitation() {
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="p-4 rounded-lg bg-yellow-950/20 border border-yellow-800/30">
           <h4 className="text-sm font-semibold text-yellow-400 mb-2">
-            Right Answer, Wrong Delivery
+            {t('stop.ragLimitation.rightAnswerWrongDelivery')}
           </h4>
-          <p className="text-xs text-slate-400">
-            The model eventually gets to VDI, but buried it in 6 paragraphs of hedging. Your ops
-            team doesn't have time to read a dissertation on every classification.
-          </p>
+          <p className="text-xs text-slate-400">{t('stop.ragLimitation.rightAnswerP')}</p>
         </div>
         <div className="p-4 rounded-lg bg-yellow-950/20 border border-yellow-800/30">
-          <h4 className="text-sm font-semibold text-yellow-400 mb-2">Behavior vs. Knowledge</h4>
+          <h4 className="text-sm font-semibold text-yellow-400 mb-2">
+            {t('stop.ragLimitation.behaviorVsKnowledge')}
+          </h4>
           <p className="text-xs text-slate-400">
-            RAG solved the <em>knowledge</em> problem — the model has the right reference patterns.
-            But it didn't solve the <em>behavior</em> problem — the model doesn't know your team's
-            preferred format, confidence level, or conciseness.
+            <Trans
+              i18nKey="stop.ragLimitation.behaviorVsKnowledgeP"
+              components={{ 1: <em />, 2: <em /> }}
+            />
           </p>
         </div>
       </div>
@@ -88,11 +87,15 @@ export default function RAGLimitation() {
       {/* Transition to post-training */}
       <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-yellow-950/30 to-slate-800 border border-slate-600/30">
         <p className="text-sm text-slate-300">
-          <span className="font-semibold text-yellow-400">The ceiling of RAG:</span> RAG changes
-          what the model <em>sees</em>. But to change how the model <em>behaves</em>— its format,
-          confidence, style — you need to change the model itself. That's what{' '}
-          <span className="text-slate-100 font-semibold">Post Training</span> does. We're crossing
-          from the left side of the map to the right.
+          <Trans
+            i18nKey="stop.ragLimitation.transition"
+            components={{
+              1: <span className="font-semibold text-yellow-400" />,
+              2: <em />,
+              3: <em />,
+              4: <span className="text-slate-100 font-semibold" />,
+            }}
+          />
         </p>
       </div>
     </div>

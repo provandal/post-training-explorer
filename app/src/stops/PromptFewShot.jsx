@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import ModelOutput from '../components/ModelOutput'
 import TokenProbChart from '../components/TokenProbChart'
 import { isLoaded, getTokenProbsForChart } from '../data/loadArtifacts'
@@ -66,6 +67,7 @@ const FALLBACK_FEW_SHOT_PROBS = [
 ]
 
 export default function PromptFewShot() {
+  const { t } = useTranslation()
   const [showExamples, setShowExamples] = useState(true)
   const [showProbs, setShowProbs] = useState(false)
   const selectedPromptId = useStore((s) => s.selectedPromptId)
@@ -82,20 +84,18 @@ export default function PromptFewShot() {
       {/* Intro — bridge from basic prompting */}
       <div className="mb-5 p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
         <h3 className="text-base font-semibold text-orange-400 mb-3">
-          What if we showed the model some examples first?
+          {t('stop.promptFewShot.heading')}
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          What you just saw was <strong className="text-orange-300">zero-shot</strong> prompting
-          &mdash; instructions only, no examples. The model knew what we wanted but had never seen a
-          correct answer. Now we try <strong className="text-orange-300">few-shot</strong>{' '}
-          prompting: we prepend a handful of labeled examples directly into the prompt so the model
-          can mimic the pattern. The naming is literal &mdash; zero examples, one example, or a few.
+          <Trans
+            i18nKey="stop.promptFewShot.introP1"
+            components={{
+              1: <strong className="text-orange-300" />,
+              2: <strong className="text-orange-300" />,
+            }}
+          />
         </p>
-        <p className="text-sm text-slate-400 leading-relaxed">
-          Below are three input &rarr; output pairs we inject before the real question. The model
-          sees them and learns the expected format on the fly &mdash; no training required, just a
-          longer prompt.
-        </p>
+        <p className="text-sm text-slate-400 leading-relaxed">{t('stop.promptFewShot.introP2')}</p>
       </div>
 
       {/* Few-shot examples */}
@@ -104,13 +104,13 @@ export default function PromptFewShot() {
           onClick={() => setShowExamples(!showExamples)}
           className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 hover:text-slate-300 cursor-pointer"
         >
-          {showExamples ? 'Hide' : 'Show'} Few-Shot Examples in Prompt
+          {t('stop.promptFewShot.toggleExamples', {
+            action: showExamples ? 'Hide' : 'Show',
+          })}
         </button>
         {showExamples && (
           <div className="bg-slate-800 border border-orange-800/30 rounded-lg p-3 space-y-2">
-            <p className="text-xs text-orange-400 italic">
-              These examples are prepended to the prompt:
-            </p>
+            <p className="text-xs text-orange-400 italic">{t('stop.promptFewShot.examplesNote')}</p>
             {FEW_SHOT_EXAMPLES.map((ex, i) => (
               <div key={i} className="text-xs font-mono border-l-2 border-orange-700/50 pl-2">
                 <div className="text-slate-400">{ex.input}</div>
@@ -118,7 +118,7 @@ export default function PromptFewShot() {
               </div>
             ))}
             <div className="border-t border-slate-700 pt-2 mt-2">
-              <p className="text-xs text-slate-500">Now classify:</p>
+              <p className="text-xs text-slate-500">{t('stop.promptFewShot.nowClassify')}</p>
               <div className="text-xs font-mono text-slate-300">{EXAMPLE_INPUT}</div>
             </div>
           </div>
@@ -127,17 +127,14 @@ export default function PromptFewShot() {
 
       {/* Model output */}
       <ModelOutput
-        label="Base Model + Few-Shot Prompt"
+        label={t('stop.promptFewShot.modelLabel')}
         text={FEW_SHOT_RESPONSE}
         variant="default"
         isCorrect={true}
       />
 
       <div className="mt-3 p-3 rounded bg-green-950/20 border border-green-800/30">
-        <p className="text-sm text-green-300">
-          With few-shot examples, the model follows the format and gets the right answer. But it
-          needed 3 examples eating up your context window to get here.
-        </p>
+        <p className="text-sm text-green-300">{t('stop.promptFewShot.resultP')}</p>
       </div>
 
       {/* Token probability comparison */}
@@ -145,20 +142,16 @@ export default function PromptFewShot() {
         onClick={() => setShowProbs(!showProbs)}
         className="mt-4 text-sm text-blue-400 hover:text-blue-300 underline underline-offset-4"
       >
-        {showProbs ? 'Hide' : 'Show'} how few-shot shifted probabilities
+        {t('stop.promptFewShot.toggleProbs', { action: showProbs ? 'Hide' : 'Show' })}
       </button>
 
       {showProbs && (
         <div className="mt-3 p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-          <p className="text-xs text-slate-400 mb-3">
-            Compare the first-token probabilities. Without examples, the model spreads probability
-            across generic words. With few-shot examples, "Classification" jumps to 42% — the model
-            learned the format. But "OLTP" is still only at 18%. It's better, but not confident.
-          </p>
+          <p className="text-xs text-slate-400 mb-3">{t('stop.promptFewShot.probsExplain')}</p>
           <TokenProbChart
             data={baseTokenProbs}
             comparisonData={FALLBACK_FEW_SHOT_PROBS}
-            label="First Token: Basic Prompt vs Few-Shot"
+            label={t('stop.promptFewShot.probsLabel')}
             comparisonLabel="Few-Shot"
             highlightToken="Classification"
           />

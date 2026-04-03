@@ -2,33 +2,30 @@
 // Accessible from Explore mode via the LoRA Weights aside in SFTComparison.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import SectionTabs from '../components/SectionTabs'
 import AttentionHeatmap from '../components/AttentionHeatmap'
 import ForwardPassSteps from '../components/ForwardPassSteps'
 
-const TABS = [
-  { id: 'overview', label: 'How It Works' },
-  { id: 'attention', label: 'Attention Explorer' },
-  { id: 'steps', label: 'Step-by-Step' },
-]
-
 export default function TransformersDeepDive() {
+  const { t } = useTranslation()
   const [section, setSection] = useState('overview')
+
+  const TABS = [
+    { id: 'overview', label: t('tabs.howItWorks') },
+    { id: 'attention', label: t('tabs.attentionExplorer') },
+    { id: 'steps', label: t('tabs.stepByStep') },
+  ]
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <span className="text-xs font-semibold text-violet-400 uppercase tracking-wide">
-          Bonus Deep Dive
+          {t('deepdive.transformers.bonusLabel')}
         </span>
-        <h2 className="text-xl font-bold text-white mt-1">
-          Transformers and Attention: The Architecture Behind LLMs
-        </h2>
-        <p className="text-sm text-slate-400 mt-2">
-          Every large language model &mdash; GPT, Claude, Llama, SmolLM2 &mdash; is built on the
-          Transformer architecture. Explore how it works interactively.
-        </p>
+        <h2 className="text-xl font-bold text-white mt-1">{t('deepdive.transformers.title')}</h2>
+        <p className="text-sm text-slate-400 mt-2">{t('deepdive.transformers.subtitle')}</p>
       </div>
 
       <SectionTabs tabs={TABS} active={section} onSelect={setSection} color="violet" />
@@ -39,7 +36,7 @@ export default function TransformersDeepDive() {
           {/* Architecture diagram */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-violet-400 mb-3">
-              Simplified Transformer Architecture (decoder-only, like SmolLM2)
+              {t('deepdive.transformers.simplifiedArch')}
             </h3>
             <div className="space-y-2 font-mono text-xs">
               <div className="flex items-center gap-3">
@@ -103,10 +100,10 @@ export default function TransformersDeepDive() {
           {/* Layer abstraction */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-violet-400 mb-3">
-              Layers build on each other
+              {t('deepdive.transformers.layersBuildHeading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              Different layers capture different levels of abstraction:
+              {t('deepdive.transformers.layersBuildP')}
             </p>
             <div className="space-y-2">
               <div className="flex gap-3 items-center">
@@ -115,7 +112,7 @@ export default function TransformersDeepDive() {
                 </div>
                 <div className="flex-1 h-8 rounded bg-blue-950/30 border border-blue-800/30 flex items-center px-3">
                   <span className="text-xs text-blue-300">
-                    Surface patterns: token identity, position, basic syntax
+                    {t('deepdive.transformers.earlyLayers')}
                   </span>
                 </div>
               </div>
@@ -125,7 +122,7 @@ export default function TransformersDeepDive() {
                 </div>
                 <div className="flex-1 h-8 rounded bg-violet-950/30 border border-violet-800/30 flex items-center px-3">
                   <span className="text-xs text-violet-300">
-                    Semantic meaning: "45000 IOPS is high", number-to-concept mapping
+                    {t('deepdive.transformers.middleLayers')}
                   </span>
                 </div>
               </div>
@@ -135,7 +132,7 @@ export default function TransformersDeepDive() {
                 </div>
                 <div className="flex-1 h-8 rounded bg-green-950/30 border border-green-800/30 flex items-center px-3">
                   <span className="text-xs text-green-300">
-                    Task-level reasoning: combining evidence &rarr; "this is OLTP"
+                    {t('deepdive.transformers.lateLayers')}
                   </span>
                 </div>
               </div>
@@ -145,25 +142,29 @@ export default function TransformersDeepDive() {
           {/* Multi-head attention summary */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-violet-400 mb-3">
-              15 attention heads per layer — different perspectives
+              {t('deepdive.transformers.multiHeadHeading')}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
-                <h4 className="text-xs font-semibold text-violet-300 mb-1">Syntax Heads</h4>
+                <h4 className="text-xs font-semibold text-violet-300 mb-1">
+                  {t('deepdive.transformers.syntaxHeads')}
+                </h4>
+                <p className="text-xs text-slate-400">{t('deepdive.transformers.syntaxHeadsP')}</p>
+              </div>
+              <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
+                <h4 className="text-xs font-semibold text-violet-300 mb-1">
+                  {t('deepdive.transformers.valueLinkingHeads')}
+                </h4>
                 <p className="text-xs text-slate-400">
-                  Track structural patterns — colons, delimiters, output format.
+                  {t('deepdive.transformers.valueLinkingHeadsP')}
                 </p>
               </div>
               <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
-                <h4 className="text-xs font-semibold text-violet-300 mb-1">Value-Linking Heads</h4>
+                <h4 className="text-xs font-semibold text-violet-300 mb-1">
+                  {t('deepdive.transformers.crossMetricHeads')}
+                </h4>
                 <p className="text-xs text-slate-400">
-                  Connect numbers to their metric labels — "45000" → "IOPS".
-                </p>
-              </div>
-              <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
-                <h4 className="text-xs font-semibold text-violet-300 mb-1">Cross-Metric Heads</h4>
-                <p className="text-xs text-slate-400">
-                  Combine evidence across IOPS, latency, and block size for classification.
+                  {t('deepdive.transformers.crossMetricHeadsP')}
                 </p>
               </div>
             </div>
@@ -182,24 +183,24 @@ export default function TransformersDeepDive() {
           {/* SmolLM2 spec card */}
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
             <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-              SmolLM2-360M architecture summary
+              {t('deepdive.transformers.archSummary')}
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-xs">
               <div className="p-2 rounded bg-slate-900/50">
                 <div className="text-lg font-bold text-slate-200">32</div>
-                <div className="text-slate-500">layers</div>
+                <div className="text-slate-500">{t('deepdive.transformers.layers32')}</div>
               </div>
               <div className="p-2 rounded bg-slate-900/50">
                 <div className="text-lg font-bold text-slate-200">15</div>
-                <div className="text-slate-500">attention heads/layer</div>
+                <div className="text-slate-500">{t('deepdive.transformers.headsPerLayer')}</div>
               </div>
               <div className="p-2 rounded bg-slate-900/50">
                 <div className="text-lg font-bold text-slate-200">960</div>
-                <div className="text-slate-500">hidden dimension</div>
+                <div className="text-slate-500">{t('deepdive.transformers.hiddenDim')}</div>
               </div>
               <div className="p-2 rounded bg-slate-900/50">
                 <div className="text-lg font-bold text-slate-200">49,152</div>
-                <div className="text-slate-500">vocabulary size</div>
+                <div className="text-slate-500">{t('deepdive.transformers.vocabSize')}</div>
               </div>
             </div>
           </div>

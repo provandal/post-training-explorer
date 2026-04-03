@@ -1,11 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import useStore from '../store'
-import tourSteps from '../data/tourSteps'
+import getTourSteps from '../data/tourSteps'
 
 export default function NarrationPanel() {
+  const { t } = useTranslation()
   const currentStep = useStore((s) => s.currentStep)
   const nextStep = useStore((s) => s.nextStep)
   const prevStep = useStore((s) => s.prevStep)
 
+  const tourSteps = getTourSteps(t)
   const step = tourSteps[currentStep]
   const isFirst = currentStep === 0
   const isLast = currentStep === tourSteps.length - 1
@@ -33,7 +36,7 @@ export default function NarrationPanel() {
           />
         </div>
         <span className="text-xs text-slate-500 whitespace-nowrap">
-          {currentStep + 1} / {total}
+          {t('nav.step', { current: currentStep + 1, total })}
         </span>
       </div>
 
@@ -50,7 +53,7 @@ export default function NarrationPanel() {
           disabled={isFirst}
           className="px-4 py-2 text-sm rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          &larr; Back
+          {t('nav.back')}
         </button>
 
         {step.quadrant && (
@@ -74,7 +77,7 @@ export default function NarrationPanel() {
           onClick={nextStep}
           className="px-4 py-2 text-sm rounded-md bg-blue-600 hover:bg-blue-500 font-medium transition-colors"
         >
-          {isLast ? 'Explore Freely' : 'Next \u2192'}
+          {isLast ? t('nav.exploreFreelyNav') : t('nav.next')}
         </button>
       </div>
     </div>

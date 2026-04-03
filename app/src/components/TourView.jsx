@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import useStore from '../store'
-import tourSteps from '../data/tourSteps'
+import getTourSteps from '../data/tourSteps'
 import QuadrantMap from './QuadrantMap'
 
 // Stop components
@@ -33,9 +34,11 @@ const STOP_COMPONENTS = {
 }
 
 export default function TourView() {
+  const { t } = useTranslation()
   const currentStep = useStore((s) => s.currentStep)
   const nextStep = useStore((s) => s.nextStep)
   const prevStep = useStore((s) => s.prevStep)
+  const tourSteps = getTourSteps(t)
   const step = tourSteps[currentStep]
 
   const isFirst = currentStep === 0
@@ -78,7 +81,7 @@ export default function TourView() {
           onClick={() => useStore.getState().setMode('landing')}
           className="text-xs text-slate-400 hover:text-white px-2.5 py-1.5 rounded border border-slate-700 hover:border-slate-500 transition-colors flex-shrink-0"
         >
-          Home
+          {t('nav.home')}
         </button>
 
         <div className="flex-1 min-w-0">
@@ -110,13 +113,13 @@ export default function TourView() {
           disabled={isFirst}
           className="text-xs px-3 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
         >
-          {prevTitle ? `\u2190 ${prevTitle}` : '\u2190 Prev'}
+          {prevTitle ? `\u2190 ${prevTitle}` : t('nav.previous')}
         </button>
         <button
           onClick={nextStep}
           className="text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 font-medium transition-colors flex-shrink-0"
         >
-          {isLast ? 'Explore Freely' : `${nextTitle} \u2192`}
+          {isLast ? t('nav.exploreFreelyNav') : `${nextTitle} \u2192`}
         </button>
       </header>
 
@@ -133,7 +136,7 @@ export default function TourView() {
           <StopComponent />
         ) : (
           <div className="text-center text-slate-500 py-20">
-            Component "{step.component}" not yet implemented
+            {t('nav.componentNotImplemented', { component: step.component })}
           </div>
         )}
 

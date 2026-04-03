@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import useStore from '../store'
 
 // Resource links — placeholder '#' URLs will be replaced with real HuggingFace/Colab
@@ -68,6 +69,7 @@ const RESOURCES = [
 ]
 
 export default function Epilogue() {
+  const { t } = useTranslation()
   const startExplore = useStore((s) => s.startExplore)
   const startTrain = useStore((s) => s.startTrain)
   const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
@@ -83,10 +85,8 @@ export default function Epilogue() {
   return (
     <div className="max-w-3xl mx-auto text-center">
       {/* Headline */}
-      <h2 className="text-2xl font-bold text-white mb-2">Everything you just saw is real.</h2>
-      <p className="text-slate-400 mb-8">
-        Real models, real weights, real training artifacts. And you can do it yourself.
-      </p>
+      <h2 className="text-2xl font-bold text-white mb-2">{t('stop.epilogue.headline')}</h2>
+      <p className="text-slate-400 mb-8">{t('stop.epilogue.subheadline')}</p>
 
       {/* Action buttons */}
       <div className="flex gap-4 justify-center mb-8">
@@ -94,41 +94,38 @@ export default function Epilogue() {
           onClick={startExplore}
           className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-blue-600/25"
         >
-          Explore Freely
+          {t('landing.exploreFree')}
         </button>
         <button
           onClick={startTrain}
           className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold text-lg transition-colors shadow-lg shadow-emerald-600/25"
         >
-          Train Your Model
+          {t('stop.epilogue.trainYourModel')}
         </button>
       </div>
 
       {/* Deep Dives */}
       <div className="text-left mb-8">
         <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
-          Bonus Deep Dives
+          {t('stop.epilogue.bonusDeepDives')}
         </h3>
-        <p className="text-xs text-slate-500 mb-3">
-          Want to understand the concepts behind the tour in more detail? These deep dives go
-          further.
-        </p>
+        <p className="text-xs text-slate-500 mb-3">{t('stop.epilogue.bonusDeepDivesP')}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
             {
               key: 'context',
-              label: 'Context Windows',
-              desc: 'How context is built, managed, and where it breaks down — context rot, attention dilution, and compaction strategies',
+              label: t('stop.epilogue.contextWindows'),
+              desc: t('stop.epilogue.contextWindowsDesc'),
             },
             {
               key: 'transformers',
-              label: 'Transformers & Attention',
-              desc: 'What a Transformer actually is, how Q/K/V attention works, multi-head attention, and how layers build understanding',
+              label: t('stop.epilogue.transformersAttention'),
+              desc: t('stop.epilogue.transformersAttentionDesc'),
             },
             {
               key: 'lora',
-              label: 'LoRA',
-              desc: 'Why low-rank adaptation works, which parameters get trained, rank decomposition math, and infrastructure implications',
+              label: t('stop.epilogue.lora'),
+              desc: t('stop.epilogue.loraDesc'),
             },
           ].map((dd) => (
             <button
@@ -146,24 +143,19 @@ export default function Epilogue() {
       {/* AINOS Research Advisor Teaser */}
       <div className="text-left mb-8">
         <h3 className="text-sm font-semibold text-indigo-400 uppercase tracking-wide mb-3">
-          What Comes Next: AI-Guided Research
+          {t('stop.epilogue.whatComesNext')}
         </h3>
         <div className="p-4 rounded-lg bg-indigo-950/20 border border-indigo-800/30">
-          <p className="text-sm text-slate-300 mb-3">
-            Everything in this explorer required manual decisions — which technique to try, what
-            hyperparameters to use, when to stop training. But what if an AI system could analyze
-            your results and propose the next experiment?
-          </p>
+          <p className="text-sm text-slate-300 mb-3">{t('stop.epilogue.ainosP1')}</p>
           <p className="text-sm text-slate-400">
-            That's the core idea behind <span className="text-indigo-400 font-medium">AINOS</span> —
-            an AI-powered research advisor that examines training artifacts, identifies
-            opportunities for improvement, and suggests specific experiments with cost estimates. It
-            amplifies engineer judgment rather than replacing it: the AI proposes, you approve, the
-            system executes. The infrastructure implications for storage and compute teams are
-            significant — automated experiment loops mean predictable, bursty GPU demand and
-            structured artifact management at scale.
+            {t('stop.epilogue.ainosP2', {
+              defaultValue:
+                "That's the core idea behind AINOS — an AI-powered research advisor that examines training artifacts, identifies opportunities for improvement, and suggests specific experiments with cost estimates. It amplifies engineer judgment rather than replacing it: the AI proposes, you approve, the system executes. The infrastructure implications for storage and compute teams are significant — automated experiment loops mean predictable, bursty GPU demand and structured artifact management at scale.",
+            })}
           </p>
-          <p className="text-xs text-indigo-500/70 mt-3 italic">More on this soon.</p>
+          <p className="text-xs text-indigo-500/70 mt-3 italic">
+            {t('stop.epilogue.ainosComingSoon')}
+          </p>
         </div>
       </div>
 
@@ -209,8 +201,8 @@ export default function Epilogue() {
 
       {/* Footer */}
       <div className="mt-8 pt-6 border-t border-slate-800">
-        <p className="text-xs text-slate-600">Post-Training Explorer &middot; 2026</p>
-        <p className="text-xs text-slate-700 mt-1">Built with React, D3.js, and SmolLM2-360M</p>
+        <p className="text-xs text-slate-600">{t('stop.epilogue.footer')}</p>
+        <p className="text-xs text-slate-700 mt-1">{t('stop.epilogue.footerBuiltWith')}</p>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import ModelOutput from '../components/ModelOutput'
 import AnimatedPipeline from '../components/AnimatedPipeline'
 import VectorSearchViz from '../components/VectorSearchViz'
@@ -60,15 +61,16 @@ const RAG_PIPELINE_STEPS = [
 ]
 
 export default function RAGSimple() {
+  const { t } = useTranslation()
   const [section, setSection] = useState('problem')
   const [showContextAside, setShowContextAside] = useState(false)
   const setActiveQuadrant = useStore((s) => s.setActiveQuadrant)
   const setMode = useStore((s) => s.setMode)
   const tabs = [
-    { id: 'problem', label: 'The Problem' },
-    { id: 'concept', label: 'How RAG Works' },
-    { id: 'demo', label: 'See It Work' },
-    { id: 'deepdive', label: 'Deep Dive: Vector Search' },
+    { id: 'problem', label: t('tabs.theProblem') },
+    { id: 'concept', label: t('tabs.howRagWorks') },
+    { id: 'demo', label: t('tabs.seeItWork') },
+    { id: 'deepdive', label: t('tabs.deepDiveVectorSearch') },
   ]
 
   return (
@@ -83,39 +85,33 @@ export default function RAGSimple() {
         <div className="space-y-4">
           <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
             <h3 className="text-base font-semibold text-red-400 mb-2">
-              Few-shot prompting has limits
+              {t('stop.ragSimple.problem.heading')}
             </h3>
-            <p className="text-sm text-slate-300 mb-3">
-              In the previous stop, we added examples to the prompt and the model improved. But
-              there are real problems with this approach:
-            </p>
+            <p className="text-sm text-slate-300 mb-3">{t('stop.ragSimple.problem.intro')}</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="p-3 rounded bg-slate-800/50">
                 <h4 className="text-sm font-semibold text-red-300 mb-1">
-                  Context window is finite
+                  {t('stop.ragSimple.problem.contextFinite')}
                 </h4>
                 <p className="text-xs text-slate-400">
-                  Every example you add consumes tokens. With 6 workload categories and multiple
-                  examples each, you'd use thousands of tokens just for examples &mdash; leaving
-                  less room for the actual query and response.
+                  {t('stop.ragSimple.problem.contextFiniteP')}
                 </p>
                 <button
                   onClick={() => setShowContextAside(!showContextAside)}
                   className="mt-2 text-xs text-purple-400 hover:text-purple-300 underline underline-offset-4 cursor-pointer"
                 >
-                  {showContextAside ? 'Hide' : 'Why does this matter?'}
+                  {showContextAside ? 'Hide' : t('stop.ragSimple.problem.whyMatter')}
                 </button>
                 {showContextAside && (
                   <div className="mt-2 p-3 rounded bg-purple-950/20 border border-purple-800/30">
                     <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                      Language models process everything &mdash; system prompt, conversation
-                      history, RAG documents, few-shot examples, and their own response &mdash;
-                      inside a single fixed-size{' '}
-                      <strong className="text-purple-300">context window</strong>. When that window
-                      fills up, older content gets dropped or summarized, leading to{' '}
-                      <strong className="text-purple-300">context rot</strong>: the model quietly
-                      forgets instructions, contradicts earlier answers, or misses key details
-                      buried in the middle of long inputs.
+                      <Trans
+                        i18nKey="stop.ragSimple.problem.contextRotP"
+                        components={{
+                          1: <strong className="text-purple-300" />,
+                          2: <strong className="text-purple-300" />,
+                        }}
+                      />
                     </p>
                     <button
                       onClick={() => {
@@ -124,40 +120,34 @@ export default function RAGSimple() {
                       }}
                       className="text-xs font-semibold text-purple-400 hover:text-purple-300 underline underline-offset-4 cursor-pointer"
                     >
-                      Deep dive: Context windows, rot, and management strategies &rarr;
+                      {t('stop.ragSimple.problem.contextDeepDive')}
                     </button>
                   </div>
                 )}
               </div>
               <div className="p-3 rounded bg-slate-800/50">
-                <h4 className="text-sm font-semibold text-red-300 mb-1">Static and inflexible</h4>
-                <p className="text-xs text-slate-400">
-                  The same examples appear every time, regardless of what the user is asking about.
-                  If they ask about a backup pattern, the OLTP examples are wasted context.
-                </p>
+                <h4 className="text-sm font-semibold text-red-300 mb-1">
+                  {t('stop.ragSimple.problem.static')}
+                </h4>
+                <p className="text-xs text-slate-400">{t('stop.ragSimple.problem.staticP')}</p>
               </div>
               <div className="p-3 rounded bg-slate-800/50">
                 <h4 className="text-sm font-semibold text-red-300 mb-1">
-                  Can't scale to real knowledge
+                  {t('stop.ragSimple.problem.cantScale')}
                 </h4>
-                <p className="text-xs text-slate-400">
-                  Your organization has hundreds of documented patterns, runbooks, and vendor specs.
-                  You can't fit all that into a prompt.
-                </p>
+                <p className="text-xs text-slate-400">{t('stop.ragSimple.problem.cantScaleP')}</p>
               </div>
             </div>
           </div>
 
           <div className="p-4 rounded-lg bg-yellow-950/20 border border-yellow-800/30">
             <p className="text-sm text-slate-300">
-              <span className="font-semibold text-yellow-400">
-                What if the model could look things up?
-              </span>{' '}
-              Instead of cramming everything into the prompt, what if the model had access to a
-              reference library — and could search it for just the relevant information before
-              answering?
+              <Trans
+                i18nKey="stop.ragSimple.problem.whatIfLookUp"
+                components={{ 1: <span className="font-semibold text-yellow-400" /> }}
+              />
             </p>
-            <p className="text-sm text-slate-400 mt-2">That's exactly what RAG does.</p>
+            <p className="text-sm text-slate-400 mt-2">{t('stop.ragSimple.problem.thatsRag')}</p>
           </div>
         </div>
       )}
@@ -167,13 +157,13 @@ export default function RAGSimple() {
         <div className="space-y-4">
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-yellow-400 mb-2">
-              RAG = Retrieval-Augmented Generation
+              {t('stop.ragSimple.concept.ragEquals')}
             </h3>
             <p className="text-sm text-slate-300 mb-4">
-              RAG adds a "lookup" step before the model generates a response. Instead of relying
-              only on what's in the prompt or what the model memorized during training, RAG
-              <strong className="text-yellow-300"> searches a knowledge base</strong> for
-              information relevant to the current query and includes it in the prompt automatically.
+              <Trans
+                i18nKey="stop.ragSimple.concept.ragP"
+                components={{ 1: <strong className="text-yellow-300" /> }}
+              />
             </p>
 
             {/* Animated pipeline */}
@@ -183,27 +173,28 @@ export default function RAGSimple() {
           {/* Key concept cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <h4 className="text-sm font-semibold text-yellow-400 mb-2">Embeddings</h4>
+              <h4 className="text-sm font-semibold text-yellow-400 mb-2">
+                {t('stop.ragSimple.concept.embeddings')}
+              </h4>
               <p className="text-xs text-slate-400 mb-2">
-                Text is converted into a list of numbers (a "vector") that captures its meaning.
-                Similar texts produce similar vectors. This is done by an embedding model — a
-                separate, small neural network specialized for this task.
+                {t('stop.ragSimple.concept.embeddingsP')}
               </p>
               <div className="p-2 rounded bg-slate-900 font-mono text-xs text-slate-500">
                 "High IOPS, small blocks" → [0.82, -0.14, 0.67, 0.31, ...]
                 <br />
                 "Many random reads, 4K" → [0.79, -0.11, 0.71, 0.28, ...]
                 <br />
-                <span className="text-green-400">↑ Similar meaning = similar numbers</span>
+                <span className="text-green-400">
+                  {t('stop.ragSimple.concept.similarMeaningSimilarNumbers')}
+                </span>
               </div>
             </div>
             <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <h4 className="text-sm font-semibold text-yellow-400 mb-2">Vector Search</h4>
+              <h4 className="text-sm font-semibold text-yellow-400 mb-2">
+                {t('stop.ragSimple.concept.vectorSearch')}
+              </h4>
               <p className="text-xs text-slate-400 mb-2">
-                Your query is embedded into the same vector space as the knowledge base. Then we
-                find the nearest neighbors — the entries whose vectors are most similar to your
-                query's vector. This is "semantic search": it finds relevant content even if the
-                exact words don't match.
+                {t('stop.ragSimple.concept.vectorSearchP')}
               </p>
               <div className="p-2 rounded bg-slate-900 font-mono text-xs text-slate-500">
                 cosine_similarity(query, doc) = (q · d) / (|q| × |d|)
@@ -216,9 +207,14 @@ export default function RAGSimple() {
           {/* Critical point */}
           <div className="p-3 rounded bg-blue-950/20 border border-blue-800/30">
             <p className="text-xs text-blue-300">
-              <strong>Key insight:</strong> RAG does not change the model's weights at all. The
-              model is identical — only the input it receives is different. RAG changes what the
-              model <em>sees</em>, not how it <em>thinks</em>.
+              <Trans
+                i18nKey="stop.ragSimple.concept.keyInsight"
+                components={{
+                  1: <strong />,
+                  2: <em />,
+                  3: <em />,
+                }}
+              />
             </p>
           </div>
         </div>
@@ -230,7 +226,7 @@ export default function RAGSimple() {
           {/* Input */}
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Query I/O Pattern
+              {t('stop.ragSimple.demo.queryLabel')}
             </label>
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 font-mono text-sm text-slate-200">
               {EXAMPLE_INPUT}
@@ -240,7 +236,7 @@ export default function RAGSimple() {
           {/* Retrieval results */}
           <div>
             <h4 className="text-xs font-semibold text-yellow-400 uppercase tracking-wide mb-2">
-              Step 1: Retrieved from Knowledge Base
+              {t('stop.ragSimple.demo.step1')}
             </h4>
             <div className="space-y-2">
               {KNOWLEDGE_BASE.map((doc) => (
@@ -263,7 +259,9 @@ export default function RAGSimple() {
                           : 'bg-slate-700 text-slate-400'
                       }`}
                     >
-                      {(doc.similarity * 100).toFixed(0)}% match
+                      {t('stop.ragSimple.demo.match', {
+                        percent: (doc.similarity * 100).toFixed(0),
+                      })}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 font-mono">{doc.pattern}</p>
@@ -276,10 +274,10 @@ export default function RAGSimple() {
           {/* Augmented response */}
           <div>
             <h4 className="text-xs font-semibold text-yellow-400 uppercase tracking-wide mb-2">
-              Step 2: Model responds with retrieved context
+              {t('stop.ragSimple.demo.step2')}
             </h4>
             <ModelOutput
-              label="Base Model + RAG Context"
+              label={t('stop.ragSimple.demo.modelLabel')}
               text={RAG_RESPONSE}
               variant="rag"
               isCorrect={true}
@@ -287,10 +285,7 @@ export default function RAGSimple() {
           </div>
 
           <div className="p-3 rounded bg-green-950/20 border border-green-800/30">
-            <p className="text-sm text-green-300">
-              With retrieved context, the model nails it — correct classification, cites the
-              reference patterns, and explains its reasoning using data from the knowledge base.
-            </p>
+            <p className="text-sm text-green-300">{t('stop.ragSimple.demo.resultP')}</p>
           </div>
         </div>
       )}
@@ -300,15 +295,9 @@ export default function RAGSimple() {
         <div className="space-y-4">
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-yellow-400 mb-2">
-              How Vector Search Actually Works
+              {t('stop.ragSimple.deepdive.heading')}
             </h3>
-            <p className="text-sm text-slate-300 mb-4">
-              Each entry in the knowledge base has been pre-converted into an embedding vector
-              (hundreds of numbers). When your query arrives, it's also embedded. Then we find which
-              stored vectors are closest to the query vector. Here's what that looks like in 2D
-              (real embeddings have hundreds of dimensions, but the clustering principle is the
-              same):
-            </p>
+            <p className="text-sm text-slate-300 mb-4">{t('stop.ragSimple.deepdive.p')}</p>
             <VectorSearchViz autoPlay />
           </div>
 
@@ -316,25 +305,19 @@ export default function RAGSimple() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
               <h4 className="text-xs font-semibold text-yellow-300 uppercase tracking-wide mb-2">
-                Why similar patterns cluster
+                {t('stop.ragSimple.deepdive.whyCluster')}
               </h4>
-              <p className="text-xs text-slate-400">
-                The embedding model was trained on millions of text pairs, learning that "high IOPS
-                with small blocks" and "transaction processing database" are semantically related —
-                so they get similar vectors. OLTP entries cluster together, backup entries cluster
-                together, etc. This happens automatically from the meaning of the text.
-              </p>
+              <p className="text-xs text-slate-400">{t('stop.ragSimple.deepdive.whyClusterP')}</p>
             </div>
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
               <h4 className="text-xs font-semibold text-yellow-300 uppercase tracking-wide mb-2">
-                Infrastructure for vector search
+                {t('stop.ragSimple.deepdive.infraForVector')}
               </h4>
               <p className="text-xs text-slate-400">
-                The embedding vectors are stored in a <strong>vector database</strong> (e.g.,
-                Pinecone, Milvus, pgvector). For our 13-entry demo, an in-memory array works fine.
-                At enterprise scale with millions of entries, you need optimized approximate nearest
-                neighbor (ANN) indexes — and that means dedicated storage and compute for the vector
-                DB.
+                <Trans
+                  i18nKey="stop.ragSimple.deepdive.infraForVectorP"
+                  components={{ 1: <strong /> }}
+                />
               </p>
             </div>
           </div>
@@ -342,23 +325,29 @@ export default function RAGSimple() {
           {/* Where storage fits */}
           <div className="p-3 rounded bg-yellow-950/20 border border-yellow-800/30">
             <h4 className="text-xs font-semibold text-yellow-400 mb-1">
-              Where storage fits in RAG
+              {t('stop.ragSimple.deepdive.whereStorageFits')}
             </h4>
             <div className="grid grid-cols-3 gap-3 mt-2 text-xs text-slate-400">
               <div>
-                <span className="font-semibold text-slate-300">Embedding indexes</span>
+                <span className="font-semibold text-slate-300">
+                  {t('stop.ragSimple.deepdive.embeddingIndexes')}
+                </span>
                 <br />
-                ~1.5 KB per entry (768-dim float32). 1M entries ≈ 1.5 GB.
+                {t('stop.ragSimple.deepdive.embeddingIndexesP')}
               </div>
               <div>
-                <span className="font-semibold text-slate-300">Source documents</span>
+                <span className="font-semibold text-slate-300">
+                  {t('stop.ragSimple.deepdive.sourceDocuments')}
+                </span>
                 <br />
-                The original text. Often larger than the embeddings themselves.
+                {t('stop.ragSimple.deepdive.sourceDocumentsP')}
               </div>
               <div>
-                <span className="font-semibold text-slate-300">Query latency</span>
+                <span className="font-semibold text-slate-300">
+                  {t('stop.ragSimple.deepdive.queryLatency')}
+                </span>
                 <br />
-                Vector search adds 10-50ms per query. ANN indexes trade accuracy for speed.
+                {t('stop.ragSimple.deepdive.queryLatencyP')}
               </div>
             </div>
           </div>

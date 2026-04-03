@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import ModelOutput from '../components/ModelOutput'
 import TokenProbChart from '../components/TokenProbChart'
 import SectionTabs from '../components/SectionTabs'
@@ -82,6 +83,7 @@ const USER_MESSAGE = `Classify this storage I/O pattern into a workload type:\n\
 // ---------------------------------------------------------------------------
 
 export default function PromptBasic() {
+  const { t } = useTranslation()
   const [section, setSection] = useState('problem')
   const [selectedVariant, setSelectedVariant] = useState(0)
   const selectedPromptId = useStore((s) => s.selectedPromptId)
@@ -101,10 +103,10 @@ export default function PromptBasic() {
   })()
 
   const tabs = [
-    { id: 'problem', label: 'The Problem' },
-    { id: 'concept', label: 'What is Prompting?' },
-    { id: 'demo', label: 'See It Work' },
-    { id: 'deepdive', label: 'Under the Covers' },
+    { id: 'problem', label: t('tabs.theProblem') },
+    { id: 'concept', label: t('tabs.whatIsPrompting') },
+    { id: 'demo', label: t('tabs.seeItWork') },
+    { id: 'deepdive', label: t('tabs.underTheCovers') },
   ]
 
   return (
@@ -120,37 +122,30 @@ export default function PromptBasic() {
           {/* Framing */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-orange-400 mb-3">
-              A smart model with no domain knowledge
+              {t('stop.promptBasic.smartModelNoKnowledge')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              SmolLM2-360M is a capable small language model. It can summarize text, answer general
-              knowledge questions, and follow simple instructions. But it was trained on general
-              internet text &mdash; it has never seen storage I/O patterns before and has no idea
-              that workload categories like "OLTP Database" or "VDI Virtual Desktop" exist.
+              {t('stop.promptBasic.smartModelParagraph1')}
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              So what happens when we show it a string of storage metrics and ask it to classify the
-              workload? Let's find out.
+              {t('stop.promptBasic.smartModelParagraph2')}
             </p>
           </div>
 
           {/* The raw input */}
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Storage I/O Pattern (our input)
+              {t('stop.promptBasic.storageIOPattern')}
             </label>
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 font-mono text-sm text-slate-200">
               {EXAMPLE_INPUT}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              This is a classic OLTP Database pattern. High IOPS, sub-millisecond latency, small
-              blocks, mostly random reads.
-            </p>
+            <p className="text-xs text-slate-500 mt-1">{t('stop.promptBasic.classicOltpHint')}</p>
           </div>
 
           {/* Base model output */}
           <ModelOutput
-            label="Base Model Response (SmolLM2-360M)"
+            label={t('stop.promptBasic.baseModelResponse')}
             text={BASE_RESPONSE}
             variant="base"
             isCorrect={false}
@@ -158,41 +153,37 @@ export default function PromptBasic() {
 
           {/* Commentary */}
           <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
-            <h4 className="text-sm font-semibold text-red-400 mb-2">What went wrong?</h4>
+            <h4 className="text-sm font-semibold text-red-400 mb-2">
+              {t('stop.promptBasic.whatWentWrong')}
+            </h4>
             <p className="text-sm text-slate-300 leading-relaxed mb-2">
-              The model isn't stupid &mdash; it correctly describes each metric. It knows 45,000
-              IOPS is "relatively high" and 0.3ms latency is "quite low." But it never actually{' '}
-              <em>classifies</em> the workload. It ends with a vague hedge: "could be from various
-              types of storage workloads."
+              <Trans i18nKey="stop.promptBasic.whatWentWrongP1" components={{ 1: <em /> }} />
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              This is the fundamental challenge: the model can read the numbers but has no framework
-              for mapping them to storage workload categories. It's like showing someone a blood
-              test result who has never studied medicine &mdash; they can read the numbers, but they
-              can't tell you what's wrong.
+              {t('stop.promptBasic.whatWentWrongP2')}
             </p>
           </div>
 
           {/* The six categories */}
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
             <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-              The 6 workload categories the model needs to learn
+              {t('stop.promptBasic.sixCategories')}
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {[
-                { name: 'OLTP Database', desc: 'High IOPS, tiny blocks, sub-ms latency' },
-                { name: 'OLAP Analytics', desc: 'Large sequential reads, high throughput' },
-                { name: 'AI/ML Training', desc: 'Huge sequential reads, GPU-fed pipeline' },
-                { name: 'Video Streaming', desc: 'Steady sequential reads, large blocks' },
-                { name: 'VDI Virtual Desktop', desc: 'Mixed R/W, small blocks, many users' },
-                { name: 'Backup/Archive', desc: 'Bulk sequential writes, high compression' },
+                { nameKey: 'categories.oltp', descKey: 'categories.oltpDesc' },
+                { nameKey: 'categories.olap', descKey: 'categories.olapDesc' },
+                { nameKey: 'categories.aiml', descKey: 'categories.aimlDesc' },
+                { nameKey: 'categories.video', descKey: 'categories.videoDesc' },
+                { nameKey: 'categories.vdi', descKey: 'categories.vdiDesc' },
+                { nameKey: 'categories.backup', descKey: 'categories.backupDesc' },
               ].map((cat) => (
                 <div
-                  key={cat.name}
+                  key={cat.nameKey}
                   className="p-2 rounded bg-slate-900/50 border border-slate-700/30"
                 >
-                  <div className="text-xs font-semibold text-orange-300">{cat.name}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{cat.desc}</div>
+                  <div className="text-xs font-semibold text-orange-300">{t(cat.nameKey)}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{t(cat.descKey)}</div>
                 </div>
               ))}
             </div>
@@ -201,9 +192,10 @@ export default function PromptBasic() {
           {/* Transition */}
           <div className="p-3 rounded bg-orange-950/20 border border-orange-800/30">
             <p className="text-sm text-orange-300">
-              Can we fix this without changing the model at all? The first technique to try is{' '}
-              <strong>prompt engineering</strong> &mdash; changing <em>how we ask</em>
-              the question. Head to the next tab to see how.
+              <Trans
+                i18nKey="stop.promptBasic.transitionToPrompting"
+                components={{ 1: <strong />, 2: <em /> }}
+              />
             </p>
           </div>
         </div>
@@ -215,36 +207,30 @@ export default function PromptBasic() {
           {/* Intro */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-orange-400 mb-3">
-              Prompt Engineering: How you ask matters
+              {t('stop.promptBasic.concept.heading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              Imagine you're asking a new colleague for help. If you say "Hey, what do you think
-              about this?" and hand them a spreadsheet, you'll get a vague answer. But if you say "I
-              need you to categorize this into one of six buckets &mdash; here are the buckets,
-              here's the format I want &mdash; go," you'll get exactly what you need.
+              {t('stop.promptBasic.concept.p1')}
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Prompt engineering is the same idea applied to language models. The model doesn't
-              change &mdash; the weights stay frozen, the architecture is the same. You're just
-              changing the <strong className="text-orange-300">input text</strong> to guide the
-              model toward the output you want.
+              <Trans
+                i18nKey="stop.promptBasic.concept.p2"
+                components={{ 1: <strong className="text-orange-300" /> }}
+              />
             </p>
           </div>
 
           {/* Analogy box */}
           <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-800/30">
             <p className="text-xs text-blue-300 leading-relaxed">
-              <strong>Key insight:</strong> Prompt engineering does not modify the model. There is
-              no training, no new data, no GPU time. You are only changing the text the model
-              receives as input. Think of it as writing better instructions on the exam paper
-              &mdash; the student is the same, but clearer questions produce clearer answers.
+              <Trans i18nKey="stop.promptBasic.concept.keyInsight" components={{ 1: <strong /> }} />
             </p>
           </div>
 
           {/* Three prompt variants */}
           <div>
             <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-              Same question, three different prompts
+              {t('stop.promptBasic.concept.threePromptsHeading')}
             </h4>
             <div className="flex gap-2 mb-4">
               {PROMPT_VARIANTS.map((v, i) => (
@@ -271,7 +257,7 @@ export default function PromptBasic() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                        Prompt
+                        {t('stop.promptBasic.concept.promptLabel')}
                       </span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-semibold ${v.tagColor}`}
@@ -287,7 +273,7 @@ export default function PromptBasic() {
                   {/* Model response */}
                   <div>
                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">
-                      Model Response
+                      {t('stop.promptBasic.concept.modelResponse')}
                     </span>
                     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                       <pre className="text-sm text-slate-200 whitespace-pre-wrap font-mono leading-relaxed">
@@ -308,33 +294,31 @@ export default function PromptBasic() {
           {/* Progression summary */}
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
             <h4 className="text-sm font-semibold text-orange-400 mb-3">
-              What changed across those three prompts?
+              {t('stop.promptBasic.concept.whatChanged')}
             </h4>
             <div className="space-y-2">
               <div className="flex gap-3 items-start">
-                <span className="text-xs font-mono text-red-400 w-24 shrink-0 pt-0.5">Vague</span>
+                <span className="text-xs font-mono text-red-400 w-24 shrink-0 pt-0.5">
+                  {t('stop.promptBasic.variant.vague')}
+                </span>
                 <p className="text-xs text-slate-400">
-                  No role, no categories, no format. The model treats it like a general knowledge
-                  question and explains what the acronyms mean.
+                  {t('stop.promptBasic.concept.vagueExplain')}
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-xs font-mono text-yellow-400 w-24 shrink-0 pt-0.5">
-                  Structured
+                  {t('stop.promptBasic.variant.structured')}
                 </span>
                 <p className="text-xs text-slate-400">
-                  We give the model a role ("storage I/O expert"), list the six categories, and
-                  provide the metrics clearly. The model now attempts classification but still
-                  hedges its language.
+                  {t('stop.promptBasic.concept.structuredExplain')}
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-xs font-mono text-green-400 w-24 shrink-0 pt-0.5">
-                  Instruction
+                  {t('stop.promptBasic.variant.instruction')}
                 </span>
                 <p className="text-xs text-slate-400">
-                  We specify the exact output format: category name, confidence, one sentence. The
-                  model follows instructions precisely and produces a clean, actionable answer.
+                  {t('stop.promptBasic.concept.instructionExplain')}
                 </p>
               </div>
             </div>
@@ -343,10 +327,10 @@ export default function PromptBasic() {
           {/* Limitations teaser */}
           <div className="p-3 rounded bg-orange-950/20 border border-orange-800/30">
             <p className="text-sm text-orange-300">
-              Prompt engineering is powerful &mdash; and it's free. No training, no GPUs, no data
-              pipelines. But it has limits: the model still doesn't truly
-              <em> understand</em> storage I/O patterns. It's following instructions, not applying
-              learned expertise. We'll explore those limits in later stops.
+              <Trans
+                i18nKey="stop.promptBasic.concept.limitationsTeaser"
+                components={{ 1: <em /> }}
+              />
             </p>
           </div>
         </div>
@@ -358,7 +342,7 @@ export default function PromptBasic() {
           {/* Input */}
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Storage I/O Pattern
+              {t('stop.promptBasic.storageIOPattern')}
             </label>
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 font-mono text-sm text-slate-200">
               {EXAMPLE_INPUT}
@@ -368,21 +352,20 @@ export default function PromptBasic() {
           {/* Show the actual prompt */}
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wide mb-3">
-              What the model actually sees
+              {t('stop.promptBasic.demo.whatModelSees')}
             </h4>
             <p className="text-xs text-slate-400 mb-3">
-              Language models don't just receive your question &mdash; they receive a structured
-              prompt. Here's the full text we send to SmolLM2-360M:
+              {t('stop.promptBasic.demo.whatModelSeesP')}
             </p>
 
             {/* System message */}
             <div className="mb-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  System Message
+                  {t('stop.promptBasic.demo.systemMessage')}
                 </span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">
-                  Sets the role
+                  {t('stop.promptBasic.demo.setsTheRole')}
                 </span>
               </div>
               <pre className="bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
@@ -394,10 +377,10 @@ export default function PromptBasic() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  User Message
+                  {t('stop.promptBasic.demo.userMessage')}
                 </span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">
-                  Your query
+                  {t('stop.promptBasic.demo.yourQuery')}
                 </span>
               </div>
               <pre className="bg-slate-900 border border-slate-700 rounded-lg p-3 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
@@ -408,7 +391,7 @@ export default function PromptBasic() {
 
           {/* Model response */}
           <ModelOutput
-            label="Base Model Response (SmolLM2-360M, no fine-tuning)"
+            label={t('stop.promptBasic.demo.baseModelResponseNoFt')}
             text={demoBaseResponse}
             variant="base"
             isCorrect={false}
@@ -416,17 +399,17 @@ export default function PromptBasic() {
 
           {/* Explanation */}
           <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
-            <h4 className="text-sm font-semibold text-red-400 mb-2">Result: Incorrect</h4>
+            <h4 className="text-sm font-semibold text-red-400 mb-2">
+              {t('stop.promptBasic.demo.resultIncorrect')}
+            </h4>
             <p className="text-sm text-slate-300 leading-relaxed mb-2">
-              Even with a system message and a clear instruction, the base model fails to classify.
-              It describes the metrics accurately but never commits to a category. The response ends
-              with "could be from various types of storage workloads" &mdash; which is not useful.
+              {t('stop.promptBasic.demo.resultP1')}
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              The correct answer is <strong className="text-green-400">OLTP Database</strong>. The
-              pattern &mdash; high IOPS, sub-ms latency, small random blocks, read-heavy &mdash; is
-              textbook OLTP. But the model has no training data that maps these patterns to workload
-              categories, so prompting alone isn't enough.
+              <Trans
+                i18nKey="stop.promptBasic.demo.resultP2"
+                components={{ 1: <strong className="text-green-400" /> }}
+              />
             </p>
           </div>
 
@@ -434,24 +417,22 @@ export default function PromptBasic() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="p-3 rounded-lg bg-green-950/20 border border-green-800/30">
               <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">
-                What prompting can do
+                {t('stop.promptBasic.demo.whatPromptingCanDo')}
               </h4>
               <ul className="text-xs text-slate-400 space-y-1.5">
-                <li>- Control output format (JSON, bullet points, single word)</li>
-                <li>- Assign a role to focus the model's behavior</li>
-                <li>- Provide categories to constrain possible answers</li>
-                <li>- Include examples (few-shot) for the model to mimic</li>
+                {t('stop.promptBasic.demo.canDoList', { returnObjects: true }).map((item, i) => (
+                  <li key={i}>- {item}</li>
+                ))}
               </ul>
             </div>
             <div className="p-3 rounded-lg bg-red-950/20 border border-red-800/30">
               <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-2">
-                What prompting cannot do
+                {t('stop.promptBasic.demo.whatPromptingCannotDo')}
               </h4>
               <ul className="text-xs text-slate-400 space-y-1.5">
-                <li>- Teach the model new domain knowledge</li>
-                <li>- Make the model reliably distinguish similar categories</li>
-                <li>- Guarantee consistent, structured outputs</li>
-                <li>- Replace training when the task requires specialized reasoning</li>
+                {t('stop.promptBasic.demo.cannotDoList', { returnObjects: true }).map((item, i) => (
+                  <li key={i}>- {item}</li>
+                ))}
               </ul>
             </div>
           </div>
@@ -464,19 +445,19 @@ export default function PromptBasic() {
           {/* Intro to token probs */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-orange-400 mb-3">
-              Token Probabilities: How the model "thinks"
+              {t('stop.promptBasic.deepdive.tokenProbsHeading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              Every time a language model generates a word (or more precisely, a
-              <strong className="text-orange-300"> token</strong>), it isn't just picking one
-              answer. It's computing a probability distribution over its entire vocabulary &mdash;
-              tens of thousands of possible next tokens &mdash; and then sampling from that
-              distribution.
+              <Trans
+                i18nKey="stop.promptBasic.deepdive.tokenProbsP1"
+                components={{ 1: <strong className="text-orange-300" /> }}
+              />
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              The chart below shows the model's probability distribution for the
-              <strong className="text-slate-200"> very first token</strong> of its response. This is
-              the moment of truth: what does the model think it should say first?
+              <Trans
+                i18nKey="stop.promptBasic.deepdive.tokenProbsP2"
+                components={{ 1: <strong className="text-slate-200" /> }}
+              />
             </p>
           </div>
 
@@ -484,39 +465,42 @@ export default function PromptBasic() {
           <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700/50">
             <TokenProbChart
               data={baseTokenProbs}
-              label="Base Model: First Token Probabilities"
+              label={t('stop.promptBasic.deepdive.baseModelLabel')}
               highlightToken="OLTP"
             />
           </div>
 
           {/* Reading the chart */}
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
-            <h4 className="text-sm font-semibold text-orange-400 mb-3">Reading the chart</h4>
+            <h4 className="text-sm font-semibold text-orange-400 mb-3">
+              {t('stop.promptBasic.deepdive.readingTheChart')}
+            </h4>
             <div className="space-y-3">
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">1.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <strong className="text-slate-200">The top tokens are generic words.</strong>{' '}
-                  "This" (18%), "The" (14%), "Based" (9%). The model's strongest instinct is to
-                  start a descriptive sentence &mdash; not to classify.
+                  <Trans
+                    i18nKey="stop.promptBasic.deepdive.chart1"
+                    components={{ 1: <strong className="text-slate-200" /> }}
+                  />
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">2.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <strong className="text-green-400">"OLTP" has only 4% probability</strong>{' '}
-                  (highlighted in green). The correct answer is in the model's vocabulary &mdash;
-                  it's not impossible for the model to say it &mdash; but it's buried under a pile
-                  of generic alternatives.
+                  <Trans
+                    i18nKey="stop.promptBasic.deepdive.chart2"
+                    components={{ 1: <strong className="text-green-400" /> }}
+                  />
                 </p>
               </div>
               <div className="flex gap-3 items-start">
                 <span className="text-lg leading-none mt-0.5">3.</span>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  <strong className="text-slate-200">The distribution is flat.</strong> No single
-                  token dominates. This is what uncertainty looks like in a language model &mdash;
-                  it has no strong opinion about how to start, so probability is spread thinly
-                  across many options.
+                  <Trans
+                    i18nKey="stop.promptBasic.deepdive.chart3"
+                    components={{ 1: <strong className="text-slate-200" /> }}
+                  />
                 </p>
               </div>
             </div>
@@ -525,20 +509,16 @@ export default function PromptBasic() {
           {/* Why this matters */}
           <div className="p-4 rounded-lg bg-orange-950/20 border border-orange-800/30">
             <h4 className="text-sm font-semibold text-orange-400 mb-2">
-              Why this matters for post-training
+              {t('stop.promptBasic.deepdive.whyThisMatters')}
             </h4>
             <p className="text-sm text-slate-300 leading-relaxed mb-2">
-              When we later apply fine-tuning techniques (SFT, DPO, GRPO), the goal is to reshape
-              this probability distribution. A well-trained model for this task should put 80%+
-              probability on "OLTP" and near-zero on generic words like "This" or "The."
+              {t('stop.promptBasic.deepdive.whyThisMattersP1')}
             </p>
             <p className="text-sm text-slate-400 leading-relaxed">
-              That's the core idea of post-training:{' '}
-              <strong className="text-orange-300">
-                shifting the model's probability distribution
-              </strong>{' '}
-              so that the correct, domain-specific answer becomes the most likely output &mdash; not
-              just a long-shot possibility buried at 4%.
+              <Trans
+                i18nKey="stop.promptBasic.deepdive.whyThisMattersP2"
+                components={{ 1: <strong className="text-orange-300" /> }}
+              />
             </p>
           </div>
 
@@ -546,25 +526,18 @@ export default function PromptBasic() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
               <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wide mb-2">
-                What is a token?
+                {t('stop.promptBasic.deepdive.whatIsAToken')}
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Language models don't work with whole words. They split text into "tokens" &mdash;
-                subword pieces. "OLTP" might be one token, "Database" another. SmolLM2-360M has a
-                vocabulary of ~49,152 tokens. Every generation step picks from this full set based
-                on the probability distribution.
+                {t('stop.promptBasic.deepdive.whatIsATokenP')}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
               <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wide mb-2">
-                Temperature and sampling
+                {t('stop.promptBasic.deepdive.tempAndSampling')}
               </h4>
               <p className="text-xs text-slate-400 leading-relaxed">
-                The probabilities shown are the model's raw "logits" after softmax. In practice, a
-                "temperature" parameter can sharpen or flatten this distribution before sampling.
-                Lower temperature = more deterministic (picks the top token more often). But even at
-                temperature 0, a flat distribution like this produces unreliable output because
-                "This" and "The" are so close in probability.
+                {t('stop.promptBasic.deepdive.tempAndSamplingP')}
               </p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import useStore from '../store'
 import ModelOutput from '../components/ModelOutput'
@@ -279,6 +280,7 @@ function ProbabilityShiftChart() {
 // Main component
 // ===========================================================================
 export default function DPOPreferences() {
+  const { t } = useTranslation()
   const [section, setSection] = useState('problem')
 
   // --- preference picker state ---
@@ -304,10 +306,10 @@ export default function DPOPreferences() {
   }
 
   const tabs = [
-    { id: 'problem', label: 'The Problem' },
-    { id: 'concept', label: 'How DPO Works' },
-    { id: 'demo', label: 'See It Work' },
-    { id: 'deepdive', label: 'Under the Covers' },
+    { id: 'problem', label: t('tabs.theProblem') },
+    { id: 'concept', label: t('tabs.howDpoWorks') },
+    { id: 'demo', label: t('tabs.seeItWork') },
+    { id: 'deepdive', label: t('tabs.underTheCovers') },
   ]
 
   return (
@@ -324,7 +326,7 @@ export default function DPOPreferences() {
         <div className="space-y-6">
           <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
             <h3 className="text-lg font-semibold text-pink-400 mb-3">
-              SFT taught the model WHAT to say. But not HOW to say it.
+              {t('stop.dpo.problem.heading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               After supervised fine-tuning, our SmolLM2-360M model can correctly classify storage
@@ -335,14 +337,14 @@ export default function DPOPreferences() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <ModelOutput
-                label="Response A — Concise & Confident"
+                label={t('stop.dpo.problem.responseA')}
                 variant="chosen"
                 text={`Classification: OLTP Database
 Confidence: High
 Key indicators: High IOPS (45K) with very low latency (0.3ms) and small block size (8K) are hallmarks of transaction processing. Random-dominant access (85%) with moderate read bias confirms OLTP pattern.`}
               />
               <ModelOutput
-                label="Response B — Verbose & Hedging"
+                label={t('stop.dpo.problem.responseB')}
                 variant="rejected"
                 text={`Classification: OLTP Database
 This could potentially be an OLTP Database workload. The IOPS are quite high at 45000, and the block size of 8K is relatively small. The latency is low at 0.3ms. However, it could also possibly be a VDI workload given the mixed read/write ratio. On balance, OLTP Database seems most likely but I'm not entirely certain.`}
@@ -351,7 +353,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
 
             <div className="p-4 rounded-lg bg-pink-950/20 border border-pink-800/30">
               <p className="text-sm text-pink-300 font-semibold mb-2">
-                Both answers are correct. So why does it matter?
+                {t('stop.dpo.problem.bothCorrect')}
               </p>
               <p className="text-sm text-slate-400 leading-relaxed mb-3">
                 Imagine it's 3 AM during an incident and your monitoring pipeline surfaces one of
@@ -393,7 +395,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* Core idea */}
           <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
             <h3 className="text-lg font-semibold text-pink-400 mb-3">
-              Teaching with comparisons, not examples
+              {t('stop.dpo.concept.heading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
               SFT teaches by showing the model examples: "given this input, produce this output."{' '}
@@ -412,7 +414,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* RLHF: the old way */}
           <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
             <h3 className="text-lg font-semibold text-pink-400 mb-3">
-              The backstory: why not RLHF?
+              {t('stop.dpo.concept.rlhfBackstory')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               Before DPO, the standard approach to preference learning was{' '}
@@ -445,7 +447,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* DPO: the insight */}
           <div className="p-5 rounded-lg bg-pink-950/15 border border-pink-800/30">
             <h3 className="text-lg font-semibold text-pink-400 mb-3">
-              DPO: skip the reward model entirely
+              {t('stop.dpo.concept.dpoSkipHeading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               In 2023, Rafailov et al. published a key insight: there is a{' '}
@@ -457,7 +459,9 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
             {/* RLHF vs DPO comparison */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
               <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
-                <h4 className="text-sm font-semibold text-red-400 mb-2">RLHF (3 models)</h4>
+                <h4 className="text-sm font-semibold text-red-400 mb-2">
+                  {t('stop.dpo.concept.rlhfLabel')}
+                </h4>
                 <div className="text-xs text-slate-400 space-y-1.5">
                   <p>1. Policy model (the LLM you're training)</p>
                   <p>2. Reward model (predicts human preference)</p>
@@ -468,11 +472,17 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-green-950/20 border border-green-800/30">
-                <h4 className="text-sm font-semibold text-green-400 mb-2">DPO (1 model)</h4>
+                <h4 className="text-sm font-semibold text-green-400 mb-2">
+                  {t('stop.dpo.concept.dpoLabel')}
+                </h4>
                 <div className="text-xs text-slate-400 space-y-1.5">
-                  <p>1. Policy model (the LLM you're training)</p>
-                  <p className="text-slate-600 line-through">2. No reward model needed</p>
-                  <p className="text-slate-600 line-through">3. No value network needed</p>
+                  <p>{t('stop.dpo.concept.dpoItem1')}</p>
+                  <p className="text-slate-600 line-through">
+                    {t('stop.dpo.concept.dpoItem2Struck')}
+                  </p>
+                  <p className="text-slate-600 line-through">
+                    {t('stop.dpo.concept.dpoItem3Struck')}
+                  </p>
                 </div>
                 <p className="text-xs text-green-300 mt-3 font-semibold">
                   5.1 GB GPU memory.{' '}
@@ -555,7 +565,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
 
           {/* Progress dots */}
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-xs text-slate-500">Preference pair</span>
+            <span className="text-xs text-slate-500">{t('stop.dpo.demo.preferencePair')}</span>
             {PREFERENCE_PAIRS.map((_, i) => (
               <button
                 key={i}
@@ -585,7 +595,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* Instruction */}
           {!userChoice && (
             <p className="text-sm text-pink-300 mb-4 font-semibold">
-              Both responses are correct. Which one do you prefer? Click to choose.
+              {t('stop.dpo.demo.bothCorrectChoose')}
             </p>
           )}
 
@@ -602,7 +612,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               }`}
             >
               <ModelOutput
-                label="Response A"
+                label={t('stop.dpo.demo.responseA')}
                 text={pair.responseA}
                 variant={
                   userChoice === 'A' ? 'chosen' : userChoice === 'B' ? 'rejected' : 'default'
@@ -620,7 +630,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               }`}
             >
               <ModelOutput
-                label="Response B"
+                label={t('stop.dpo.demo.responseB')}
                 text={pair.responseB}
                 variant={
                   userChoice === 'B' ? 'chosen' : userChoice === 'A' ? 'rejected' : 'default'
@@ -664,7 +674,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
                   onClick={nextPair}
                   className="mt-3 px-4 py-1.5 text-sm bg-pink-700 hover:bg-pink-600 rounded-md transition-colors"
                 >
-                  Next pair &rarr;
+                  {t('stop.dpo.demo.nextPair')}
                 </button>
               )}
             </div>
@@ -687,7 +697,7 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* Probability shift visualization */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-pink-400 mb-3">
-              How DPO reshapes the model's probabilities
+              {t('stop.dpo.deepdive.heading')}
             </h3>
             <p className="text-sm text-slate-300 mb-4 leading-relaxed">
               The chart below shows log probabilities for two response styles — concise (chosen) and
@@ -747,7 +757,9 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
           {/* RLHF vs DPO comparison cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg bg-red-950/15 border border-red-800/30">
-              <h4 className="text-sm font-semibold text-red-400 mb-2">RLHF (the old way)</h4>
+              <h4 className="text-sm font-semibold text-red-400 mb-2">
+                {t('stop.dpo.deepdive.rlhfOldWay')}
+              </h4>
               <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
                 <li>Collect human preferences</li>
                 <li>
@@ -763,7 +775,9 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
               </p>
             </div>
             <div className="p-4 rounded-lg bg-green-950/15 border border-green-800/30">
-              <h4 className="text-sm font-semibold text-green-400 mb-2">DPO (the direct way)</h4>
+              <h4 className="text-sm font-semibold text-green-400 mb-2">
+                {t('stop.dpo.deepdive.dpoDirectWay')}
+              </h4>
               <ol className="text-xs text-slate-400 space-y-1 list-decimal list-inside">
                 <li>Collect the same human preferences</li>
                 <li>Optimize directly from preference pairs</li>
@@ -783,7 +797,9 @@ This could potentially be an OLTP Database workload. The IOPS are quite high at 
 
           {/* Infrastructure card - always visible */}
           <div>
-            <h3 className="text-base font-semibold text-pink-400 mb-3">Infrastructure profile</h3>
+            <h3 className="text-base font-semibold text-pink-400 mb-3">
+              {t('stop.dpo.deepdive.infraProfile')}
+            </h3>
             <InfrastructureCard data={DPO_INFRA} />
           </div>
         </div>

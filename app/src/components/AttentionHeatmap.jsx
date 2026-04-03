@@ -1,22 +1,30 @@
 import { useRef, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import {
   TOKENS,
   TOKEN_COLORS,
   TOKEN_TYPE_LABELS,
-  ATTENTION_HEADS,
-  ATTENTION_LAYERS,
   ATTENTION_WEIGHTS,
-  ATTENTION_INSIGHTS,
+  getTokenTypeLabels,
+  getAttentionHeads,
+  getAttentionLayers,
+  getAttentionInsights,
 } from '../data/transformerData'
 
 export default function AttentionHeatmap() {
+  const { t } = useTranslation()
   const [selectedToken, setSelectedToken] = useState(null)
   const [selectedHead, setSelectedHead] = useState('syntax')
   const [selectedLayer, setSelectedLayer] = useState(0)
   const [hoveredCell, setHoveredCell] = useState(null)
   const heatmapRef = useRef()
   const barRef = useRef()
+
+  const ATTENTION_HEADS = getAttentionHeads(t)
+  const ATTENTION_LAYERS = getAttentionLayers(t)
+  const ATTENTION_INSIGHTS = getAttentionInsights(t)
+  const translatedTypeLabels = getTokenTypeLabels(t)
 
   const matrixKey = `${selectedLayer}_${selectedHead}`
   const matrix = ATTENTION_WEIGHTS[matrixKey]
@@ -95,7 +103,7 @@ export default function AttentionHeatmap() {
       .attr('text-anchor', 'middle')
       .attr('fill', '#475569')
       .attr('font-size', '10')
-      .text('Attends TO ↓')
+      .text(t('attention.attendsTo'))
 
     svg
       .append('text')
@@ -105,7 +113,7 @@ export default function AttentionHeatmap() {
       .attr('fill', '#475569')
       .attr('font-size', '10')
       .attr('transform', `rotate(-90, 12, ${margin.top + (cellSize * TOKENS.length) / 2})`)
-      .text('Attends FROM →')
+      .text(t('attention.attendsFrom'))
 
     // Draw cells
     matrix.forEach((row, i) => {
@@ -171,9 +179,9 @@ export default function AttentionHeatmap() {
         .attr('fill', '#334155')
         .attr('font-size', '8')
         .attr('font-style', 'italic')
-        .text('Causal mask')
+        .text(t('attention.causalMask'))
     }
-  }, [matrix, selectedToken, hoveredCell, selectedLayer, selectedHead])
+  }, [matrix, selectedToken, hoveredCell, selectedLayer, selectedHead, t])
 
   // --- Attention bar chart for selected token ---
   useEffect(() => {
@@ -279,17 +287,11 @@ export default function AttentionHeatmap() {
   return (
     <div className="space-y-4">
       {/* Introduction */}
-      <p className="text-sm text-slate-400">
-        This heatmap shows attention weights for a storage I/O classification prompt. Each cell
-        shows how much one token "pays attention to" another. Click a token to highlight its
-        attention row. Switch heads and layers to see different patterns.
-      </p>
+      <p className="text-sm text-slate-400">{t('attention.heatmapIntro')}</p>
 
       {/* Token pills */}
       <div>
-        <p className="text-xs text-slate-500 mb-2">
-          Click a token to explore its attention pattern:
-        </p>
+        <p className="text-xs text-slate-500 mb-2">{t('attention.clickToken')}</p>
         <div className="flex flex-wrap gap-1">
           {TOKENS.map((tok) => {
             const colors = TOKEN_COLORS[tok.type]
@@ -303,7 +305,7 @@ export default function AttentionHeatmap() {
                     ? 'ring-2 ring-violet-400 bg-violet-900/50 border-violet-500 text-white'
                     : `${colors.bg} ${colors.border} ${colors.text} hover:brightness-125`
                 }`}
-                title={TOKEN_TYPE_LABELS[tok.type]}
+                title={translatedTypeLabels[tok.type]}
               >
                 {tok.text}
               </button>
@@ -311,7 +313,7 @@ export default function AttentionHeatmap() {
           })}
         </div>
         <div className="flex gap-3 mt-2">
-          {Object.entries(TOKEN_TYPE_LABELS).map(([type, label]) => (
+          {Object.entries(translatedTypeLabels).map(([type, label]) => (
             <span key={type} className="flex items-center gap-1 text-xs">
               <span
                 className={`w-2 h-2 rounded-sm ${TOKEN_COLORS[type].bg} ${TOKEN_COLORS[type].border} border`}
@@ -325,7 +327,7 @@ export default function AttentionHeatmap() {
       {/* Controls: Head + Layer selectors */}
       <div className="flex flex-wrap gap-4">
         <div>
-          <p className="text-xs text-slate-500 mb-1.5">Attention Head</p>
+          <p className="text-xs text-slate-500 mb-1.5">{t('attention.headLabel')}</p>
           <div className="flex gap-1">
             {ATTENTION_HEADS.map((h) => (
               <button
@@ -343,7 +345,7 @@ export default function AttentionHeatmap() {
           </div>
         </div>
         <div>
-          <p className="text-xs text-slate-500 mb-1.5">Layer</p>
+          <p className="text-xs text-slate-500 mb-1.5">{t('attention.layerLabel')}</p>
           <div className="flex gap-1">
             {ATTENTION_LAYERS.map((l) => (
               <button
@@ -378,9 +380,12 @@ export default function AttentionHeatmap() {
       {hoveredCell && hoveredCell.value !== undefined && (
         <div className="text-xs text-slate-400">
           <span className="font-mono text-slate-300">
-            "{TOKENS[hoveredCell.row].text}" → "{TOKENS[hoveredCell.col].text}"
+            {t('attention.attends', {
+              from: TOKENS[hoveredCell.row].text,
+              to: TOKENS[hoveredCell.col].text,
+            })}
           </span>
-          : attention weight ={' '}
+          : {t('attention.hoverWeight')}{' '}
           <span className="text-violet-300 font-semibold">
             {(hoveredCell.value * 100).toFixed(1)}%
           </span>
@@ -398,15 +403,11 @@ export default function AttentionHeatmap() {
             <p className="text-sm text-slate-300 leading-relaxed">
               {insight ||
                 (selectedToken !== null
-                  ? `Token "${TOKENS[selectedToken].text}" — ${head?.description}`
-                  : head?.description +
-                    ' Try clicking a token above to see specific attention patterns.')}
+                  ? `${t('attention.selectedTokenAttends', { token: TOKENS[selectedToken].text })} — ${head?.description}`
+                  : head?.description + ' ' + t('attention.tryClicking'))}
             </p>
             {selectedToken !== null && (
-              <p className="text-xs text-slate-500 mt-2">
-                Layer progression: try switching layers to see how this pattern evolves from surface
-                patterns (early) to task reasoning (late).
-              </p>
+              <p className="text-xs text-slate-500 mt-2">{t('attention.layerProgression')}</p>
             )}
           </div>
         </div>

@@ -1,58 +1,62 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import useStore from '../store'
 import tourSteps from '../data/tourSteps'
 
-// Quadrant definitions matching the SNIA slide colors
-const QUADRANTS = {
+// Quadrant style definitions (non-translatable)
+const QUADRANT_STYLES = {
   prompt: {
-    label: 'Prompt Engineering',
     color: '#f97316',
     bgColor: '#ea8c3c',
     textColor: '#000000',
     col: 0,
-    row: 1, // lower-left
-    subLabels: [
-      { label: 'Prompt', x: 0.3, y: 0.75 },
-      { label: 'Few Shot', x: 0.65, y: 0.35 },
+    row: 1,
+    subKeys: [
+      { key: 'quadrant.sub.prompt', x: 0.3, y: 0.75 },
+      { key: 'quadrant.sub.fewShot', x: 0.65, y: 0.35 },
     ],
   },
   rag: {
-    label: 'RAG',
     bgColor: '#e8c840',
     color: '#eab308',
     textColor: '#000000',
     col: 0,
-    row: 0, // upper-left
-    subLabels: [
-      { label: 'Simple Retrieval', x: 0.38, y: 0.75 },
-      { label: 'Optimize Retrieval', x: 0.6, y: 0.3 },
+    row: 0,
+    subKeys: [
+      { key: 'quadrant.sub.simpleRetrieval', x: 0.38, y: 0.75 },
+      { key: 'quadrant.sub.optimizeRetrieval', x: 0.6, y: 0.3 },
     ],
   },
   posttraining: {
-    label: 'Post Training',
     color: '#475569',
     bgColor: '#1a2540',
     textColor: '#e2e8f0',
     col: 1,
-    row: 1, // lower-right
-    subLabels: [
-      { label: 'SFT', x: 0.22, y: 0.72 },
-      { label: 'DPO', x: 0.48, y: 0.55 },
-      { label: 'GRPO', x: 0.74, y: 0.38 },
+    row: 1,
+    subKeys: [
+      { key: 'quadrant.sub.sft', x: 0.22, y: 0.72 },
+      { key: 'quadrant.sub.dpo', x: 0.48, y: 0.55 },
+      { key: 'quadrant.sub.grpo', x: 0.74, y: 0.38 },
     ],
   },
   alloptions: {
-    label: 'All the Options',
     color: '#06b6d4',
     bgColor: '#4ab8cc',
     textColor: '#000000',
     col: 1,
-    row: 0, // upper-right
-    subLabels: [
-      { label: 'Post Training', x: 0.45, y: 0.72 },
-      { label: 'Fine Tune with RAG', x: 0.6, y: 0.28 },
+    row: 0,
+    subKeys: [
+      { key: 'quadrant.sub.postTraining', x: 0.45, y: 0.72 },
+      { key: 'quadrant.sub.fineTuneWithRag', x: 0.6, y: 0.28 },
     ],
   },
+}
+
+const QUADRANT_LABEL_KEYS = {
+  prompt: 'quadrant.prompt',
+  rag: 'quadrant.rag',
+  posttraining: 'quadrant.posttraining',
+  alloptions: 'quadrant.alloptions',
 }
 
 // Layout constants (viewBox 600 x 520)
@@ -77,20 +81,38 @@ function wp(col, row, fracX, fracY) {
 }
 
 const ZIGZAG_POINTS = [
-  { ...wp(0, 1, 0.3, 0.75), label: 'Prompt' },
-  { ...wp(0, 1, 0.65, 0.35), label: 'Few Shot' },
-  { ...wp(0, 0, 0.38, 0.75), label: 'Simple Retrieval' },
-  { ...wp(0, 0, 0.6, 0.3), label: 'Optimize Retrieval' },
-  { ...wp(1, 1, 0.22, 0.72), label: 'SFT' },
-  { ...wp(1, 1, 0.48, 0.55), label: 'DPO' },
-  { ...wp(1, 1, 0.74, 0.38), label: 'GRPO' },
-  { ...wp(1, 0, 0.55, 0.5), label: 'All Options' },
+  { ...wp(0, 1, 0.3, 0.75) },
+  { ...wp(0, 1, 0.65, 0.35) },
+  { ...wp(0, 0, 0.38, 0.75) },
+  { ...wp(0, 0, 0.6, 0.3) },
+  { ...wp(1, 1, 0.22, 0.72) },
+  { ...wp(1, 1, 0.48, 0.55) },
+  { ...wp(1, 1, 0.74, 0.38) },
+  { ...wp(1, 0, 0.55, 0.5) },
 ]
 
 export default function QuadrantMap({ size = 'full', interactive = false }) {
+  const { t } = useTranslation()
   const mode = useStore((s) => s.mode)
   const currentStep = useStore((s) => s.currentStep)
   const activeQuadrant = useStore((s) => s.activeQuadrant)
+
+  // Build translated quadrant data
+  const QUADRANTS = useMemo(() => {
+    const result = {}
+    for (const [key, style] of Object.entries(QUADRANT_STYLES)) {
+      result[key] = {
+        ...style,
+        label: t(QUADRANT_LABEL_KEYS[key]),
+        subLabels: style.subKeys.map((sk) => ({
+          label: t(sk.key),
+          x: sk.x,
+          y: sk.y,
+        })),
+      }
+    }
+    return result
+  }, [t])
 
   const currentZigzag = useMemo(() => {
     if (mode !== 'tour') return -1
@@ -159,7 +181,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
           fontWeight="600"
           fontFamily="system-ui, sans-serif"
         >
-          Context Optimization and Model Optimization
+          {t('quadrant.title')}
         </text>
       )}
 
@@ -188,7 +210,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             fontWeight="600"
             transform={`rotate(-90, ${MARGIN.left - 35}, ${MARGIN.top + QUAD_H})`}
           >
-            Context Optimization
+            {t('quadrant.yAxisLabel')}
           </text>
           <text
             x={MARGIN.left - 50}
@@ -199,7 +221,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             fontStyle="italic"
             transform={`rotate(-90, ${MARGIN.left - 50}, ${MARGIN.top + QUAD_H})`}
           >
-            What the model needs to know?
+            {t('quadrant.yAxisSub')}
           </text>
         </>
       )}
@@ -228,7 +250,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             fontSize="12"
             fontWeight="600"
           >
-            LLM Optimization
+            {t('quadrant.xAxisLabel')}
           </text>
           <text
             x={MARGIN.left + QUAD_W}
@@ -238,7 +260,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             fontSize="9"
             fontStyle="italic"
           >
-            How the model needs to act?
+            {t('quadrant.xAxisSub')}
           </text>
         </>
       )}

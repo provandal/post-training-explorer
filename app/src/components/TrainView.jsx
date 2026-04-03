@@ -1,153 +1,111 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import useStore from '../store'
 import LiveInferencePanel from './LiveInferencePanel'
 
 const GITHUB_REPO = 'provandal/post-training-explorer'
 const COLAB_BASE = `https://colab.research.google.com/github/${GITHUB_REPO}/blob/main/notebooks`
 
-const PIPELINE_STEPS = [
-  {
-    step: 1,
-    name: 'Generate Data',
-    desc: 'Synthetic I/O metrics',
-    input: 'Workload profiles',
-    output: 'Training dataset',
-    color: 'text-blue-400',
-    bg: 'bg-blue-950/30',
-    border: 'border-blue-800/40',
-    detail:
-      'Training data is generated synthetically from workload profiles — statistical distributions of I/O metrics (IOPS, throughput, latency, block size, read/write ratio, queue depth, sequential %) for each of 6 storage workload types. Each sample is a randomized draw from these distributions, formatted as a natural-language classification prompt. No external dataset is needed — the notebook generates fresh training data every run.',
-  },
-  {
-    step: 2,
-    name: 'SFT',
-    desc: 'Supervised Fine-Tuning',
-    input: 'prompt + completion pairs',
-    output: 'LoRA adapter (task knowledge)',
-    color: 'text-cyan-400',
-    bg: 'bg-cyan-950/30',
-    border: 'border-cyan-800/40',
-    detail:
-      "Supervised Fine-Tuning teaches the model WHAT to output. We show it ~1,400 prompt/completion pairs where the prompt describes I/O metrics and the completion is the correct workload label. SFT uses LoRA (Low-Rank Adaptation) — instead of updating all 360M parameters, we train small adapter matrices (~0.5% of total weights) that modify the model's behavior. Training takes ~12 minutes on a T4 GPU.",
-  },
-  {
-    step: 3,
-    name: 'DPO',
-    desc: 'Direct Preference Optimization',
-    input: 'chosen / rejected pairs',
-    output: 'Refined adapter (style)',
-    color: 'text-yellow-400',
-    bg: 'bg-yellow-950/30',
-    border: 'border-yellow-800/40',
-    detail:
-      'Direct Preference Optimization teaches the model HOW to respond. Given two possible outputs for the same prompt — one preferred ("chosen") and one not ("rejected") — DPO adjusts the model to favor the preferred style. This refines confidence and formatting without needing a separate reward model. It\'s the technique that made RLHF practical for most teams. Training takes ~8 minutes on T4.',
-  },
-  {
-    step: 4,
-    name: 'GRPO',
-    desc: 'Group Relative Policy Optimization',
-    input: 'prompts + reward function',
-    output: 'Optimized adapter (accuracy)',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-950/30',
-    border: 'border-emerald-800/40',
-    detail:
-      'Group Relative Policy Optimization is the technique behind DeepSeek R1. For each prompt, the model generates K=8 candidate responses. A reward function scores each one (1.0 for correct, 0.0 for wrong). The model learns from the group statistics — no human feedback needed. The answer itself is the teacher. This is where accuracy improves most dramatically. Training takes ~35 minutes on T4.',
-  },
-  {
-    step: 5,
-    name: 'Export to ONNX',
-    desc: 'Convert for browser inference',
-    input: 'Merged model weights',
-    output: 'ONNX model on HuggingFace',
-    color: 'text-purple-400',
-    bg: 'bg-purple-950/30',
-    border: 'border-purple-800/40',
-    detail:
-      'The trained LoRA adapter is merged back into the base model weights, then converted to ONNX format for browser inference. ONNX (Open Neural Network Exchange) is a portable format that runs on CPU/GPU/WebGPU without Python or PyTorch. The exported ~180MB model is uploaded to your HuggingFace space, where the browser app can download and run it client-side using transformers.js.',
-  },
+const STEP_STYLES = [
+  { step: 1, color: 'text-blue-400', bg: 'bg-blue-950/30', border: 'border-blue-800/40' },
+  { step: 2, color: 'text-cyan-400', bg: 'bg-cyan-950/30', border: 'border-cyan-800/40' },
+  { step: 3, color: 'text-yellow-400', bg: 'bg-yellow-950/30', border: 'border-yellow-800/40' },
+  { step: 4, color: 'text-emerald-400', bg: 'bg-emerald-950/30', border: 'border-emerald-800/40' },
+  { step: 5, color: 'text-purple-400', bg: 'bg-purple-950/30', border: 'border-purple-800/40' },
 ]
 
-const NOTEBOOKS = [
+function getPipelineSteps(t) {
+  return STEP_STYLES.map((s) => ({
+    ...s,
+    name: t(`train.step${s.step}Name`),
+    desc: t(`train.step${s.step}Desc`),
+    input: t(`train.step${s.step}Input`),
+    output: t(`train.step${s.step}Output`),
+    detail: t(`train.step${s.step}Detail`),
+  }))
+}
+
+const NOTEBOOK_STYLES = [
   {
-    title: 'Post-Training Pipeline',
+    num: 1,
     file: 'Post_Training_Pipeline.ipynb',
-    desc: 'The full SFT \u2192 DPO \u2192 GRPO pipeline. Train a SmolLM2-360M model to classify storage I/O workloads, then export to ONNX for browser inference.',
-    runtime: 'GPU required (T4 or A100)',
-    time: '~60 min on T4, ~20 min on A100',
     color: 'border-blue-700/50 hover:border-blue-500',
     accent: 'text-blue-400',
   },
   {
-    title: 'Traditional ML Comparison',
+    num: 2,
     file: 'Traditional_ML_Comparison.ipynb',
-    desc: 'Random Forest & XGBoost on the same classification task. Shows when traditional ML is the better choice — faster, smaller, and often more accurate on structured numeric data.',
-    runtime: 'CPU only',
-    time: '~2 min',
     color: 'border-orange-700/50 hover:border-orange-500',
     accent: 'text-orange-400',
   },
   {
-    title: 'Realistic LLM Use Case',
+    num: 3,
     file: 'Realistic_LLM_Use_Case.ipynb',
-    desc: 'Unstructured storage error log classification — a task where LLMs genuinely outperform traditional ML. Compares TF-IDF + XGBoost against SFT fine-tuning.',
-    runtime: 'GPU required (T4 or A100)',
-    time: '~20 min on T4',
     color: 'border-emerald-700/50 hover:border-emerald-500',
     accent: 'text-emerald-400',
   },
 ]
 
-const DATA_FORMATS = [
-  {
-    stage: 'SFT',
-    format: 'prompt / completion',
-    example: '{"prompt": "Classify... IOPS: 45,000...", "completion": " OLTP Database"}',
-    note: 'Label-only completions. Prompt tokens are masked in the loss.',
-  },
-  {
-    stage: 'DPO',
-    format: 'prompt / chosen / rejected',
-    example: '{"prompt": "Classify...", "chosen": " OLTP Database", "rejected": " AI ML Training"}',
-    note: 'Preference pairs teach style, not new knowledge.',
-  },
-  {
-    stage: 'GRPO',
-    format: 'prompt + reward function',
-    example: 'reward(output) = 1.0 if output.strip() == label else 0.0',
-    note: 'K=8 candidates per prompt, scored by binary reward.',
-  },
-]
+function getNotebooks(t) {
+  return NOTEBOOK_STYLES.map((nb) => ({
+    ...nb,
+    title: t(`train.notebook${nb.num}Title`),
+    desc: t(`train.notebook${nb.num}Desc`),
+    runtime: t(`train.notebook${nb.num}Runtime`),
+    time: t(`train.notebook${nb.num}Time`),
+  }))
+}
+
+const DATA_FORMAT_STAGES = ['sft', 'dpo', 'grpo']
+
+function getDataFormats(t) {
+  return DATA_FORMAT_STAGES.map((stage) => ({
+    stage: stage.toUpperCase(),
+    format: t(`train.${stage}Format`),
+    example:
+      stage === 'sft'
+        ? '{"prompt": "Classify... IOPS: 45,000...", "completion": " OLTP Database"}'
+        : stage === 'dpo'
+          ? '{"prompt": "Classify...", "chosen": " OLTP Database", "rejected": " AI ML Training"}'
+          : 'reward(output) = 1.0 if output.strip() == label else 0.0',
+    note: t(`train.${stage}Note`),
+  }))
+}
 
 export default function TrainView() {
+  const { t } = useTranslation()
   const setMode = useStore((s) => s.setMode)
   const startTour = useStore((s) => s.startTour)
   const startExplore = useStore((s) => s.startExplore)
   const [expandedStep, setExpandedStep] = useState(null)
 
+  const PIPELINE_STEPS = getPipelineSteps(t)
+  const NOTEBOOKS = getNotebooks(t)
+  const DATA_FORMATS = getDataFormats(t)
+
   return (
     <div className="min-h-screen">
       {/* Header bar */}
       <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-6 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-white">Train Your Model</h1>
+        <h1 className="text-lg font-bold text-white">{t('train.headerTitle')}</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setMode('landing')}
             className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
           >
-            Home
+            {t('nav.home')}
           </button>
           <button
             onClick={startTour}
             className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded border border-blue-700/50 hover:border-blue-500 transition-colors"
           >
-            Guided Tour
+            {t('nav.guidedTour')}
           </button>
           <button
             onClick={startExplore}
             className="text-xs text-slate-400 hover:text-slate-300 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
           >
-            Explore Freely
+            {t('nav.exploreFreelyNav')}
           </button>
         </div>
       </div>
@@ -155,18 +113,14 @@ export default function TrainView() {
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Hero */}
         <section className="text-center">
-          <h2 className="text-3xl font-extrabold text-white mb-3">Train Your Own Model</h2>
-          <p className="text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Run the same training pipeline used to build this demo. You'll fine-tune a SmolLM2-360M
-            language model to classify storage I/O workloads using SFT, DPO, and GRPO — then test it
-            live in your browser.
-          </p>
+          <h2 className="text-3xl font-extrabold text-white mb-3">{t('train.heroTitle')}</h2>
+          <p className="text-slate-400 max-w-2xl mx-auto leading-relaxed">{t('train.heroP')}</p>
         </section>
 
         {/* Prerequisites */}
         <section>
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-            Prerequisites
+            {t('train.prerequisites')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <a
@@ -175,13 +129,12 @@ export default function TrainView() {
               rel="noopener noreferrer"
               className="p-5 rounded-lg bg-slate-800/40 border border-blue-800/40 hover:border-blue-500 transition-colors group"
             >
-              <p className="text-sm font-semibold text-blue-400 mb-2">Google Colab</p>
+              <p className="text-sm font-semibold text-blue-400 mb-2">{t('train.googleColab')}</p>
               <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                Free cloud Jupyter environment with GPU access. Sign in with any Google account. The
-                notebooks will prompt for login automatically.
+                {t('train.googleColabP')}
               </p>
               <span className="inline-block text-xs font-semibold text-blue-400 bg-blue-950/40 px-3 py-1.5 rounded group-hover:bg-blue-900/50 transition-colors">
-                Open Google Colab
+                {t('train.openColab')}
               </span>
             </a>
             <a
@@ -190,13 +143,12 @@ export default function TrainView() {
               rel="noopener noreferrer"
               className="p-5 rounded-lg bg-slate-800/40 border border-yellow-800/40 hover:border-yellow-500 transition-colors group"
             >
-              <p className="text-sm font-semibold text-yellow-400 mb-2">HuggingFace Account</p>
+              <p className="text-sm font-semibold text-yellow-400 mb-2">{t('train.huggingFace')}</p>
               <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                Free account for hosting your trained model. Needed for the ONNX export step — the
-                notebook uploads your model to your HuggingFace space.
+                {t('train.huggingFaceP')}
               </p>
               <span className="inline-block text-xs font-semibold text-yellow-400 bg-yellow-950/40 px-3 py-1.5 rounded group-hover:bg-yellow-900/50 transition-colors">
-                Create Free Account
+                {t('train.createFreeAccount')}
               </span>
             </a>
           </div>
@@ -205,9 +157,9 @@ export default function TrainView() {
         {/* Pipeline Overview */}
         <section>
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-            Pipeline Overview
+            {t('train.pipelineOverview')}
           </h3>
-          <p className="text-xs text-slate-500 mb-3">Click any stage to learn more.</p>
+          <p className="text-xs text-slate-500 mb-3">{t('train.clickToLearnMore')}</p>
           <div className="flex flex-col gap-3">
             {PIPELINE_STEPS.map((s, i) => {
               const isExpanded = expandedStep === s.step
@@ -243,10 +195,10 @@ export default function TrainView() {
                       </p>
                       <div className="flex gap-6 mt-1 text-xs text-slate-500">
                         <span>
-                          In: <span className="text-slate-400">{s.input}</span>
+                          {t('train.in')} <span className="text-slate-400">{s.input}</span>
                         </span>
                         <span>
-                          Out: <span className="text-slate-400">{s.output}</span>
+                          {t('train.out')} <span className="text-slate-400">{s.output}</span>
                         </span>
                       </div>
                       {/* Expandable detail */}
@@ -266,7 +218,7 @@ export default function TrainView() {
         {/* Available Notebooks */}
         <section>
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-            Available Notebooks
+            {t('train.availableNotebooks')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {NOTEBOOKS.map((nb) => (
@@ -286,7 +238,7 @@ export default function TrainView() {
                   rel="noopener noreferrer"
                   className="block text-center py-2 px-4 rounded-md bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition-colors"
                 >
-                  Open in Colab
+                  {t('train.openInColab')}
                 </a>
               </div>
             ))}
@@ -296,7 +248,7 @@ export default function TrainView() {
         {/* Data Flow Diagram */}
         <section>
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-            Data Format by Stage
+            {t('train.dataFormatByStage')}
           </h3>
           <div className="space-y-3">
             {DATA_FORMATS.map((d) => (
@@ -322,29 +274,29 @@ export default function TrainView() {
         {/* What to Expect */}
         <section>
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-            What to Expect
+            {t('train.whatToExpect')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               {
-                label: 'Runtime (360M on T4)',
-                value: '~60 minutes total',
-                detail: 'SFT ~12 min, DPO ~8 min, GRPO ~35 min, Export ~5 min',
+                label: t('train.runtimeT4'),
+                value: t('train.runtimeT4Value'),
+                detail: t('train.runtimeT4Detail'),
               },
               {
-                label: 'Runtime (360M on A100)',
-                value: '~20 minutes total',
-                detail: 'SFT ~4 min, DPO ~3 min, GRPO ~10 min, Export ~3 min',
+                label: t('train.runtimeA100'),
+                value: t('train.runtimeA100Value'),
+                detail: t('train.runtimeA100Detail'),
               },
               {
-                label: 'GPU Memory',
-                value: '~15 GB VRAM (T4)',
-                detail: 'LoRA adapters keep memory footprint small',
+                label: t('train.gpuMemory'),
+                value: t('train.gpuMemoryValue'),
+                detail: t('train.gpuMemoryDetail'),
               },
               {
-                label: 'Output Size',
-                value: '~180 MB per ONNX model',
-                detail: 'Two models exported: base (untrained) and GRPO (trained)',
+                label: t('train.outputSize'),
+                value: t('train.outputSizeValue'),
+                detail: t('train.outputSizeDetail'),
               },
             ].map((item) => (
               <div
@@ -362,12 +314,9 @@ export default function TrainView() {
         {/* Live Inference — the capstone */}
         <section>
           <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-            Try Your Model
+            {t('train.tryYourModel')}
           </h3>
-          <p className="text-sm text-slate-400 mb-4">
-            After training and exporting to ONNX, download the model to your browser and run
-            inference locally. Compare the untrained base model against your GRPO-trained model.
-          </p>
+          <p className="text-sm text-slate-400 mb-4">{t('train.tryYourModelP')}</p>
           <LiveInferencePanel />
         </section>
 
@@ -377,13 +326,13 @@ export default function TrainView() {
             onClick={startTour}
             className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
           >
-            &larr; Guided Tour
+            &larr; {t('nav.guidedTour')}
           </button>
           <button
             onClick={startExplore}
             className="text-sm text-slate-400 hover:text-slate-300 transition-colors"
           >
-            Explore Freely &rarr;
+            {t('nav.exploreFreelyNav')} &rarr;
           </button>
         </section>
       </div>

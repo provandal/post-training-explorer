@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import ModelOutput from '../components/ModelOutput'
 import PatternPicker from '../components/PatternPicker'
 import useStore from '../store'
@@ -173,6 +174,7 @@ function buildRealStages(promptId, trueLabel) {
 }
 
 export default function CombinedResults() {
+  const { t } = useTranslation()
   const [visibleStages, setVisibleStages] = useState(1)
   const selectedPromptId = useStore((s) => s.selectedPromptId)
 
@@ -225,14 +227,15 @@ export default function CombinedResults() {
       {/* Input */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-          {hasRealData ? 'Selected I/O Pattern' : 'Hard Example: Ambiguous I/O Pattern'}
+          {hasRealData ? t('stop.combined.selectedPattern') : t('stop.combined.hardExample')}
         </label>
         <div className="bg-slate-800 border border-yellow-700/50 rounded-lg p-3 font-mono text-sm text-yellow-200">
           {inputDisplay}
         </div>
         <p className="text-xs text-slate-500 mt-1">
-          Correct: <span className="text-emerald-400 font-semibold">{correctLabel}</span> — Watch
-          the progressive improvement.
+          {t('stop.combined.correctLabel')}{' '}
+          <span className="text-emerald-400 font-semibold">{correctLabel}</span> —{' '}
+          {t('stop.combined.watchProgression')}
         </p>
       </div>
 
@@ -243,13 +246,13 @@ export default function CombinedResults() {
           disabled={visibleStages >= stages.length}
           className="px-4 py-2 text-sm bg-cyan-700 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-md transition-colors"
         >
-          Add next technique ({visibleStages}/{stages.length})
+          {t('stop.combined.addNext', { visible: visibleStages, total: stages.length })}
         </button>
         <button
           onClick={() => setVisibleStages(stages.length)}
           className="px-4 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md transition-colors"
         >
-          Show all
+          {t('stop.combined.showAll')}
         </button>
       </div>
 
@@ -288,7 +291,9 @@ export default function CombinedResults() {
       {/* Summary when all revealed */}
       {visibleStages === stages.length && (
         <div className="mt-6 p-4 rounded-lg bg-gradient-to-r from-cyan-950/30 to-emerald-950/30 border border-cyan-800/30">
-          <h4 className="text-sm font-semibold text-cyan-400 mb-2">The Full Journey</h4>
+          <h4 className="text-sm font-semibold text-cyan-400 mb-2">
+            {t('stop.combined.fullJourney')}
+          </h4>
           <div className="grid grid-cols-7 gap-1 text-center text-xs mb-3">
             {stages.map((s) => (
               <div
@@ -317,11 +322,7 @@ export default function CombinedResults() {
             </div>
           )}
 
-          <p className="text-sm text-slate-300">
-            Each technique built on the last. Prompting gave format. RAG gave knowledge. SFT gave
-            classification skill. DPO gave style. GRPO gave reasoning precision. The combination in
-            the upper-right quadrant is greater than the sum of its parts.
-          </p>
+          <p className="text-sm text-slate-300">{t('stop.combined.fullJourneyP')}</p>
         </div>
       )}
     </div>

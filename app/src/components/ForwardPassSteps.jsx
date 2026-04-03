@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import TokenProbChart from './TokenProbChart'
 import {
@@ -7,22 +8,22 @@ import {
   FORWARD_PASS_STEPS,
   EMBEDDING_DIMS,
   OUTPUT_PROBS,
+  getForwardPassSteps,
 } from '../data/transformerData'
 
 export default function ForwardPassSteps() {
+  const { t } = useTranslation()
   const [currentStep, setCurrentStep] = useState(0)
-  const step = FORWARD_PASS_STEPS[currentStep]
+  const steps = getForwardPassSteps(t)
+  const step = steps[currentStep]
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-slate-400">
-        Walk through how a Transformer processes a storage I/O prompt, one operation at a time. Each
-        step builds on the previous one.
-      </p>
+      <p className="text-sm text-slate-400">{t('forwardPass.steps.intro')}</p>
 
       {/* Step indicator */}
       <div className="flex items-center gap-0 justify-center">
-        {FORWARD_PASS_STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <div key={s.id} className="flex items-center">
             <button
               onClick={() => setCurrentStep(i)}
@@ -36,7 +37,7 @@ export default function ForwardPassSteps() {
             >
               {i + 1}
             </button>
-            {i < FORWARD_PASS_STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <div
                 className={`w-8 h-0.5 transition-colors duration-300 ${
                   i < currentStep ? 'bg-slate-500' : 'bg-slate-700/30'
@@ -82,21 +83,21 @@ export default function ForwardPassSteps() {
               : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
           }`}
         >
-          ← Previous
+          {t('forwardPass.steps.previous')}
         </button>
         <span className="text-xs text-slate-500">
-          Step {currentStep + 1} of {FORWARD_PASS_STEPS.length}
+          {t('forwardPass.steps.stepOf', { current: currentStep + 1, total: steps.length })}
         </span>
         <button
-          onClick={() => setCurrentStep(Math.min(FORWARD_PASS_STEPS.length - 1, currentStep + 1))}
-          disabled={currentStep === FORWARD_PASS_STEPS.length - 1}
+          onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
+          disabled={currentStep === steps.length - 1}
           className={`px-4 py-2 text-sm rounded-md transition-colors ${
-            currentStep === FORWARD_PASS_STEPS.length - 1
+            currentStep === steps.length - 1
               ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed'
               : 'bg-violet-700 text-white hover:bg-violet-600'
           }`}
         >
-          Next Step →
+          {t('forwardPass.steps.nextStep')}
         </button>
       </div>
     </div>
@@ -105,6 +106,7 @@ export default function ForwardPassSteps() {
 
 // --- Step 0: Tokenization ---
 function TokenizeViz() {
+  const { t } = useTranslation()
   const [phase, setPhase] = useState(0) // 0=raw text, 1=split tokens, 2=show IDs
 
   useEffect(() => {
@@ -118,7 +120,7 @@ function TokenizeViz() {
     <div className="space-y-4">
       {/* Raw text */}
       <div>
-        <p className="text-xs text-slate-500 mb-1">Input text:</p>
+        <p className="text-xs text-slate-500 mb-1">{t('forwardPass.steps.inputText')}</p>
         <div className="p-3 rounded bg-slate-900/50 font-mono text-sm text-slate-300 border border-slate-700/30">
           Classify this I/O workload: IOPS: 45000 | Latency: 0.3ms | Block:
         </div>
@@ -127,7 +129,9 @@ function TokenizeViz() {
       {/* Split tokens */}
       {phase >= 1 && (
         <div>
-          <p className="text-xs text-slate-500 mb-1">BPE tokenization ({TOKENS.length} tokens):</p>
+          <p className="text-xs text-slate-500 mb-1">
+            {t('forwardPass.steps.bpeTokenization', { count: TOKENS.length })}
+          </p>
           <div className="flex flex-wrap gap-1">
             {TOKENS.map((tok, i) => {
               const colors = TOKEN_COLORS[tok.type]
@@ -160,10 +164,7 @@ function TokenizeViz() {
       )}
 
       {phase >= 2 && (
-        <p className="text-xs text-slate-500 italic">
-          Notice how "Classify" was split into "Class" + "ify" — the tokenizer breaks uncommon words
-          into known subword pieces.
-        </p>
+        <p className="text-xs text-slate-500 italic">{t('forwardPass.steps.splitNotice')}</p>
       )}
     </div>
   )
@@ -171,6 +172,7 @@ function TokenizeViz() {
 
 // --- Step 1: Embedding ---
 function EmbeddingViz() {
+  const { t } = useTranslation()
   const svgRef = useRef()
 
   useEffect(() => {
@@ -254,10 +256,7 @@ function EmbeddingViz() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
-        Each token becomes a 960-dimensional vector. Below shows 8 representative dimensions —
-        notice how "IOPS" and " 45" have similar patterns (they co-occur in training data):
-      </p>
+      <p className="text-xs text-slate-500">{t('forwardPass.steps.embeddingIntro')}</p>
       <div className="overflow-x-auto">
         <svg ref={svgRef} />
       </div>
@@ -267,12 +266,10 @@ function EmbeddingViz() {
 
 // --- Step 2: Positional Encoding ---
 function PositionViz() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
-        Without positional encoding, the model can't distinguish "IOPS: 45000" from "45000: IOPS".
-        Position information is added to each embedding:
-      </p>
+      <p className="text-xs text-slate-500">{t('forwardPass.steps.positionIntro')}</p>
       <div className="flex items-center gap-3 justify-center flex-wrap">
         {TOKENS.slice(0, 6).map((tok, i) => {
           const colors = TOKEN_COLORS[tok.type]
@@ -297,9 +294,7 @@ function PositionViz() {
         <span className="text-slate-600 text-lg">...</span>
       </div>
       <div className="p-3 rounded bg-slate-900/50 border border-slate-700/30 text-xs text-slate-400">
-        <strong className="text-slate-300">Why this matters:</strong> Position 0 ("Class") and
-        position 17 (the final ":") need different treatments. The model uses position to know that
-        the end of the prompt is where it should generate the classification.
+        {t('forwardPass.steps.positionWhy', { 1: (c) => c })}
       </div>
     </div>
   )
@@ -307,19 +302,17 @@ function PositionViz() {
 
 // --- Step 3: Self-Attention ---
 function AttentionViz() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
-        Each token is projected into three vectors. The Q·K dot product determines attention
-        weights:
-      </p>
+      <p className="text-xs text-slate-500">{t('forwardPass.steps.attentionIntro')}</p>
 
       {/* Q, K, V diagram */}
       <div className="flex items-center justify-center gap-4 flex-wrap">
         <div className="text-center">
           <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-800/40 w-24">
-            <p className="text-xs font-bold text-blue-300">Query (Q)</p>
-            <p className="text-[10px] text-blue-400/70">"What am I looking for?"</p>
+            <p className="text-xs font-bold text-blue-300">{t('forwardPass.steps.queryQ')}</p>
+            <p className="text-[10px] text-blue-400/70">{t('forwardPass.steps.queryQSub')}</p>
           </div>
         </div>
 
@@ -327,8 +320,8 @@ function AttentionViz() {
 
         <div className="text-center">
           <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 w-24">
-            <p className="text-xs font-bold text-emerald-300">Key (K)</p>
-            <p className="text-[10px] text-emerald-400/70">"What do I contain?"</p>
+            <p className="text-xs font-bold text-emerald-300">{t('forwardPass.steps.keyK')}</p>
+            <p className="text-[10px] text-emerald-400/70">{t('forwardPass.steps.keyKSub')}</p>
           </div>
         </div>
 
@@ -336,8 +329,8 @@ function AttentionViz() {
 
         <div className="text-center">
           <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-600/40 w-24">
-            <p className="text-xs font-bold text-slate-300">Scores</p>
-            <p className="text-[10px] text-slate-400/70">Attention weights</p>
+            <p className="text-xs font-bold text-slate-300">{t('forwardPass.steps.scores')}</p>
+            <p className="text-[10px] text-slate-400/70">{t('forwardPass.steps.scoresSub')}</p>
           </div>
         </div>
 
@@ -345,8 +338,8 @@ function AttentionViz() {
 
         <div className="text-center">
           <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-800/40 w-24">
-            <p className="text-xs font-bold text-amber-300">Value (V)</p>
-            <p className="text-[10px] text-amber-400/70">"What should I share?"</p>
+            <p className="text-xs font-bold text-amber-300">{t('forwardPass.steps.valueV')}</p>
+            <p className="text-[10px] text-amber-400/70">{t('forwardPass.steps.valueVSub')}</p>
           </div>
         </div>
       </div>
@@ -354,10 +347,7 @@ function AttentionViz() {
       {/* LoRA callout */}
       <div className="p-3 rounded-lg border-2 border-dashed border-violet-600/60 bg-violet-950/20">
         <p className="text-xs text-violet-300">
-          <strong>LoRA inserts here:</strong> Low-rank adapters are added alongside the Q and V
-          projection matrices. Instead of modifying all 360M parameters, LoRA adds ~432K trainable
-          parameters that adjust how queries and values are computed — changing what the model
-          "looks for" and what information it "shares."
+          {t('forwardPass.steps.loraInsertsHere', { 1: (c) => c })}
         </p>
       </div>
 
@@ -382,6 +372,7 @@ function AttentionViz() {
 
 // --- Step 4: Feed-Forward Network ---
 function FFNViz() {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
@@ -391,10 +382,7 @@ function FFNViz() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
-        After attention mixes information between tokens, the FFN processes each token independently
-        — expanding then compressing the representation:
-      </p>
+      <p className="text-xs text-slate-500">{t('forwardPass.steps.ffnIntro')}</p>
 
       {/* Expand/compress visualization */}
       <div className="flex items-center justify-center gap-3">
@@ -437,11 +425,7 @@ function FFNViz() {
       </div>
 
       <div className="p-3 rounded bg-slate-900/50 border border-slate-700/30 text-xs text-slate-400">
-        <strong className="text-slate-300">Why expand then compress?</strong> The expansion to 3,840
-        dimensions gives the model a larger space to compute nonlinear transformations. The
-        compression back to 960 forces it to distill the most important information. This is where
-        the model "thinks" about each token's updated meaning after receiving context from
-        attention.
+        {t('forwardPass.steps.ffnWhy', { 1: (c) => c })}
       </div>
     </div>
   )
@@ -449,29 +433,23 @@ function FFNViz() {
 
 // --- Step 5: Next Token Prediction ---
 function PredictViz() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
-        The final hidden state is projected to a probability over all 49,152 vocabulary tokens.
-        Compare the base model (generic word prediction) vs. fine-tuned (task-specific
-        classification):
-      </p>
+      <p className="text-xs text-slate-500">{t('forwardPass.steps.predictIntro')}</p>
 
       <TokenProbChart
         data={OUTPUT_PROBS.base}
         comparisonData={OUTPUT_PROBS.finetuned}
-        label="Next Token Probabilities"
-        comparisonLabel="After Fine-Tuning"
+        label={t('forwardPass.steps.predictLabel')}
+        comparisonLabel={t('forwardPass.steps.predictAfterLabel')}
         highlightToken="OLTP"
         width={500}
         height={320}
       />
 
       <div className="p-3 rounded-lg border border-emerald-800/30 bg-emerald-950/20 text-xs text-emerald-300">
-        <strong>The effect of fine-tuning:</strong> The base model wants to generate generic
-        continuation words ("The", "This", newlines). After SFT + DPO + GRPO, the model has learned
-        that "OLTP" is the right answer for this I/O pattern — probability jumped from 3% to 73%.
-        This is what all that post-training accomplished.
+        {t('forwardPass.steps.predictEffect', { 1: (c) => c })}
       </div>
     </div>
   )

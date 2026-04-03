@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import {
   isLoaded,
@@ -622,6 +623,7 @@ function StorageArchitectureChart({ profile }) {
 
 // ─── Scaling Projections Table ────────────────────────────────────────────────
 function ScalingTable({ profile }) {
+  const { t } = useTranslation()
   if (!profile?.scaling_projections) return null
   const scaling = profile.scaling_projections
   const sizes = ['360M', '7B', '70B']
@@ -636,11 +638,21 @@ function ScalingTable({ profile }) {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-slate-700">
-            <th className="text-left py-2 pr-4 text-slate-400 font-semibold">Model Size</th>
-            <th className="text-right py-2 px-3 text-slate-400 font-semibold">Base Model</th>
-            <th className="text-right py-2 px-3 text-slate-400 font-semibold">Full Checkpoint</th>
-            <th className="text-right py-2 px-3 text-violet-400 font-semibold">LoRA Adapter</th>
-            <th className="text-right py-2 pl-3 text-emerald-400 font-semibold">Storage Saved</th>
+            <th className="text-left py-2 pr-4 text-slate-400 font-semibold">
+              {t('stop.infra.scaling.modelSize')}
+            </th>
+            <th className="text-right py-2 px-3 text-slate-400 font-semibold">
+              {t('stop.infra.scaling.baseModel')}
+            </th>
+            <th className="text-right py-2 px-3 text-slate-400 font-semibold">
+              {t('stop.infra.scaling.fullCheckpoint')}
+            </th>
+            <th className="text-right py-2 px-3 text-violet-400 font-semibold">
+              {t('stop.infra.scaling.loraAdapter')}
+            </th>
+            <th className="text-right py-2 pl-3 text-emerald-400 font-semibold">
+              {t('stop.infra.scaling.storageSaved')}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -669,22 +681,23 @@ function ScalingTable({ profile }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function InfrastructureSummary() {
+  const { t } = useTranslation()
   const [metric, setMetric] = useState('gpu')
   const [storageView, setStorageView] = useState('footprint')
   const TECHNIQUES = buildTechniques()
   const profile = isLoaded() ? getStorageIOProfile() : null
 
   const metrics = [
-    { id: 'gpu', label: 'GPU Memory' },
-    { id: 'time', label: 'Training Time' },
-    { id: 'cost', label: 'Relative Cost' },
-    { id: 'models', label: 'Models in Memory' },
+    { id: 'gpu', label: t('stop.infra.metrics.gpuMemory') },
+    { id: 'time', label: t('stop.infra.metrics.trainingTime') },
+    { id: 'cost', label: t('stop.infra.metrics.relativeCost') },
+    { id: 'models', label: t('stop.infra.metrics.modelsInMemory') },
   ]
 
   const storageViews = [
-    { id: 'footprint', label: 'Storage Footprint' },
-    { id: 'timeline', label: 'I/O Timeline' },
-    { id: 'architecture', label: 'Local vs Network' },
+    { id: 'footprint', label: t('stop.infra.storage.storageFootprint') },
+    { id: 'timeline', label: t('stop.infra.storage.ioTimeline') },
+    { id: 'architecture', label: t('stop.infra.storage.localVsNetwork') },
   ]
 
   // Fallback profile for when real data isn't loaded
@@ -909,21 +922,19 @@ export default function InfrastructureSummary() {
       {/* ─── Data curation callout ───────────────────────────── */}
       <div className="p-4 rounded-lg bg-amber-950/20 border border-amber-800/30 mb-6">
         <h4 className="text-sm font-semibold text-amber-400 mb-2">
-          The Real Bottleneck: Data Curation
+          {t('stop.infra.dataCuration.heading')}
         </h4>
         <p className="text-xs text-slate-300 leading-relaxed">
-          At 360M parameters, all three techniques train in under 35 minutes on a single GPU. The
-          real bottleneck at this scale isn't compute — it's{' '}
-          <span className="text-amber-300 font-semibold">data curation</span>: labeling 1,400
-          examples for SFT, creating preference pairs for DPO, designing reward functions for GRPO.
-          At 7B–70B scale, training becomes multi-hour to multi-day GPU jobs where storage
-          throughput and checkpoint I/O dominate.
+          {t('stop.infra.dataCuration.p', {
+            defaultValue:
+              "At 360M parameters, all three techniques train in under 35 minutes on a single GPU. The real bottleneck at this scale isn't compute — it's data curation: labeling 1,400 examples for SFT, creating preference pairs for DPO, designing reward functions for GRPO. At 7B-70B scale, training becomes multi-hour to multi-day GPU jobs where storage throughput and checkpoint I/O dominate.",
+          })}
         </p>
       </div>
 
       {/* ─── Storage Infrastructure Section ───────────────────────────── */}
       <h3 className="text-sm font-semibold text-cyan-400 uppercase tracking-wide mb-3">
-        Storage Infrastructure Impact
+        {t('stop.infra.storageImpact')}
       </h3>
 
       {/* Storage view selector */}
@@ -954,7 +965,7 @@ export default function InfrastructureSummary() {
       {displayProfile?.techniques && (
         <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50 mb-4">
           <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-            Per-Technique Storage I/O
+            {t('stop.infra.storage.perTechniqueIO')}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
@@ -971,15 +982,15 @@ export default function InfrastructureSummary() {
                   </h5>
                   <div className="space-y-1 text-xs text-slate-400">
                     <div className="flex justify-between">
-                      <span>Adapter size:</span>
+                      <span>{t('stop.infra.storage.adapterSize')}</span>
                       <span className="text-violet-300 font-semibold">{t.adapter_size_mb} MB</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>% of base model:</span>
+                      <span>{t('stop.infra.storage.pctOfBase')}</span>
                       <span className="text-emerald-400">{t.adapter_pct_of_base}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Total reads:</span>
+                      <span>{t('stop.infra.storage.totalReads')}</span>
                       <span className="text-blue-300">
                         {t.total_read_mb >= 1000
                           ? `${(t.total_read_mb / 1000).toFixed(1)} GB`
@@ -987,16 +998,16 @@ export default function InfrastructureSummary() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Total writes:</span>
+                      <span>{t('stop.infra.storage.totalWrites')}</span>
                       <span className="text-orange-300">{t.total_write_mb} MB</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Checkpoint saves:</span>
+                      <span>{t('stop.infra.storage.checkpointSaves')}</span>
                       <span className="text-slate-300">{t.checkpoint_saves}x</span>
                     </div>
                     {t.generations_per_prompt && (
                       <div className="flex justify-between">
-                        <span>Generations/prompt:</span>
+                        <span>{t('stop.infra.storage.generationsPerPrompt')}</span>
                         <span className="text-emerald-300">{t.generations_per_prompt}x</span>
                       </div>
                     )}
@@ -1011,7 +1022,7 @@ export default function InfrastructureSummary() {
       {/* Scaling projections table */}
       <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50 mb-4">
         <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-          Scaling: Checkpoint Storage by Model Size
+          {t('stop.infra.scaling.heading')}
         </h4>
         <ScalingTable profile={displayProfile} />
       </div>
@@ -1019,7 +1030,9 @@ export default function InfrastructureSummary() {
       {/* Key takeaways */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="p-4 rounded-lg bg-violet-950/20 border border-violet-800/30">
-          <h4 className="text-sm font-semibold text-violet-400 mb-2">Checkpoint I/O</h4>
+          <h4 className="text-sm font-semibold text-violet-400 mb-2">
+            {t('stop.infra.takeaway.checkpointIO')}
+          </h4>
           <p className="text-xs text-slate-400">
             LoRA adapters are{' '}
             {displayProfile?.scaling_projections?.['360M']?.storage_reduction_pct || 99.8}% smaller
@@ -1028,7 +1041,9 @@ export default function InfrastructureSummary() {
           </p>
         </div>
         <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-800/30">
-          <h4 className="text-sm font-semibold text-blue-400 mb-2">Read Patterns</h4>
+          <h4 className="text-sm font-semibold text-blue-400 mb-2">
+            {t('stop.infra.takeaway.readPatterns')}
+          </h4>
           <p className="text-xs text-slate-400">
             Base model load is the dominant read: {displayProfile?.base_model_size_mb || 720} MB
             sequential. Training datasets are comparatively tiny. DPO and GRPO read the base model +
@@ -1036,7 +1051,9 @@ export default function InfrastructureSummary() {
           </p>
         </div>
         <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-800/30">
-          <h4 className="text-sm font-semibold text-emerald-400 mb-2">The GRPO Burst Pattern</h4>
+          <h4 className="text-sm font-semibold text-emerald-400 mb-2">
+            {t('stop.infra.takeaway.grpoBurst')}
+          </h4>
           <p className="text-xs text-slate-400">
             GRPO generates 8 completions per prompt — 90% of wall-clock time is GPU compute, not
             storage I/O. But checkpoint saves create write bursts. On shared storage, these bursts
@@ -1049,7 +1066,7 @@ export default function InfrastructureSummary() {
       {displayProfile?.storage_architecture?.key_insight && (
         <div className="mt-4 p-3 rounded bg-slate-800 border border-slate-700/50">
           <p className="text-xs text-slate-400">
-            <strong className="text-slate-300">Storage architecture insight:</strong>{' '}
+            <strong className="text-slate-300">{t('stop.infra.storageArchInsight')}</strong>{' '}
             {displayProfile.storage_architecture.key_insight}
           </p>
         </div>
@@ -1058,11 +1075,8 @@ export default function InfrastructureSummary() {
       {/* Scaling reality */}
       <div className="mt-4 p-3 rounded bg-slate-800/50 border border-slate-700/30">
         <p className="text-xs text-slate-400">
-          <strong className="text-slate-300">Scaling reality:</strong> At demo scale (360M params),
-          GPU time is trivial — the human effort of data curation dwarfs compute cost. At production
-          scale (7B–70B), the equation flips: multi-day training runs make storage throughput,
-          checkpoint frequency, and network bandwidth the dominant infrastructure concerns. Plan for
-          both bottlenecks.
+          <strong className="text-slate-300">{t('stop.infra.scalingReality')}</strong>{' '}
+          {t('stop.infra.scalingRealityP')}
         </p>
       </div>
     </div>

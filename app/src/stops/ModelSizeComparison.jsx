@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import SectionTabs from '../components/SectionTabs'
 import { isLoaded, getModelSizeComparison } from '../data/loadArtifacts'
@@ -167,34 +168,23 @@ const FALLBACK_COMPARISON = {
 // ---------------------------------------------------------------------------
 // Tab definitions
 // ---------------------------------------------------------------------------
-const TABS = [
-  { id: 'why', label: 'Why Size Matters' },
-  { id: 'headtohead', label: 'Head-to-Head' },
-  { id: 'scaling', label: 'Scaling Analysis' },
-]
+// Tab definitions are inside the component to access t()
 
 // ---------------------------------------------------------------------------
 // Tab 1: Why Size Matters
 // ---------------------------------------------------------------------------
-function WhySizeMatters({ data }) {
+function WhySizeMatters({ data, t }) {
   return (
     <div className="space-y-6">
       <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
         <h3 className="text-lg font-semibold text-cyan-400 mb-3">
-          Parameter Count, Capacity, and Accuracy
+          {t('deepdive.modelSize.whySizeMatters.heading')}
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-4">
-          A model's parameter count directly determines its capacity to learn patterns. More
-          parameters mean more internal "knobs" the model can tune during training, which translates
-          to better ability to distinguish subtle differences between storage I/O workload
-          categories. A 1.7B-parameter model has roughly 4.7x the capacity of a 360M model — and
-          that extra capacity shows up in accuracy, especially on ambiguous patterns where the
-          smaller model struggles.
+          {t('deepdive.modelSize.whySizeMatters.p1')}
         </p>
         <p className="text-sm text-slate-300 leading-relaxed">
-          But bigger models come with real infrastructure costs: more VRAM, longer training times,
-          and larger checkpoints. The question for storage and compute teams is not "which is
-          better?" — it's "where is the cost-accuracy tradeoff right for my use case?"
+          {t('deepdive.modelSize.whySizeMatters.p2')}
         </p>
       </div>
 
@@ -202,7 +192,7 @@ function WhySizeMatters({ data }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/30 text-center">
           <div className="text-3xl font-bold text-cyan-400 mb-1">360M</div>
-          <div className="text-xs text-slate-400 mb-2">Parameters</div>
+          <div className="text-xs text-slate-400 mb-2">{t('deepdive.modelSize.parameters')}</div>
           <div className="space-y-1 text-sm text-slate-300">
             <div>~{data.gpu_memory_gb?.['360M'] ?? 3.2} GB VRAM</div>
             <div>~{data.training_time_minutes?.sft?.['360M'] ?? 12} min SFT training</div>
@@ -210,7 +200,7 @@ function WhySizeMatters({ data }) {
         </div>
         <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/30 text-center">
           <div className="text-3xl font-bold text-cyan-400 mb-1">1.7B</div>
-          <div className="text-xs text-slate-400 mb-2">Parameters</div>
+          <div className="text-xs text-slate-400 mb-2">{t('deepdive.modelSize.parameters')}</div>
           <div className="space-y-1 text-sm text-slate-300">
             <div>~{data.gpu_memory_gb?.['1.7B'] ?? 12.5} GB VRAM</div>
             <div>~{data.training_time_minutes?.sft?.['1.7B'] ?? 55} min SFT training</div>
@@ -226,28 +216,20 @@ function WhySizeMatters({ data }) {
             )}
             %
           </div>
-          <div className="text-xs text-slate-400 mb-2">Accuracy Delta (GRPO)</div>
-          <div className="text-sm text-slate-300">Bigger model = better accuracy baseline</div>
+          <div className="text-xs text-slate-400 mb-2">{t('deepdive.modelSize.accuracyDelta')}</div>
+          <div className="text-sm text-slate-300">{t('deepdive.modelSize.biggerBetter')}</div>
         </div>
       </div>
 
       {/* Infrastructure implications */}
       <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
         <h3 className="text-base font-semibold text-cyan-400 mb-3">
-          Infrastructure Implications for SNIA Audiences
+          {t('deepdive.modelSize.infraImplications')}
         </h3>
         <p className="text-sm text-slate-300 leading-relaxed mb-3">
-          Moving from 360M to 1.7B parameters has cascading effects on infrastructure. GPU memory
-          requirements jump from ~3.2 GB to ~12.5 GB — meaning you shift from "runs on any GPU" to
-          "needs a mid-range or better card." Training times increase 4-5x across all techniques,
-          which means longer GPU reservations and higher compute costs.
+          {t('deepdive.modelSize.infraP1')}
         </p>
-        <p className="text-sm text-slate-300 leading-relaxed">
-          For storage teams, larger models also mean larger checkpoints saved more frequently,
-          higher I/O throughput during data loading, and more intermediate artifacts to manage. The
-          decision of which model size to use is fundamentally a capacity planning question that
-          bridges ML engineering and infrastructure operations.
-        </p>
+        <p className="text-sm text-slate-300 leading-relaxed">{t('deepdive.modelSize.infraP2')}</p>
       </div>
     </div>
   )
@@ -256,7 +238,7 @@ function WhySizeMatters({ data }) {
 // ---------------------------------------------------------------------------
 // Tab 2: Head-to-Head
 // ---------------------------------------------------------------------------
-function HeadToHead({ data }) {
+function HeadToHead({ data, t }) {
   const [promptIdx, setPromptIdx] = useState(0)
   const [technique, setTechnique] = useState('sft')
 
@@ -264,7 +246,7 @@ function HeadToHead({ data }) {
   const current = prompts[promptIdx] ?? null
 
   if (!current) {
-    return <p className="text-sm text-slate-500">No head-to-head data available.</p>
+    return <p className="text-sm text-slate-500">{t('deepdive.modelSize.headToHead.noData')}</p>
   }
 
   const results360 = current.results?.['360M']?.[technique]
@@ -277,7 +259,7 @@ function HeadToHead({ data }) {
       {/* Prompt selector */}
       <div>
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-          Test Pattern
+          {t('deepdive.modelSize.headToHead.testPattern')}
         </label>
         <div className="flex flex-wrap gap-2">
           {prompts.map((p, i) => (
@@ -301,22 +283,23 @@ function HeadToHead({ data }) {
         {current.prompt_snippet}
       </div>
       <p className="text-xs text-slate-500">
-        Ground truth: <span className="text-cyan-400 font-semibold">{current.true_label}</span>
+        {t('deepdive.modelSize.headToHead.groundTruth')}{' '}
+        <span className="text-cyan-400 font-semibold">{current.true_label}</span>
       </p>
 
       {/* Technique toggle */}
       <div className="flex gap-2">
-        {['sft', 'grpo'].map((t) => (
+        {['sft', 'grpo'].map((tech) => (
           <button
-            key={t}
-            onClick={() => setTechnique(t)}
+            key={tech}
+            onClick={() => setTechnique(tech)}
             className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              technique === t
+              technique === tech
                 ? 'bg-cyan-600 text-white font-semibold'
                 : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
             }`}
           >
-            {t.toUpperCase()}
+            {tech.toUpperCase()}
           </button>
         ))}
       </div>
@@ -338,7 +321,9 @@ function HeadToHead({ data }) {
                 correct360 ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
               }`}
             >
-              {correct360 ? 'Correct' : 'Incorrect'}
+              {correct360
+                ? t('deepdive.modelSize.headToHead.correct')
+                : t('deepdive.modelSize.headToHead.incorrect')}
             </span>
           </div>
           <div className="text-xs text-slate-400 mb-1">
@@ -348,7 +333,7 @@ function HeadToHead({ data }) {
             </span>
           </div>
           <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed text-slate-200 mt-2 p-3 rounded bg-slate-800/60">
-            {results360?.text ?? 'No output available'}
+            {results360?.text ?? t('deepdive.modelSize.headToHead.noOutput')}
           </pre>
         </div>
 
@@ -367,7 +352,9 @@ function HeadToHead({ data }) {
                 correct17B ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
               }`}
             >
-              {correct17B ? 'Correct' : 'Incorrect'}
+              {correct17B
+                ? t('deepdive.modelSize.headToHead.correct')
+                : t('deepdive.modelSize.headToHead.incorrect')}
             </span>
           </div>
           <div className="text-xs text-slate-400 mb-1">
@@ -377,7 +364,7 @@ function HeadToHead({ data }) {
             </span>
           </div>
           <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed text-slate-200 mt-2 p-3 rounded bg-slate-800/60">
-            {results17B?.text ?? 'No output available'}
+            {results17B?.text ?? t('deepdive.modelSize.headToHead.noOutput')}
           </pre>
         </div>
       </div>
@@ -398,7 +385,7 @@ function HeadToHead({ data }) {
 // ---------------------------------------------------------------------------
 // Tab 3: Scaling Analysis (D3 grouped bar chart)
 // ---------------------------------------------------------------------------
-function ScalingAnalysis({ data }) {
+function ScalingAnalysis({ data, t }) {
   const svgRef = useRef()
 
   const techniques = ['base', 'sft', 'dpo', 'grpo']
@@ -558,7 +545,7 @@ function ScalingAnalysis({ data }) {
       {/* Training time comparison */}
       <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
         <h4 className="text-sm font-semibold text-cyan-400 mb-3">
-          Training Time Comparison (minutes)
+          {t('deepdive.modelSize.scaling.trainingTimeComparison')}
         </h4>
         <div className="grid grid-cols-3 gap-4">
           {trainingTechniques.map((tech) => {
@@ -606,23 +593,30 @@ function ScalingAnalysis({ data }) {
 // Main component
 // ===========================================================================
 export default function ModelSizeComparison() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('why')
 
   // Use real data if loaded, otherwise fallback
   const data = (isLoaded() && getModelSizeComparison()) || FALLBACK_COMPARISON
 
+  const TABS = [
+    { id: 'why', label: t('tabs.whySizeMatters') },
+    { id: 'headtohead', label: t('tabs.headToHead') },
+    { id: 'scaling', label: t('tabs.scalingAnalysis') },
+  ]
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-white mb-1">Model Size Comparison</h2>
-        <p className="text-sm text-slate-400">How does model scale affect post-training results?</p>
+        <h2 className="text-xl font-bold text-white mb-1">{t('deepdive.modelSize.title')}</h2>
+        <p className="text-sm text-slate-400">{t('deepdive.modelSize.subtitle')}</p>
       </div>
 
       <SectionTabs tabs={TABS} active={activeTab} onSelect={setActiveTab} color="cyan" />
 
-      {activeTab === 'why' && <WhySizeMatters data={data} />}
-      {activeTab === 'headtohead' && <HeadToHead data={data} />}
-      {activeTab === 'scaling' && <ScalingAnalysis data={data} />}
+      {activeTab === 'why' && <WhySizeMatters data={data} t={t} />}
+      {activeTab === 'headtohead' && <HeadToHead data={data} t={t} />}
+      {activeTab === 'scaling' && <ScalingAnalysis data={data} t={t} />}
 
       <SectionTabs tabs={TABS} active={activeTab} onSelect={setActiveTab} color="cyan" />
     </div>

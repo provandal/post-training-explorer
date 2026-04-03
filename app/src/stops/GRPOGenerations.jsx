@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import LossChart from '../components/LossChart'
 import InfrastructureCard from '../components/InfrastructureCard'
@@ -233,6 +234,7 @@ function AdvantageWaterfall() {
 // Main component
 // ===========================================================================
 export default function GRPOGenerations() {
+  const { t } = useTranslation()
   const [section, setSection] = useState('problem')
 
   // --- generation reveal state (demo tab) ---
@@ -301,16 +303,16 @@ export default function GRPOGenerations() {
   const correctCount = activeExample.generations.filter((g) => g.correct).length
 
   const tabs = [
-    { id: 'problem', label: 'The Problem' },
-    { id: 'concept', label: 'How GRPO Works' },
-    { id: 'demo', label: 'See It Work' },
-    { id: 'deepdive', label: 'Under the Covers' },
+    { id: 'problem', label: t('tabs.theProblem') },
+    { id: 'concept', label: t('tabs.howGrpoWorks') },
+    { id: 'demo', label: t('tabs.seeItWork') },
+    { id: 'deepdive', label: t('tabs.underTheCovers') },
   ]
 
   const vizTabs = [
-    { id: 'advantage', label: 'Advantage Scores' },
-    { id: 'accuracy', label: 'Accuracy Over Training' },
-    { id: 'reward', label: 'Mean Reward Curve' },
+    { id: 'advantage', label: t('tabs.advantageScores') },
+    { id: 'accuracy', label: t('tabs.accuracyOverTraining') },
+    { id: 'reward', label: t('tabs.meanRewardCurve') },
   ]
 
   return (
@@ -327,7 +329,7 @@ export default function GRPOGenerations() {
         <div className="space-y-6">
           <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
             <h3 className="text-lg font-semibold text-emerald-400 mb-3">
-              DPO improved style, but humans are still in the loop
+              {t('stop.grpo.problem.heading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               DPO was a big step forward: it removed the reward model and simplified the training
@@ -339,19 +341,25 @@ export default function GRPOGenerations() {
             </p>
 
             <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-800/30 mb-4">
-              <p className="text-sm text-emerald-300 font-semibold mb-2">The scaling bottleneck</p>
+              <p className="text-sm text-emerald-300 font-semibold mb-2">
+                {t('stop.grpo.problem.scalingBottleneck')}
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                 <div className="p-3 rounded bg-slate-800/50">
                   <div className="text-2xl font-bold text-pink-400">400</div>
-                  <div className="text-xs text-slate-400">Preference pairs we labeled</div>
+                  <div className="text-xs text-slate-400">
+                    {t('stop.grpo.problem.preferencePairsLabeled')}
+                  </div>
                 </div>
                 <div className="p-3 rounded bg-slate-800/50">
                   <div className="text-2xl font-bold text-pink-400">~3 hrs</div>
-                  <div className="text-xs text-slate-400">Human annotation time</div>
+                  <div className="text-xs text-slate-400">
+                    {t('stop.grpo.problem.humanAnnotationTime')}
+                  </div>
                 </div>
                 <div className="p-3 rounded bg-slate-800/50">
                   <div className="text-2xl font-bold text-pink-400">$$$</div>
-                  <div className="text-xs text-slate-400">Doesn't scale to new tasks</div>
+                  <div className="text-xs text-slate-400">{t('stop.grpo.problem.doesntScale')}</div>
                 </div>
               </div>
             </div>
@@ -360,7 +368,7 @@ export default function GRPOGenerations() {
           {/* The insight */}
           <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
             <h3 className="text-base font-semibold text-emerald-400 mb-3">
-              What if the answer itself could be the teacher?
+              {t('stop.grpo.problem.insightHeading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               For many tasks, there is a clear right answer. Our storage I/O classification is one
@@ -400,9 +408,9 @@ export default function GRPOGenerations() {
           {/* Headline */}
           <div className="p-5 rounded-lg bg-slate-800/40 border border-slate-700/50">
             <h3 className="text-lg font-semibold text-emerald-400 mb-1">
-              Group Relative Policy Optimization
+              {t('stop.grpo.concept.heading')}
             </h3>
-            <p className="text-xs text-slate-500 mb-4">The technique behind DeepSeek R1.</p>
+            <p className="text-xs text-slate-500 mb-4">{t('stop.grpo.concept.subtitle')}</p>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               GRPO takes a radically different approach from both RLHF and DPO. Instead of
               collecting preferences from humans, the model{' '}
@@ -416,7 +424,9 @@ export default function GRPOGenerations() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
               <div className="p-4 rounded-lg bg-emerald-950/15 border border-emerald-800/30">
                 <div className="text-2xl mb-2">1.</div>
-                <h4 className="text-sm font-semibold text-emerald-400 mb-1">Generate a group</h4>
+                <h4 className="text-sm font-semibold text-emerald-400 mb-1">
+                  {t('stop.grpo.concept.step1')}
+                </h4>
                 <p className="text-xs text-slate-400">
                   Given one input prompt, the model generates{' '}
                   <strong>8 different completions</strong>. Each might classify the I/O pattern
@@ -426,7 +436,7 @@ export default function GRPOGenerations() {
               <div className="p-4 rounded-lg bg-emerald-950/15 border border-emerald-800/30">
                 <div className="text-2xl mb-2">2.</div>
                 <h4 className="text-sm font-semibold text-emerald-400 mb-1">
-                  Score with verifiable reward
+                  {t('stop.grpo.concept.step2')}
                 </h4>
                 <p className="text-xs text-slate-400">
                   Each completion is scored: <strong>correct classification = 1</strong>,{' '}
@@ -436,7 +446,9 @@ export default function GRPOGenerations() {
               </div>
               <div className="p-4 rounded-lg bg-emerald-950/15 border border-emerald-800/30">
                 <div className="text-2xl mb-2">3.</div>
-                <h4 className="text-sm font-semibold text-emerald-400 mb-1">Compute group mean</h4>
+                <h4 className="text-sm font-semibold text-emerald-400 mb-1">
+                  {t('stop.grpo.concept.step3')}
+                </h4>
                 <p className="text-xs text-slate-400">
                   The average reward across all 8 generations becomes the <strong>baseline</strong>.
                   No separate critic network or reward model needed &mdash; just simple group
@@ -446,7 +458,7 @@ export default function GRPOGenerations() {
               <div className="p-4 rounded-lg bg-emerald-950/15 border border-emerald-800/30">
                 <div className="text-2xl mb-2">4.</div>
                 <h4 className="text-sm font-semibold text-emerald-400 mb-1">
-                  Compute relative advantage
+                  {t('stop.grpo.concept.step4')}
                 </h4>
                 <p className="text-xs text-slate-400">
                   Compare each generation's reward to the group average.{' '}
@@ -609,7 +621,7 @@ export default function GRPOGenerations() {
           {/* Input */}
           <div className="mb-4">
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Challenge Input (Ambiguous: OLAP vs AI Training)
+              {t('stop.grpo.demo.challengeInput')}
             </label>
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 font-mono text-sm text-slate-200">
               {activeExample.input}
@@ -629,13 +641,16 @@ export default function GRPOGenerations() {
               disabled={revealedCount >= activeExample.generations.length}
               className="px-4 py-2 text-sm bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-md transition-colors"
             >
-              Reveal next generation ({revealedCount}/{activeExample.generations.length})
+              {t('stop.grpo.demo.revealNext', {
+                revealed: revealedCount,
+                total: activeExample.generations.length,
+              })}
             </button>
             <button
               onClick={revealAll}
               className="px-4 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md transition-colors"
             >
-              Reveal all
+              {t('stop.grpo.demo.revealAll')}
             </button>
           </div>
 
@@ -658,7 +673,7 @@ export default function GRPOGenerations() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-slate-500">
-                      Generation #{gen.id}
+                      {t('stop.grpo.demo.generation', { id: gen.id })}
                     </span>
                     {isRevealed && (
                       <div className="flex items-center gap-2">
@@ -702,30 +717,32 @@ export default function GRPOGenerations() {
           {showStats && (
             <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-800/30">
               <h4 className="text-sm font-semibold text-emerald-400 mb-3">
-                Group Statistics (GRPO)
+                {t('stop.grpo.demo.groupStats')}
               </h4>
               <div className="grid grid-cols-4 gap-4 text-center mb-3">
                 <div>
                   <div className="text-2xl font-bold text-emerald-400">
                     {correctCount}/{activeExample.generations.length}
                   </div>
-                  <div className="text-xs text-slate-500">Correct</div>
+                  <div className="text-xs text-slate-500">{t('stop.grpo.demo.correct')}</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-200">
                     {activeMeanReward.toFixed(3)}
                   </div>
-                  <div className="text-xs text-slate-500">Mean Reward</div>
+                  <div className="text-xs text-slate-500">{t('stop.grpo.demo.meanReward')}</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-200">
                     {activeStdReward.toFixed(3)}
                   </div>
-                  <div className="text-xs text-slate-500">Std Dev</div>
+                  <div className="text-xs text-slate-500">{t('stop.grpo.demo.stdDev')}</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-200">0</div>
-                  <div className="text-xs text-slate-500">Human Labels Needed</div>
+                  <div className="text-xs text-slate-500">
+                    {t('stop.grpo.demo.humanLabelsNeeded')}
+                  </div>
                 </div>
               </div>
 

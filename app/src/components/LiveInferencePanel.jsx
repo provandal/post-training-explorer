@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { loadModel, classify, isModelLoaded, getModelConfig } from '../services/inference'
 
 const DEFAULT_INPUT =
@@ -10,6 +11,7 @@ const MODEL_VARIANTS = [
 ]
 
 export default function LiveInferencePanel() {
+  const { t } = useTranslation()
   const [selectedModel, setSelectedModel] = useState('base')
   const [inputText, setInputText] = useState(DEFAULT_INPUT)
   const [output, setOutput] = useState(null)
@@ -39,7 +41,7 @@ export default function LiveInferencePanel() {
 
   const handleGenerate = async () => {
     if (!isModelLoaded(selectedModel)) {
-      setError('Model not downloaded yet. Click "Download Model" first.')
+      setError(t('liveInference.modelNotDownloaded'))
       return
     }
 
@@ -89,16 +91,13 @@ export default function LiveInferencePanel() {
 
   return (
     <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
-      <h3 className="text-base font-semibold text-cyan-400 mb-1">Live Inference (Optional)</h3>
-      <p className="text-xs text-slate-400 mb-4">
-        Download a model to your browser and run inference locally. ~180MB per model, cached for
-        offline use.
-      </p>
+      <h3 className="text-base font-semibold text-cyan-400 mb-1">{t('liveInference.heading')}</h3>
+      <p className="text-xs text-slate-400 mb-4">{t('liveInference.subtitle')}</p>
 
       {/* ---- Model selector toggle ---- */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-          Select Model
+          {t('liveInference.selectModel')}
         </label>
         <div className="flex gap-1 bg-slate-800 rounded-lg p-1 w-fit">
           {MODEL_VARIANTS.map((v) => {
@@ -119,7 +118,9 @@ export default function LiveInferencePanel() {
                 }`}
               >
                 {v.label}
-                {isModelLoaded(v.key) && <span className="ml-1.5 text-xs opacity-70">Ready</span>}
+                {isModelLoaded(v.key) && (
+                  <span className="ml-1.5 text-xs opacity-70">{t('liveInference.ready')}</span>
+                )}
               </button>
             )
           })}
@@ -128,7 +129,7 @@ export default function LiveInferencePanel() {
           <p className="text-xs text-slate-500 mt-1.5">
             {selectedConfig.label}{' '}
             {selectedConfig.id.includes('YOUR_HF_USERNAME') ? (
-              <span className="text-amber-500">(not configured — see setup steps)</span>
+              <span className="text-amber-500">{t('liveInference.notConfigured')}</span>
             ) : (
               <span className="text-slate-600">({selectedConfig.id})</span>
             )}
@@ -149,7 +150,9 @@ export default function LiveInferencePanel() {
                   : `${accent.bg} ${accent.bgHover} text-white`
               }`}
             >
-              {isDownloading ? `Downloading... ${progressPercent}%` : 'Download Model (~180MB)'}
+              {isDownloading
+                ? t('liveInference.downloading', { percent: progressPercent })
+                : t('liveInference.downloadModel')}
             </button>
 
             {/* Progress bar */}
@@ -163,14 +166,14 @@ export default function LiveInferencePanel() {
             )}
 
             {progress?.status === 'loading' && (
-              <p className="text-xs text-slate-500 mt-1.5">Initializing model pipeline...</p>
+              <p className="text-xs text-slate-500 mt-1.5">{t('liveInference.initializing')}</p>
             )}
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-950/30 border border-emerald-800/30 text-xs font-semibold text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Model ready
+              {t('liveInference.modelReady')}
             </span>
           </div>
         )}
@@ -179,18 +182,16 @@ export default function LiveInferencePanel() {
       {/* ---- Input textarea ---- */}
       <div className="mb-4">
         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-          I/O Pattern Input
+          {t('liveInference.ioPatternInput')}
         </label>
         <textarea
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           rows={2}
           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 resize-none"
-          placeholder="IOPS: ... | Latency: ... | Block Size: ... | Read/Write: ... | Sequential: ... | Queue Depth: ..."
+          placeholder={t('liveInference.inputPlaceholder')}
         />
-        <p className="text-xs text-slate-600 mt-1">
-          Format: IOPS | Latency | Block Size | Read/Write ratio | Sequential % | Queue Depth
-        </p>
+        <p className="text-xs text-slate-600 mt-1">{t('liveInference.inputFormat')}</p>
       </div>
 
       {/* ---- Generate button ---- */}
@@ -204,7 +205,7 @@ export default function LiveInferencePanel() {
               : 'bg-cyan-600 hover:bg-cyan-500 text-white'
           }`}
         >
-          {isGenerating ? 'Generating...' : 'Classify'}
+          {isGenerating ? t('liveInference.generating') : t('liveInference.classify')}
         </button>
       </div>
 
@@ -213,7 +214,9 @@ export default function LiveInferencePanel() {
         <div className={`border rounded-lg p-4 ${accent.border} ${accent.bgFaint}`}>
           <div className="flex items-center justify-between mb-2">
             <span className={`text-xs font-semibold uppercase tracking-wide ${accent.text}`}>
-              {selectedModel === 'base' ? 'Base Model Output' : 'GRPO Model Output'}
+              {selectedModel === 'base'
+                ? t('liveInference.baseModelOutput')
+                : t('liveInference.grpoModelOutput')}
             </span>
             <span className="text-xs text-slate-500">{output.generation_time_ms}ms</span>
           </div>
@@ -228,39 +231,25 @@ export default function LiveInferencePanel() {
         <div className="mt-3 p-3 rounded-lg bg-red-950/20 border border-red-800/30">
           {error.includes('SETUP_NEEDED') ? (
             <>
-              <p className="text-sm font-semibold text-amber-400 mb-2">Model Not Yet Published</p>
-              <p className="text-xs text-slate-300 mb-2">
-                The ONNX models haven't been uploaded to HuggingFace Hub yet. To enable live
-                inference:
+              <p className="text-sm font-semibold text-amber-400 mb-2">
+                {t('liveInference.setupNeededTitle')}
               </p>
+              <p className="text-xs text-slate-300 mb-2">{t('liveInference.setupNeededP')}</p>
               <ol className="text-xs text-slate-400 list-decimal list-inside space-y-1">
-                <li>
-                  Run the training pipeline in Colab (or{' '}
-                  <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">scripts/</code>)
-                </li>
-                <li>
-                  Export to ONNX with{' '}
-                  <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">
-                    convert_to_onnx.py
-                  </code>
-                </li>
-                <li>Push the ONNX model to a HuggingFace Hub repo</li>
-                <li>
-                  Update the model IDs in{' '}
-                  <code className="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">
-                    app/src/services/inference.js
-                  </code>
-                </li>
+                <li>{t('liveInference.setupStep1', { 1: (c) => c })}</li>
+                <li>{t('liveInference.setupStep2', { 1: (c) => c })}</li>
+                <li>{t('liveInference.setupStep3')}</li>
+                <li>{t('liveInference.setupStep4', { 1: (c) => c })}</li>
               </ol>
             </>
           ) : (
             <>
               <p className="text-xs text-red-400">
-                <strong>Error:</strong> {error}
+                <strong>{t('liveInference.error')}</strong> {error}
               </p>
               {error.includes('@huggingface/transformers') && (
                 <p className="text-xs text-slate-500 mt-1">
-                  Install with:{' '}
+                  {t('liveInference.installHint')}{' '}
                   <code className="text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
                     npm install @huggingface/transformers
                   </code>
@@ -273,12 +262,7 @@ export default function LiveInferencePanel() {
 
       {/* ---- Not-installed hint (always visible at bottom) ---- */}
       <p className="text-xs text-slate-600 mt-4 leading-relaxed">
-        Requires{' '}
-        <code className="text-slate-500 bg-slate-800 px-1 py-0.5 rounded text-xs">
-          @huggingface/transformers
-        </code>{' '}
-        (not bundled by default). Models run entirely in-browser via WebAssembly &mdash; no data
-        leaves your machine.
+        {t('liveInference.requiresNote', { 1: (c) => c })}
       </p>
     </div>
   )

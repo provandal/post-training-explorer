@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import ModelOutput from '../components/ModelOutput'
 import InfrastructureCard from '../components/InfrastructureCard'
@@ -290,6 +291,7 @@ function LoRAWeightHeatmap() {
    Main Component
    ══════════════════════════════════════════════ */
 export default function SFTComparison() {
+  const { t } = useTranslation()
   const [section, setSection] = useState('problem')
   const [selectedExample, setSelectedExample] = useState(0)
   const [deepTab, setDeepTab] = useState('probs')
@@ -352,16 +354,16 @@ export default function SFTComparison() {
   const sftSummary = hasRealData ? getModelSummary('sft') : null
 
   const TABS = [
-    { id: 'problem', label: 'The Problem' },
-    { id: 'concept', label: 'How SFT Works' },
-    { id: 'demo', label: 'See It Work' },
-    { id: 'deepdive', label: 'Under the Covers' },
+    { id: 'problem', label: t('tabs.theProblem') },
+    { id: 'concept', label: t('tabs.howSftWorks') },
+    { id: 'demo', label: t('tabs.seeItWork') },
+    { id: 'deepdive', label: t('tabs.underTheCovers') },
   ]
 
   const DEEP_TABS = [
-    { id: 'probs', label: 'Token Probabilities' },
-    { id: 'lora', label: 'LoRA Weights' },
-    { id: 'loss', label: 'Training Loss' },
+    { id: 'probs', label: t('tabs.tokenProbabilities') },
+    { id: 'lora', label: t('tabs.loraWeights') },
+    { id: 'loss', label: t('tabs.trainingLoss') },
   ]
 
   return (
@@ -377,12 +379,13 @@ export default function SFTComparison() {
           {/* Context setter */}
           <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-violet-400 mb-2">
-              Where we left off: RAG got the right answer
+              {t('stop.sft.problem.heading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed">
-              In the previous stop we added Retrieval-Augmented Generation. The model could look up
-              reference patterns from a knowledge base before answering. It worked &mdash; the
-              answers became <em>correct</em>. But there is a catch.
+              {t('stop.sft.problem.p', {
+                defaultValue:
+                  'In the previous stop we added Retrieval-Augmented Generation. The model could look up reference patterns from a knowledge base before answering. It worked — the answers became correct. But there is a catch.',
+              })}
             </p>
           </div>
 
@@ -400,24 +403,23 @@ export default function SFTComparison() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <ModelOutput
-                label="Base Model + RAG Context"
+                label={t('stop.ragLimitation.ragModelLabel')}
                 text={RAG_VERBOSE_RESPONSE}
                 variant="rag"
                 isCorrect={true}
               />
               <p className="mt-2 text-xs text-yellow-500/80 italic">
-                Technically correct &mdash; eventually says "VDI" &mdash; but buried in 6 paragraphs
-                of hedging.
+                {t('stop.sft.problem.techCorrectNote')}
               </p>
             </div>
             <div>
               <ModelOutput
-                label="What your ops team actually needs"
+                label={t('stop.sft.problem.desiredLabel')}
                 text={DESIRED_FORMAT}
                 variant="default"
               />
               <p className="mt-2 text-xs text-slate-500 italic">
-                Three lines. Classification, confidence, reasoning. Done.
+                {t('stop.sft.problem.threeLines')}
               </p>
             </div>
           </div>
@@ -425,28 +427,22 @@ export default function SFTComparison() {
           {/* Diagnosis cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
-              <h4 className="text-sm font-semibold text-red-400 mb-2">Verbose</h4>
-              <p className="text-xs text-slate-400">
-                The model hedges, qualifies, and over-explains. Your monitoring dashboard cannot
-                parse a five-paragraph essay. It needs a structured three-line response that can be
-                fed directly into an automation pipeline.
-              </p>
+              <h4 className="text-sm font-semibold text-red-400 mb-2">
+                {t('stop.sft.problem.verbose')}
+              </h4>
+              <p className="text-xs text-slate-400">{t('stop.sft.problem.verboseP')}</p>
             </div>
             <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
-              <h4 className="text-sm font-semibold text-red-400 mb-2">Wrong Format</h4>
-              <p className="text-xs text-slate-400">
-                There is no "Classification:" prefix. No "Confidence:" level. The model structures
-                its output like a general assistant, not like a storage operations tool. RAG gave it
-                the right data but cannot control the output shape.
-              </p>
+              <h4 className="text-sm font-semibold text-red-400 mb-2">
+                {t('stop.sft.problem.wrongFormat')}
+              </h4>
+              <p className="text-xs text-slate-400">{t('stop.sft.problem.wrongFormatP')}</p>
             </div>
             <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/30">
-              <h4 className="text-sm font-semibold text-red-400 mb-2">Uncertain Tone</h4>
-              <p className="text-xs text-slate-400">
-                "Could potentially be classified as either..." is not actionable. When the on-call
-                engineer gets a page at 3 AM, they need a clear answer with a confidence level
-                &mdash; not a research paper on the topic.
-              </p>
+              <h4 className="text-sm font-semibold text-red-400 mb-2">
+                {t('stop.sft.problem.uncertainTone')}
+              </h4>
+              <p className="text-xs text-slate-400">{t('stop.sft.problem.uncertainToneP')}</p>
             </div>
           </div>
 
@@ -473,13 +469,10 @@ export default function SFTComparison() {
         <div className="space-y-5">
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-base font-semibold text-violet-400 mb-3">
-              Supervised Fine-Tuning (SFT)
+              {t('stop.sft.concept.heading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
-              SFT is the simplest form of post-training. You take a pre-trained language model and
-              show it examples of the behavior you want. The model adjusts its internal weights so
-              that it produces outputs matching your examples. It is "supervised" because every
-              training example has a known correct answer.
+              {t('stop.sft.concept.p1')}
             </p>
             <div className="p-3 rounded bg-violet-950/20 border border-violet-800/30">
               <p className="text-sm text-violet-300 italic leading-relaxed">
@@ -493,7 +486,7 @@ export default function SFTComparison() {
 
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
-              What a Training Example Looks Like
+              {t('stop.sft.concept.trainingExampleHeading')}
             </h3>
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
               Each training example is an input-output pair. The input is a raw I/O metric string
@@ -503,7 +496,7 @@ export default function SFTComparison() {
             <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-3 items-center">
               <div className="p-3 rounded bg-slate-900 border border-slate-700">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                  Input (I/O Metrics)
+                  {t('stop.sft.concept.inputLabel')}
                 </div>
                 <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
                   {`IOPS: 45000
@@ -517,7 +510,7 @@ Queue Depth: 32`}
 
               <div className="hidden md:flex flex-col items-center text-violet-500">
                 <span className="text-2xl">&#8594;</span>
-                <span className="text-xs mt-1 text-slate-500">train on</span>
+                <span className="text-xs mt-1 text-slate-500">{t('stop.sft.concept.trainOn')}</span>
               </div>
               <div className="md:hidden flex justify-center text-violet-500">
                 <span className="text-2xl">&#8595;</span>
@@ -525,7 +518,7 @@ Queue Depth: 32`}
 
               <div className="p-3 rounded bg-violet-950/30 border border-violet-800/40">
                 <div className="text-xs font-semibold text-violet-400 uppercase tracking-wide mb-2">
-                  Desired Output (Label)
+                  {t('stop.sft.concept.desiredOutputLabel')}
                 </div>
                 <pre className="text-xs text-slate-200 font-mono whitespace-pre-wrap leading-relaxed">
                   {`Classification: OLTP Database
@@ -546,7 +539,7 @@ processing.`}
 
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
-              LoRA: Training a Patch, Not the Whole Model
+              {t('stop.sft.concept.loraHeading')}
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
               SmolLM2-360M has 360 million parameters. Retraining all of them would require
@@ -567,7 +560,9 @@ processing.`}
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50 text-center">
                 <div className="text-2xl font-bold text-slate-300">360M</div>
-                <div className="text-xs text-slate-500 mt-1">Total model parameters</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {t('stop.sft.concept.totalModelParams')}
+                </div>
                 <div className="mt-2 h-2 rounded-full bg-slate-700 overflow-hidden">
                   <div className="h-full w-full bg-slate-500 rounded-full" />
                 </div>
@@ -575,7 +570,9 @@ processing.`}
               </div>
               <div className="p-3 rounded bg-violet-950/30 border border-violet-800/40 text-center">
                 <div className="text-2xl font-bold text-violet-400">432K</div>
-                <div className="text-xs text-slate-500 mt-1">LoRA adapter parameters</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {t('stop.sft.concept.loraAdapterParams')}
+                </div>
                 <div className="mt-2 h-2 rounded-full bg-slate-700 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-violet-500"
@@ -632,7 +629,7 @@ processing.`}
 
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h3 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
-              Training at a Glance
+              {t('stop.sft.concept.trainingAtAGlance')}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
               <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
@@ -676,7 +673,7 @@ processing.`}
           {/* Example selector */}
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Choose an example
+              {t('stop.sft.demo.chooseExample')}
             </label>
             <div className="flex gap-2 flex-wrap">
               {examples.map((e, i) => (
@@ -698,7 +695,7 @@ processing.`}
           {/* Input metrics */}
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              I/O Metrics
+              {t('stop.sft.demo.ioMetrics')}
             </label>
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 font-mono text-sm text-slate-200">
               {ex.input}
@@ -708,13 +705,13 @@ processing.`}
           {/* Side by side comparison */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ModelOutput
-              label="Base Model (no training)"
+              label={t('stop.sft.demo.baseModelNoTraining')}
               text={ex.baseOutput}
               variant="base"
               isCorrect={ex.baseCorrect}
             />
             <ModelOutput
-              label="After SFT (1,400 examples)"
+              label={t('stop.sft.demo.afterSft')}
               text={ex.sftOutput}
               variant="sft"
               isCorrect={ex.sftCorrect}
@@ -804,7 +801,7 @@ processing.`}
           {deepTab === 'probs' && (
             <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
               <h4 className="text-sm font-semibold text-violet-400 mb-2">
-                How SFT Shifts the Model's Confidence
+                {t('stop.sft.deepdive.howSftShifts')}
               </h4>
               <p className="text-sm text-slate-300 mb-4 leading-relaxed">
                 A language model generates text one token at a time. At each step, it assigns a
@@ -835,7 +832,7 @@ processing.`}
           {deepTab === 'lora' && (
             <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
               <h4 className="text-sm font-semibold text-violet-400 mb-2">
-                The Actual Weight Changes
+                {t('stop.sft.deepdive.actualWeightChanges')}
               </h4>
               <p className="text-sm text-slate-300 mb-3 leading-relaxed">
                 This heatmap shows the LoRA weight delta for one attention layer. Each cell
@@ -894,7 +891,7 @@ processing.`}
           {deepTab === 'loss' && (
             <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
               <h4 className="text-sm font-semibold text-violet-400 mb-2">
-                Training Progress Over Time
+                {t('stop.sft.deepdive.trainingProgress')}
               </h4>
               <p className="text-sm text-slate-300 mb-4 leading-relaxed">
                 The loss curve shows how the model improved over{' '}
@@ -916,14 +913,16 @@ processing.`}
               )}
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
-                  <div className="text-xs text-slate-500">Epoch Boundaries</div>
+                  <div className="text-xs text-slate-500">
+                    {t('stop.sft.deepdive.epochBoundaries')}
+                  </div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     Small bumps at epoch boundaries are normal &mdash; the model sees the data in a
                     new random order each epoch.
                   </p>
                 </div>
                 <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
-                  <div className="text-xs text-slate-500">Final Loss</div>
+                  <div className="text-xs text-slate-500">{t('stop.sft.deepdive.finalLoss')}</div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     The loss converges around{' '}
                     {lossCurve.length > 0
@@ -933,7 +932,9 @@ processing.`}
                   </p>
                 </div>
                 <div className="p-3 rounded bg-slate-800/80 border border-slate-700/50">
-                  <div className="text-xs text-slate-500">Storage I/O Impact</div>
+                  <div className="text-xs text-slate-500">
+                    {t('stop.sft.deepdive.storageIOImpact')}
+                  </div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     Each checkpoint write creates a burst of storage I/O. The training data stream
                     is a steady sequential read.
@@ -946,7 +947,7 @@ processing.`}
           {/* Infrastructure card */}
           <div className="p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
             <h4 className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-wide">
-              Infrastructure Profile
+              {t('stop.sft.deepdive.infraProfile')}
             </h4>
             <InfrastructureCard data={SFT_INFRA} />
           </div>
