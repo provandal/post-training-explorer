@@ -57,6 +57,10 @@ All scripts run on a free Colab T4 GPU. See [`WALKTHROUGH.md`](WALKTHROUGH.md) f
 | [Traditional_ML_Comparison.ipynb](notebooks/Traditional_ML_Comparison.ipynb) | XGBoost/RF baseline comparison |
 | [Realistic_LLM_Use_Case.ipynb](notebooks/Realistic_LLM_Use_Case.ipynb) | Unstructured error log classification |
 
+## Acknowledgments
+
+The four-quadrant optimization framework used throughout this app is adapted from ["A Survey of Techniques for Maximizing LLM Performance"](https://www.youtube.com/watch?v=ahnGLM-RC1Y) by Colin Jarvis and John Allard, presented at OpenAI DevDay (November 2023). Also available in the [OpenAI documentation](https://developers.openai.com/api/docs/guides/optimizing-llm-accuracy).
+
 ## License
 
 [MIT](./LICENSE)

@@ -95,6 +95,18 @@ export default function Landing() {
         <span className="w-1 h-1 rounded-full bg-slate-700" />
         <span>{t('landing.footerReal')}</span>
       </div>
+      <p className="mt-4 text-[10px] text-slate-700">
+        Optimization framework adapted from{' '}
+        <a
+          href="https://www.youtube.com/watch?v=ahnGLM-RC1Y"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-slate-500"
+        >
+          &ldquo;A Survey of Techniques for Maximizing LLM Performance&rdquo;
+        </a>{' '}
+        by Colin Jarvis &amp; John Allard, OpenAI DevDay 2023.
+      </p>
     </div>
   )
 }

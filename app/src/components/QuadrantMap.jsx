@@ -1,3 +1,8 @@
+// The four-quadrant optimization framework is adapted from
+// "A Survey of Techniques for Maximizing LLM Performance" by Colin Jarvis
+// and John Allard, presented at OpenAI DevDay (November 2023).
+// https://www.youtube.com/watch?v=ahnGLM-RC1Y
+
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import useStore from '../store'
