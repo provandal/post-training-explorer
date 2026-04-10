@@ -973,8 +973,8 @@ export default function InfrastructureSummary() {
               { key: 'dpo', label: 'DPO', color: '#ec4899' },
               { key: 'grpo', label: 'GRPO', color: '#10b981' },
             ].map(({ key, label, color }) => {
-              const t = displayProfile.techniques[key]
-              if (!t) return null
+              const tech = displayProfile.techniques[key]
+              if (!tech) return null
               return (
                 <div key={key} className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
                   <h5 className="text-sm font-semibold mb-2" style={{ color }}>
@@ -983,32 +983,34 @@ export default function InfrastructureSummary() {
                   <div className="space-y-1 text-xs text-slate-400">
                     <div className="flex justify-between">
                       <span>{t('stop.infra.storage.adapterSize')}</span>
-                      <span className="text-violet-300 font-semibold">{t.adapter_size_mb} MB</span>
+                      <span className="text-violet-300 font-semibold">
+                        {tech.adapter_size_mb} MB
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t('stop.infra.storage.pctOfBase')}</span>
-                      <span className="text-emerald-400">{t.adapter_pct_of_base}%</span>
+                      <span className="text-emerald-400">{tech.adapter_pct_of_base}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t('stop.infra.storage.totalReads')}</span>
                       <span className="text-blue-300">
-                        {t.total_read_mb >= 1000
-                          ? `${(t.total_read_mb / 1000).toFixed(1)} GB`
-                          : `${t.total_read_mb} MB`}
+                        {tech.total_read_mb >= 1000
+                          ? `${(tech.total_read_mb / 1000).toFixed(1)} GB`
+                          : `${tech.total_read_mb} MB`}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t('stop.infra.storage.totalWrites')}</span>
-                      <span className="text-orange-300">{t.total_write_mb} MB</span>
+                      <span className="text-orange-300">{tech.total_write_mb} MB</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t('stop.infra.storage.checkpointSaves')}</span>
-                      <span className="text-slate-300">{t.checkpoint_saves}x</span>
+                      <span className="text-slate-300">{tech.checkpoint_saves}x</span>
                     </div>
-                    {t.generations_per_prompt && (
+                    {tech.generations_per_prompt && (
                       <div className="flex justify-between">
                         <span>{t('stop.infra.storage.generationsPerPrompt')}</span>
-                        <span className="text-emerald-300">{t.generations_per_prompt}x</span>
+                        <span className="text-emerald-300">{tech.generations_per_prompt}x</span>
                       </div>
                     )}
                   </div>

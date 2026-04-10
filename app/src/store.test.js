@@ -53,8 +53,8 @@ describe('useStore', () => {
     expect(useStore.getState().currentStep).toBe(1)
   })
 
-  it('nextStep does not exceed max step (15)', () => {
-    useStore.setState({ mode: 'tour', currentStep: 15 })
+  it('nextStep does not exceed max step (11) and transitions to explore', () => {
+    useStore.setState({ mode: 'tour', currentStep: 11 })
     useStore.getState().nextStep()
     // At max step, nextStep transitions to explore mode
     expect(useStore.getState().mode).toBe('explore')

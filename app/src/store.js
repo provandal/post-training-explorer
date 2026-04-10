@@ -55,7 +55,7 @@ const useStore = create((set, get) => ({
 
   nextStep: () => {
     const { currentStep } = get()
-    const maxStep = 15 // Total tour steps (0-indexed)
+    const maxStep = 11 // Total tour steps (0-indexed) — 12 steps in tourSteps.js
     if (currentStep < maxStep) {
       set({ currentStep: currentStep + 1 })
     } else {
