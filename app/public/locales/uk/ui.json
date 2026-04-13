@@ -1095,5 +1095,24 @@
   "results.takeaway4P": "In GRPO/RLVR, if your reward function can't score correctly, the model can't learn. Invest in robust evaluation.",
   "results.takeaway5Title": "Infrastructure matters",
   "results.takeaway5P": "The same techniques that built ChatGPT run on a free Colab GPU in an hour. The barrier is knowledge, not hardware.",
-  "results.trainYourModel": "Train Your Model →"
+  "results.trainYourModel": "Train Your Model →",
+
+  "quadrant.title": "Context Optimization and Model Optimization",
+  "quadrant.yAxisLabel": "Context Optimization",
+  "quadrant.yAxisSub": "What the model needs to know",
+  "quadrant.xAxisLabel": "LLM Optimization",
+  "quadrant.xAxisSub": "How the model needs to act",
+  "quadrant.prompt": "Prompt Engineering",
+  "quadrant.rag": "RAG",
+  "quadrant.posttraining": "Post Training",
+  "quadrant.alloptions": "All the Options",
+  "quadrant.sub.prompt": "Prompt",
+  "quadrant.sub.fewShot": "Few-Shot",
+  "quadrant.sub.simpleRetrieval": "Simple Retrieval",
+  "quadrant.sub.optimizeRetrieval": "Optimize Retrieval",
+  "quadrant.sub.sft": "SFT",
+  "quadrant.sub.dpo": "DPO",
+  "quadrant.sub.grpo": "GRPO",
+  "quadrant.sub.postTraining": "Post Training",
+  "quadrant.sub.fineTuneWithRag": "Fine-Tune with RAG"
 }
