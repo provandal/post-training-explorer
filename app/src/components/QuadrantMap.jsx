@@ -167,7 +167,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
         size === 'mini'
           ? 'w-[220px] h-[190px]'
           : size === 'medium'
-            ? 'w-full max-w-[440px]'
+            ? 'w-full max-w-[600px]'
             : 'w-full max-w-[680px]'
       }
       style={size === 'mini' ? undefined : { aspectRatio: `${VB_W}/${VB_H}` }}
