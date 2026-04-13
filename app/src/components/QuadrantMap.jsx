@@ -204,7 +204,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
         fill="#475569"
       />
 
-      {size === 'full' && (
+      {size !== 'mini' && (
         <>
           <text
             x={MARGIN.left - 35}
@@ -245,7 +245,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
         fill="#475569"
       />
 
-      {size === 'full' && (
+      {size !== 'mini' && (
         <>
           <text
             x={MARGIN.left + QUAD_W}
@@ -271,7 +271,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
       )}
 
       {/* LLM icon */}
-      {size === 'full' && (
+      {size !== 'mini' && (
         <g transform={`translate(${MARGIN.left - 22}, ${VB_H - MARGIN.bottom + 10})`}>
           <rect
             x="-18"
