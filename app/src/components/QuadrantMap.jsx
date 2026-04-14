@@ -222,7 +222,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             y={MARGIN.top + QUAD_H}
             textAnchor="middle"
             fill="#64748b"
-            fontSize="9"
+            fontSize="11"
             fontStyle="italic"
             transform={`rotate(-90, ${MARGIN.left - 50}, ${MARGIN.top + QUAD_H})`}
           >
@@ -262,7 +262,7 @@ export default function QuadrantMap({ size = 'full', interactive = false }) {
             y={VB_H - 4}
             textAnchor="middle"
             fill="#64748b"
-            fontSize="9"
+            fontSize="11"
             fontStyle="italic"
           >
             {t('quadrant.xAxisSub')}
