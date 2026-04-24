@@ -127,6 +127,16 @@ export default function Epilogue() {
               label: t('stop.epilogue.lora'),
               desc: t('stop.epilogue.loraDesc'),
             },
+            {
+              key: 'rlalgorithms',
+              label: 'RL Algorithm Landscape',
+              desc: 'PPO, DPO, GRPO, RLOO, ReMax, RLVR, KDRL — the evolution of reinforcement learning for LLMs',
+            },
+            {
+              key: 'quantization',
+              label: 'Quantization & Deployment',
+              desc: 'FP32 to INT4, three-layer alignment, MX formats, and why smaller does not always mean faster',
+            },
           ].map((dd) => (
             <button
               key={dd.key}
@@ -137,6 +147,46 @@ export default function Epilogue() {
               <span className="block text-xs text-slate-500 mt-1">{dd.desc}</span>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* What's Coming in 2026 and Beyond */}
+      <div className="text-left mb-8">
+        <h3 className="text-sm font-semibold text-cyan-400 uppercase tracking-wide mb-3">
+          What's Coming in Post-Training
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/30">
+            <span className="text-sm font-semibold text-cyan-300">Process Reward Models</span>
+            <p className="text-xs text-slate-400 mt-1">
+              Instead of rewarding only the final answer, reward each step of reasoning. This
+              teaches models HOW to think, not just WHAT to answer. Enables much better debugging of
+              model reasoning failures.
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/30">
+            <span className="text-sm font-semibold text-cyan-300">Multi-Agent RL (MARL)</span>
+            <p className="text-xs text-slate-400 mt-1">
+              Multiple models training together — negotiating, competing, and collaborating. Think
+              AlphaStar or OpenAI Five, but for enterprise workflows where multiple AI agents need
+              to coordinate.
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/30">
+            <span className="text-sm font-semibold text-cyan-300">RLVR Beyond Math & Code</span>
+            <p className="text-xs text-slate-400 mt-1">
+              Verifiable rewards are expanding from math and code (where answers are checkable) to
+              science, engineering, and legal reasoning — domains where correctness can be partially
+              verified.
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/30">
+            <span className="text-sm font-semibold text-cyan-300">On-Device Post-Training</span>
+            <p className="text-xs text-slate-400 mt-1">
+              Fine-tuning models directly on edge devices — phones, IoT, laptops — enabling
+              personalization without sending data to the cloud. Privacy-preserving AI adaptation.
+            </p>
+          </div>
         </div>
       </div>
 

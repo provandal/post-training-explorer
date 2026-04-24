@@ -1064,6 +1064,109 @@ export default function InfrastructureSummary() {
         </div>
       </div>
 
+      {/* CPU Role Section */}
+      <div className="mt-6 p-5 rounded-lg bg-slate-800/30 border border-slate-700/50">
+        <h3 className="text-sm font-semibold text-cyan-400 uppercase tracking-wide mb-3">
+          Not Just GPU: CPU's Role in Post-Training
+        </h3>
+        <p className="text-sm text-slate-300 leading-relaxed mb-4">
+          GPUs handle the heavy math of forward and backward passes, but CPUs orchestrate everything
+          else in the post-training pipeline.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
+            <h4 className="text-xs font-semibold text-blue-400 mb-1">Data Preparation</h4>
+            <p className="text-xs text-slate-400">
+              Tokenization, dataset formatting, prompt construction, train/test splitting — all
+              CPU-bound. For large datasets, data prep can take longer than training itself.
+            </p>
+          </div>
+          <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
+            <h4 className="text-xs font-semibold text-blue-400 mb-1">Orchestration</h4>
+            <p className="text-xs text-slate-400">
+              Learning rate scheduling, checkpoint management, gradient accumulation, distributed
+              training coordination, and experiment tracking all run on CPU.
+            </p>
+          </div>
+          <div className="p-3 rounded bg-slate-800/50 border border-slate-700/30">
+            <h4 className="text-xs font-semibold text-blue-400 mb-1">Evaluation</h4>
+            <p className="text-xs text-slate-400">
+              Accuracy computation, metric calculation, loss curve generation, model comparison, and
+              results reporting. Evaluation pipelines are often CPU-only.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* RL Storage Tax */}
+      <div className="mt-6 p-5 rounded-lg bg-orange-950/20 border border-orange-800/30">
+        <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide mb-3">
+          The RL Storage Tax: 10–100x More I/O Than SFT
+        </h3>
+        <p className="text-sm text-slate-300 leading-relaxed mb-4">
+          Reinforcement learning training (GRPO, DPO, PPO) generates dramatically more storage I/O
+          than supervised fine-tuning. Here's why:
+        </p>
+        <div className="space-y-3">
+          <div className="flex gap-3 items-start">
+            <div className="w-24 text-right shrink-0">
+              <span className="text-xs font-mono text-orange-400">
+                Trajectory
+                <br />
+                Samples
+              </span>
+            </div>
+            <div className="flex-1 p-3 rounded bg-slate-800/50 border border-slate-700/30">
+              <p className="text-xs text-slate-300">
+                In SFT, you read input-output pairs. In RL, the model generates 8–64 candidate
+                responses per prompt — all stored, scored, and used for gradient computation. That's
+                8–64x more data per training step.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <div className="w-24 text-right shrink-0">
+              <span className="text-xs font-mono text-orange-400">
+                Frequent
+                <br />
+                Checkpoints
+              </span>
+            </div>
+            <div className="flex-1 p-3 rounded bg-slate-800/50 border border-slate-700/30">
+              <p className="text-xs text-slate-300">
+                RL training is inherently unstable — reward can spike and crash. Checkpoints are
+                safety nets, saved every few minutes (not every epoch like SFT). A 7B model's full
+                training state is ~56 GB per save.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <div className="w-24 text-right shrink-0">
+              <span className="text-xs font-mono text-orange-400">
+                Reference
+                <br />
+                Models
+              </span>
+            </div>
+            <div className="flex-1 p-3 rounded bg-slate-800/50 border border-slate-700/30">
+              <p className="text-xs text-slate-300">
+                PPO and DPO keep a frozen copy of the original model in memory alongside the
+                training model for KL divergence computation. That doubles memory footprint and adds
+                read I/O on every training step.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 p-3 rounded bg-slate-800 border border-slate-700/50">
+          <p className="text-xs text-slate-400">
+            <strong className="text-orange-300">Bottom line:</strong> If you're sizing storage for a
+            post-training cluster, SFT workloads are modest. RL workloads — especially GRPO with its
+            multi-generation approach — need 10–100x more throughput and capacity for checkpoints
+            and trajectory data.
+          </p>
+        </div>
+      </div>
+
       {/* Architecture insight */}
       {displayProfile?.storage_architecture?.key_insight && (
         <div className="mt-4 p-3 rounded bg-slate-800 border border-slate-700/50">

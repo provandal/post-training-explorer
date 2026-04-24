@@ -16,6 +16,8 @@ import ContextWindowDeepDive from '../stops/ContextWindowDeepDive'
 import TransformersDeepDive from '../stops/TransformersDeepDive'
 import LoRADeepDive from '../stops/LoRADeepDive'
 import ModelSizeComparison from '../stops/ModelSizeComparison'
+import RLAlgorithmsDeepDive from '../stops/RLAlgorithmsDeepDive'
+import QuantizationDeepDive from '../stops/QuantizationDeepDive'
 
 // Nested view map: quadrant → { subStop: Component }
 // null key = default view when no sub-stop is selected
@@ -46,6 +48,8 @@ const EXPLORE_VIEWS = {
   context: { [null]: ContextWindowDeepDive },
   transformers: { [null]: TransformersDeepDive },
   lora: { [null]: LoRADeepDive },
+  rlalgorithms: { [null]: RLAlgorithmsDeepDive },
+  quantization: { [null]: QuantizationDeepDive },
 }
 
 // Sub-stop labels per quadrant (built with t() inside component)
@@ -82,6 +86,12 @@ function getDeepDives(t) {
       color: 'text-purple-400',
     },
     { key: 'lora', label: t('explore.deepDive.loraDeepDive'), color: 'text-purple-400' },
+    {
+      key: 'rlalgorithms',
+      label: 'RL Algorithm Landscape',
+      color: 'text-pink-400',
+    },
+    { key: 'quantization', label: 'Quantization & Deployment', color: 'text-cyan-400' },
   ]
 }
 
